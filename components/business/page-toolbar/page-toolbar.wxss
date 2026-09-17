@@ -1,0 +1,13 @@
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.page-toolbar__left,
+.page-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}

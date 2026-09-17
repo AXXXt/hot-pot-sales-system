@@ -1,0 +1,37 @@
+<view class="page category-page">
+  <view class="category-header">
+    <text class="category-title">分类</text>
+  </view>
+
+  <view class="category-topbar">
+    <search-bar placeholder="搜索商品名称、规格或品牌" bind:input="onSearch" />
+    <view class="category-toolbar">
+      <scroll-view class="category-toolbar__scroll" scroll-x="true" enable-flex="true" scroll-with-animation="true" show-scrollbar="false">
+        <view class="category-toolbar__track">
+          <text wx:for="{{sorts}}" wx:key="id" class="category-toolbar__item {{activeSort === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onSortChange">{{item.label}}</text>
+        </view>
+      </scroll-view>
+    </view>
+    <view class="category-filter">
+      <category-scroll categories="{{categories}}" activeCategoryId="{{activeCategoryId}}" scrollIntoViewId="{{scrollIntoViewId}}" bind:change="onCategoryChange" />
+    </view>
+  </view>
+
+  <view class="category-content">
+    <view wx:if="{{loading}}">
+      <skeleton />
+      <view style="height: 16rpx"></view>
+      <skeleton />
+    </view>
+
+    <view wx:elif="{{products.length}}">
+      <product-row wx:for="{{products}}" wx:key="id" productId="{{item.id}}" name="{{item.name}}" brandText="{{item.brandText}}" spec="{{item.spec}}" price="{{item.price}}" priceUnit="{{item.priceUnit}}" statusText="{{item.stockText}}" statusVariant="{{item.statusVariant}}" subText="{{item.subText}}" image="{{item.image}}" bind:tap="onProductTap" bind:add="onProductAdd" />
+    </view>
+
+    <empty-state wx:else title="没有找到商品" desc="请调整筛选条件或搜索关键词。" actionText="重新搜索" bind:action="onSearch" />
+  </view>
+  <view wx:if="{{cartCount > 0}}" class="floating-cart-entry" bindtap="goCart">
+    <text class="floating-cart-entry__label">购物车</text>
+    <text class="floating-cart-entry__count">{{cartCount}}</text>
+  </view>
+</view>

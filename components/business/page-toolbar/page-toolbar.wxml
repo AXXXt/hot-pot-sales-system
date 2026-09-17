@@ -1,0 +1,8 @@
+<view class="page-toolbar">
+  <view class="page-toolbar__left">
+    <slot name="left"></slot>
+  </view>
+  <view class="page-toolbar__right">
+    <slot name="right"></slot>
+  </view>
+</view>

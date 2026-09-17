@@ -1,0 +1,5 @@
+<view class="filter-bar card">
+  <scroll-view scroll-x class="filter-bar__scroll">
+    <text wx:for="{{items}}" wx:key="id" class="filter-bar__item {{activeId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onTap">{{item.name}}</text>
+  </scroll-view>
+</view>

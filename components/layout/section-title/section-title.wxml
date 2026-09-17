@@ -1,0 +1,9 @@
+<view class="section-title">
+  <view class="section-title__text-group">
+    <text class="section-title__title">{{title}}</text>
+    <text wx:if="{{subtitle}}" class="section-title__subtitle">{{subtitle}}</text>
+  </view>
+  <view class="section-title__extra">
+    <slot name="extra"></slot>
+  </view>
+</view>

@@ -1,0 +1,24 @@
+<view class="order-card" bindtap="onTap">
+  <view class="order-card__top">
+    <view>
+      <text class="order-card__no">{{orderNo}}</text>
+      <text class="order-card__time">{{timeText}}</text>
+    </view>
+    <status-badge text="{{statusText}}" variant="{{statusVariant}}" />
+  </view>
+
+  <view class="order-card__items">
+    <image wx:for="{{images}}" wx:key="index" class="order-card__thumb" src="{{item}}" mode="aspectFill"></image>
+    <view class="order-card__summary">
+      <text class="order-card__count">{{summaryText}}</text>
+      <text class="order-card__delivery">{{deliveryText}}</text>
+    </view>
+  </view>
+
+  <view class="order-card__bottom">
+    <text class="order-card__amount">{{amountText}}</text>
+    <view class="order-card__actions">
+      <text wx:for="{{actions}}" wx:key="id" class="order-card__action" data-id="{{item.id}}" bindtap="onActionTap">{{item.label}}</text>
+    </view>
+  </view>
+</view>

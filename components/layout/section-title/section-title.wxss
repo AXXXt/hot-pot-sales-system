@@ -1,0 +1,26 @@
+.section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.section-title__text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.section-title__subtitle {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.section-title__title { font-size: 34rpx; font-weight: 800; color: var(--brand-deep); }
+.section-title__subtitle { color: var(--text-tertiary); }

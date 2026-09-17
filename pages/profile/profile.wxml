@@ -1,0 +1,49 @@
+<view class="page profile-page">
+  <view class="profile-header">
+    <text class="profile-title">我的</text>
+  </view>
+
+  <view wx:if="{{!isLoggedIn}}" class="profile-login-card">
+    <text class="profile-login-card__title">欢迎使用</text>
+    <text class="profile-login-card__desc">登录即可查看企业资料、协议价格和历史订单</text>
+    <view class="profile-login-card__btn" bindtap="goLogin">手机号登录</view>
+    <view class="profile-login-card__btn profile-login-card__btn--secondary" bindtap="goRegister">手机号注册</view>
+  </view>
+
+  <view wx:else class="profile-content">
+    <view class="profile-card">
+      <text class="profile-card__label">企业信息</text>
+      <view class="profile-card__row">
+        <text class="profile-card__key">门店名称</text>
+        <text class="profile-card__val">{{storeName}}</text>
+      </view>
+      <view class="profile-card__row">
+        <text class="profile-card__key">用户等级</text>
+        <text class="profile-card__val profile-card__val--level">{{levelName}}</text>
+      </view>
+      <view class="profile-card__row profile-card__row--last">
+        <text class="profile-card__key">所在城市</text>
+        <text class="profile-card__val">{{city}}</text>
+      </view>
+    </view>
+
+    <view class="profile-menu">
+      <view class="profile-menu__item" data-type="company" bindtap="onProtectedTap">
+        <text>企业资料</text>
+        <text class="profile-menu__arrow">></text>
+      </view>
+      <view class="profile-menu__item" data-type="address" bindtap="onProtectedTap">
+        <text>收货地址</text>
+        <text class="profile-menu__arrow">></text>
+      </view>
+      <view class="profile-menu__item" data-type="prices" bindtap="onProtectedTap">
+        <text>协议价格</text>
+        <text class="profile-menu__arrow">></text>
+      </view>
+      <view class="profile-menu__item profile-menu__item--last" bindtap="onLogout">
+        <text class="profile-menu__logout">退出登录</text>
+        <text class="profile-menu__arrow">></text>
+      </view>
+    </view>
+  </view>
+</view>

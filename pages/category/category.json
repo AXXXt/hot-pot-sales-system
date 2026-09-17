@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "分类",
+  "usingComponents": {
+    "search-bar": "/components/business/search-bar/search-bar",
+    "category-scroll": "/components/business/category-scroll/category-scroll",
+    "segmented-control": "/components/business/segmented-control/segmented-control",
+    "product-row": "/components/business/product-row/product-row",
+    "skeleton": "/components/feedback/loading-skeleton/loading-skeleton",
+    "empty-state": "/components/feedback/empty-state/empty-state"
+  }
+}

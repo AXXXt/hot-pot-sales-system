@@ -1,0 +1,23 @@
+<view class="pr" bindtap="onTap">
+  <view class="pr__img-wrap">
+    <image class="pr__img {{image ? '' : 'pr__img--empty'}}" src="{{image || ''}}" mode="aspectFill" binderror="onImageError"></image>
+    <view wx:if="{{!imageLoaded && !image}}" class="pr__img-placeholder">
+      <text class="pr__img-placeholder-icon">P</text>
+    </view>
+  </view>
+  <view class="pr__body">
+    <view class="pr__top">
+      <text class="pr__name">{{name}}</text>
+      <view class="pr__badge pr__badge--{{statusVariant || 'default'}}" wx:if="{{statusText}}">{{statusText}}</view>
+    </view>
+    <text class="pr__spec" wx:if="{{brandText || spec}}">{{brandText}}{{brandText && spec ? ' · ' : ''}}{{spec}}</text>
+    <view class="pr__bottom">
+      <view class="pr__price-row">
+        <text class="pr__price">{{price}}</text>
+        <text class="pr__unit" wx:if="{{priceUnit}}">/{{priceUnit}}</text>
+      </view>
+      <text class="pr__sub" wx:if="{{subText}}">{{subText}}</text>
+    </view>
+  </view>
+  <view class="pr__add" bindtap="onActionTap">+</view>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "商品详情",
+  "usingComponents": {
+    "quantity-stepper": "/components/business/quantity-stepper/quantity-stepper",
+    "cart-sheet": "/components/business/cart-sheet/cart-sheet"
+  }
+}

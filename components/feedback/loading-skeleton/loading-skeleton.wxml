@@ -1,0 +1,5 @@
+<view class="skeleton">
+  <view class="skeleton__line skeleton__line--title"></view>
+  <view class="skeleton__line skeleton__line--text"></view>
+  <view class="skeleton__line skeleton__line--text short"></view>
+</view>

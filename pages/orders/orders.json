@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "订单",
+  "usingComponents": {
+    "segmented-control": "/components/business/segmented-control/segmented-control",
+    "order-card": "/components/business/order-card/order-card",
+    "empty-state": "/components/feedback/empty-state/empty-state",
+    "skeleton": "/components/feedback/loading-skeleton/loading-skeleton"
+  }
+}

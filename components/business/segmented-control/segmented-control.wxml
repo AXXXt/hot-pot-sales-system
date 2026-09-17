@@ -1,0 +1,7 @@
+<view class="segmented-control">
+  <scroll-view scroll-x="{{scrollable}}" enable-flex="true" scroll-with-animation="true" show-scrollbar="false" class="segmented-control__scroll">
+    <view class="segmented-control__track">
+      <text wx:for="{{items}}" wx:key="id" id="{{item.id}}" class="segmented-control__item {{activeId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onTap">{{item.label}}</text>
+    </view>
+  </scroll-view>
+</view>

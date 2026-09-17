@@ -1,0 +1,6 @@
+<view class="empty-state card">
+  <view class="empty-state__icon">{{icon}}</view>
+  <text class="empty-state__title">{{title}}</text>
+  <text class="empty-state__desc">{{desc}}</text>
+  <view wx:if="{{actionText}}" class="empty-state__action" bindtap="onActionTap">{{actionText}}</view>
+</view>

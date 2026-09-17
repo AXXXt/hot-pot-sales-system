@@ -1,0 +1,22 @@
+.filter-bar {
+  padding: 16rpx;
+}
+
+.filter-bar__scroll {
+  white-space: nowrap;
+}
+
+.filter-bar__item {
+  display: inline-flex;
+  padding: 12rpx 20rpx;
+  margin-right: 16rpx;
+  border-radius: 9999rpx;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 24rpx;
+}
+
+.filter-bar__item.active {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}

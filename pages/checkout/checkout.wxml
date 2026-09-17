@@ -1,0 +1,88 @@
+<view class="page checkout-page">
+  <view class="checkout-header">
+    <text class="checkout-title">确认订单</text>
+  </view>
+
+  <view wx:if="{{isEmpty}}" class="checkout-empty">
+    <text>购物车为空，无法下单</text>
+  </view>
+
+  <view wx:else class="checkout-body">
+    <view wx:if="{{orderCount > 1}}" class="checkout-split-notice">
+      本次包含 {{orderCount}} 个品牌，提交后将自动生成 {{orderCount}} 个独立订单
+    </view>
+
+    <view
+      wx:for="{{brandGroups}}"
+      wx:key="brandId"
+      wx:for-item="group"
+      class="checkout-card checkout-brand-card"
+    >
+      <view class="checkout-brand-card__header">
+        <text class="checkout-card__title">{{group.brandText}}</text>
+        <text class="checkout-brand-card__tag">独立订单</text>
+      </view>
+      <view
+        wx:for="{{group.items}}"
+        wx:key="skuId"
+        wx:for-item="item"
+        class="checkout-item"
+      >
+        <view class="checkout-item__left">
+          <text class="checkout-item__name">{{item.name}}</text>
+          <text class="checkout-item__spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+        </view>
+        <view class="checkout-item__right">
+          <text class="checkout-item__qty">×{{item.quantity}}</text>
+          <text class="checkout-item__price">¥{{item.amount}}</text>
+        </view>
+      </view>
+      <view class="checkout-brand-card__subtotal">
+        <text>品牌小计</text>
+        <text>¥{{group.subtotal}}</text>
+      </view>
+    </view>
+
+    <view class="checkout-card">
+      <text class="checkout-card__title">预计金额</text>
+      <view class="checkout-item">
+        <text class="checkout-item__label">商品总额</text>
+        <text class="checkout-item__val">¥{{totalAmount}}</text>
+      </view>
+      <view class="checkout-item">
+        <text class="checkout-item__label">最终金额</text>
+        <text class="checkout-card__sub">以管理员报价为准</text>
+      </view>
+    </view>
+
+    <view class="checkout-card">
+      <text class="checkout-card__title">备注</text>
+      <textarea
+        class="checkout-remark"
+        placeholder="配送要求、特殊说明等（选填）"
+        value="{{remark}}"
+        bindinput="onRemarkInput"
+        maxlength="300"
+        auto-height
+      />
+    </view>
+
+    <view class="checkout-card">
+      <text class="checkout-card__title">客户信息</text>
+      <text class="checkout-card__sub">{{customerName}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{!isEmpty}}" class="checkout-bar">
+    <view class="checkout-bar__total">
+      <text class="checkout-bar__label">预计总额</text>
+      <text class="checkout-bar__amount">¥{{totalAmount}}</text>
+    </view>
+    <view
+      class="checkout-bar__btn {{submitting || validating ? 'disabled' : ''}}"
+      bindtap="onSubmit"
+    >
+      {{submitting ? '提交中…' : '提交订单'}}
+    </view>
+  </view>
+</view>

@@ -1,0 +1,12 @@
+<view class="page-header">
+  <view class="page-header__left">
+    <text wx:if="{{showBack}}" class="page-header__back" bindtap="onBack">‹</text>
+  </view>
+  <view class="page-header__center">
+    <text class="page-header__title">{{title}}</text>
+    <text wx:if="{{subtitle}}" class="page-header__subtitle">{{subtitle}}</text>
+  </view>
+  <view class="page-header__right">
+    <slot name="right"></slot>
+  </view>
+</view>

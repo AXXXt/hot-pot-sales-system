@@ -1,0 +1,147 @@
+<view class="page auth-page">
+  <view class="auth-bg">
+    <view class="auth-bg__orb auth-bg__orb--1"></view>
+    <view class="auth-bg__orb auth-bg__orb--2"></view>
+  </view>
+
+  <!-- Done -->
+  <view wx:if="{{step === 'done'}}" class="auth-done">
+    <view class="auth-done__check">完成</view>
+    <text class="auth-done__title">已完成</text>
+    <text class="auth-done__desc">正在进入…</text>
+  </view>
+
+  <!-- Pending -->
+  <view wx:elif="{{step === 'pending'}}" class="auth-pending">
+    <view class="auth-pending__card">
+      <view class="auth-pending__ring">
+        <text class="auth-pending__icon">{{approved ? '通过' : '⏳'}}</text>
+      </view>
+      <text class="auth-pending__title">{{approved ? '审核已通过' : '审核中'}}</text>
+      <text class="auth-pending__desc" wx:if="{{!approved}}">您的注册信息已提交，管理员审核通过后即可使用</text>
+      <text class="auth-pending__desc" wx:else>您的申请已通过审核，请重新获取验证码完成登录</text>
+
+      <view wx:if="{{pendingCustomer && !approved}}" class="auth-pending__info">
+        <text class="auth-pending__info-label">申请门店</text>
+        <text class="auth-pending__info-value">{{pendingCustomer.customerName || '--'}}</text>
+      </view>
+
+      <view wx:if="{{approved}}" class="auth-pending__action">
+        <view class="auth-pending__login-btn" bindtap="onApprovedLogin">验证码登录</view>
+      </view>
+
+      <view wx:else class="auth-pending__hint">
+        <text class="auth-pending__hint-text">下拉刷新检查审核状态</text>
+        <text class="auth-pending__arrow">↓</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 手机号登录 -->
+  <view wx:elif="{{step === 'login'}}" class="auth-form">
+    <view class="auth-form__card">
+      <text class="auth-form__title">手机号登录</text>
+      <text class="auth-form__subtitle">输入手机号获取验证码即可登录</text>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">手机号</text>
+        <view class="auth-form__phone-row">
+          <text class="auth-form__prefix">+86</text>
+          <input class="auth-form__input auth-form__input--phone" type="number" maxlength="11" value="{{phone}}" bindinput="onPhoneInput" placeholder="请输入手机号" placeholder-class="auth-form__placeholder" />
+        </view>
+      </view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">验证码</text>
+        <view class="auth-form__phone-row">
+          <input class="auth-form__input auth-form__input--code" type="number" maxlength="6" value="{{code}}" bindinput="onCodeInput" placeholder="6位验证码" placeholder-class="auth-form__placeholder" />
+          <text class="auth-form__code-btn {{sendingCode || timerRunning ? 'auth-form__code-btn--off' : ''}}" bindtap="onSendCode">{{timerRunning ? countdown + '秒' : sendingCode ? '发送中' : '获取验证码'}}</text>
+        </view>
+      </view>
+
+      <view class="auth-form__agree">
+        <checkbox-group bindchange="onAgreeChange">
+          <label class="auth-form__agree-row">
+            <checkbox value="agree" checked="{{agree}}" color="#8D1C1C" />
+            <text class="auth-form__agree-text">同意</text>
+          </label>
+        </checkbox-group>
+        <text class="auth-form__agree-link">用户协议</text>
+        <text class="auth-form__agree-text">和</text>
+        <text class="auth-form__agree-link">隐私政策</text>
+      </view>
+
+      <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onLoginSubmit">{{submitting ? '登录中…' : '登录'}}</view>
+
+      <view class="auth-form__switch" bindtap="goRegister">还没有账号？立即注册</view>
+    </view>
+  </view>
+
+  <!-- Registration -->
+  <view wx:else class="auth-form">
+    <view class="auth-form__card">
+      <text class="auth-form__title">注册申请</text>
+      <text class="auth-form__subtitle">填写信息提交审核，通过后即可使用</text>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">联系人</text>
+        <input class="auth-form__input" value="{{contactName}}" bindinput="onNameInput" placeholder="姓名" placeholder-class="auth-form__placeholder" maxlength="20" />
+      </view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">门店名称</text>
+        <input class="auth-form__input" value="{{customerName}}" bindinput="onCompanyInput" placeholder="火锅店或公司名称" placeholder-class="auth-form__placeholder" maxlength="50" />
+      </view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">所在地区</text>
+        <picker mode="region" value="{{region}}" bindchange="onRegionChange" level="district">
+          <view class="auth-form__picker">
+            <text wx:if="{{regionStr}}" class="auth-form__picker-text">{{regionStr}}</text>
+            <text wx:else class="auth-form__placeholder">省 / 市 / 区</text>
+            <text class="auth-form__picker-arrow">></text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">详细地址</text>
+        <input class="auth-form__input" value="{{address}}" bindinput="onAddressInput" placeholder="街道、门牌号" placeholder-class="auth-form__placeholder" maxlength="100" />
+      </view>
+
+      <view class="auth-form__divider"></view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">手机号</text>
+        <view class="auth-form__phone-row">
+          <text class="auth-form__prefix">+86</text>
+          <input class="auth-form__input auth-form__input--phone" type="number" maxlength="11" value="{{phone}}" bindinput="onPhoneInput" placeholder="请输入手机号" placeholder-class="auth-form__placeholder" />
+        </view>
+      </view>
+
+      <view class="auth-form__field">
+        <text class="auth-form__label">验证码</text>
+        <view class="auth-form__phone-row">
+          <input class="auth-form__input auth-form__input--code" type="number" maxlength="6" value="{{code}}" bindinput="onCodeInput" placeholder="6位验证码" placeholder-class="auth-form__placeholder" />
+          <text class="auth-form__code-btn {{sendingCode || timerRunning ? 'auth-form__code-btn--off' : ''}}" bindtap="onSendCode">{{timerRunning ? countdown + '秒' : sendingCode ? '发送中' : '获取验证码'}}</text>
+        </view>
+      </view>
+
+      <view class="auth-form__agree">
+        <checkbox-group bindchange="onAgreeChange">
+          <label class="auth-form__agree-row">
+            <checkbox value="agree" checked="{{agree}}" color="#8D1C1C" />
+            <text class="auth-form__agree-text">同意</text>
+          </label>
+        </checkbox-group>
+        <text class="auth-form__agree-link">用户协议</text>
+        <text class="auth-form__agree-text">和</text>
+        <text class="auth-form__agree-link">隐私政策</text>
+      </view>
+
+      <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onSubmit">{{submitting ? '提交中…' : '提交注册申请'}}</view>
+
+      <view class="auth-form__switch" bindtap="goLogin">已有账号？立即登录</view>
+    </view>
+  </view>
+</view>

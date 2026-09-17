@@ -1,0 +1,49 @@
+<view wx:if="{{visible}}" class="cart-sheet-root">
+  <view class="cart-sheet-overlay {{animating ? 'show' : ''}}" bindtap="onOverlayTap"></view>
+  <view class="cart-sheet-panel {{animating ? 'show' : ''}}" catchtap="preventBubble">
+    <!-- Header -->
+    <view class="cart-sheet-header">
+      <text class="cart-sheet-title">购物车</text>
+      <view class="cart-sheet-close" bindtap="onClose">✕</view>
+    </view>
+
+    <!-- Empty -->
+    <view wx:if="{{isEmpty}}" class="cart-sheet-empty">
+      <text class="cart-sheet-empty__icon">🛒</text>
+      <text class="cart-sheet-empty__text">购物车是空的</text>
+      <view class="cart-sheet-empty__btn" bindtap="onGoShop">去逛逛</view>
+    </view>
+
+    <!-- Items -->
+    <view wx:else class="cart-sheet-body">
+      <view wx:for="{{items}}" wx:key="skuId" class="cart-sheet-item {{item.available ? '' : 'is-unavailable'}}">
+        <view class="cart-sheet-item__info">
+          <text class="cart-sheet-item__name">{{item.name}}</text>
+          <text class="cart-sheet-item__spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+          <text class="cart-sheet-item__price">¥{{item.priceText}} / {{item.unit}}</text>
+          <text class="cart-sheet-item__error" wx:if="{{!item.available}}">{{item.unavailableReason}}</text>
+        </view>
+        <view class="cart-sheet-item__actions">
+          <view wx:if="{{item.available}}" class="cart-sheet-item__qty">
+            <view class="cs-qty-btn" data-index="{{index}}" bindtap="onDecrease">-</view>
+            <text class="cs-qty-val">{{item.quantity}}</text>
+            <view class="cs-qty-btn" data-index="{{index}}" bindtap="onIncrease">+</view>
+          </view>
+          <view wx:else class="cart-sheet-item__remove" data-index="{{index}}" bindtap="onRemove">移除</view>
+          <text wx:if="{{item.available}}" class="cart-sheet-item__amount">¥{{item.amount}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Footer -->
+    <view wx:if="{{!isEmpty}}" class="cart-sheet-footer">
+      <view class="cart-sheet-footer__total">
+        <text class="cart-sheet-footer__label">合计</text>
+        <text class="cart-sheet-footer__amount">¥{{totalAmount}}</text>
+      </view>
+      <view class="cart-sheet-footer__btn {{checkoutDisabled ? 'disabled' : ''}}" bindtap="onCheckout">
+        {{validationLoading ? '校验中…' : '去结算'}}
+      </view>
+    </view>
+  </view>
+</view>

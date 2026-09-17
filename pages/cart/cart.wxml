@@ -1,0 +1,47 @@
+<view class="page cart-page">
+  <view class="cart-header">
+    <text class="cart-title">购物车</text>
+    <text class="cart-count" wx:if="{{!isEmpty}}">{{items.length}} 种商品</text>
+  </view>
+
+  <view wx:if="{{isEmpty}}" class="cart-empty">
+    <view class="cart-empty__icon">🛒</view>
+    <text class="cart-empty__title">购物车是空的</text>
+    <text class="cart-empty__desc">浏览商品后可以在这里查看已选商品并进入下单流程</text>
+    <view class="cart-empty__btn" bindtap="onGoShop">去逛逛</view>
+  </view>
+
+  <view wx:else class="cart-body">
+    <view wx:if="{{hasMultipleBrands}}" class="cart-brand-notice">
+      不同品牌可一起结算，系统会自动拆分为多个订单
+    </view>
+    <view class="cart-items">
+      <view wx:for="{{items}}" wx:key="skuId" class="cart-item {{item.available ? '' : 'is-unavailable'}}">
+        <view class="cart-item__info">
+          <text class="cart-item__brand">{{item.brandText}}</text>
+          <text class="cart-item__name">{{item.name}}</text>
+          <text class="cart-item__spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+          <text class="cart-item__price">¥{{item.priceText}} / {{item.unit}}</text>
+          <text class="cart-item__error" wx:if="{{!item.available}}">{{item.unavailableReason}}</text>
+        </view>
+        <view class="cart-item__actions" wx:if="{{item.available}}">
+          <view class="cart-item__qty">
+            <view class="qty-btn" data-index="{{index}}" bindtap="onDecrease">-</view>
+            <text class="qty-val">{{item.quantity}}</text>
+            <view class="qty-btn" data-index="{{index}}" bindtap="onIncrease">+</view>
+          </view>
+          <text class="cart-item__amount">¥{{item.amount}}</text>
+        </view>
+        <view class="cart-item__remove" data-index="{{index}}" bindtap="onRemove">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!isEmpty}}" class="cart-bar">
+    <view class="cart-bar__total">
+      <text class="cart-bar__label">合计</text>
+      <text class="cart-bar__amount">¥{{totalAmount}}</text>
+    </view>
+    <view class="cart-bar__btn {{checkoutDisabled ? 'disabled' : ''}}" bindtap="onCheckout">去结算</view>
+  </view>
+</view>

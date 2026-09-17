@@ -1,0 +1,7 @@
+<view class="feature-card card" bindtap="onTap">
+  <view class="feature-card__icon">{{icon}}</view>
+  <view class="feature-card__body">
+    <text class="feature-card__title">{{title}}</text>
+    <text class="feature-card__desc">{{desc}}</text>
+  </view>
+</view>

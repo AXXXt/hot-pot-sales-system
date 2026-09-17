@@ -1,0 +1,6 @@
+<view class="error-state card">
+  <view class="error-state__icon">!</view>
+  <text class="error-state__title">{{title}}</text>
+  <text class="error-state__desc">{{desc}}</text>
+  <view wx:if="{{actionText}}" class="error-state__action" bindtap="onActionTap">{{actionText}}</view>
+</view>

@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "首页",
+  "usingComponents": {
+    "segmented-control": "/components/business/segmented-control/segmented-control",
+    "search-bar": "/components/business/search-bar/search-bar",
+    "status-badge": "/components/base/status-badge/status-badge",
+    "product-row": "/components/business/product-row/product-row",
+    "skeleton": "/components/feedback/loading-skeleton/loading-skeleton",
+    "empty-state": "/components/feedback/empty-state/empty-state"
+  }
+}

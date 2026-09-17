@@ -1,0 +1,37 @@
+<view class="page orders-page">
+  <view class="orders-header">
+    <text class="orders-title">订单</text>
+  </view>
+
+  <view class="orders-sticky">
+    <segmented-control items="{{statuses}}" activeId="{{activeStatus}}" bind:change="onStatusChange" />
+  </view>
+
+  <view wx:if="{{loading}}" class="orders-loading">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="orders-error">
+    <text>{{error}}</text>
+    <view class="orders-retry" bindtap="loadOrders">重试</view>
+  </view>
+
+  <view wx:elif="{{orders.length}}" class="orders-content">
+    <order-card
+      wx:for="{{orders}}"
+      wx:key="id"
+      orderNo="{{item.orderNo}}"
+      timeText="{{item.timeText}}"
+      statusText="{{item.statusText}}"
+      statusVariant="{{item.statusVariant}}"
+      summaryText="{{item.summaryText}}"
+      amountText="{{item.amountText}}"
+      actions="{{item.actions}}"
+      data-id="{{item.id}}"
+      bind:tap="onOrderTap"
+      bind:action="onOrderAction"
+    />
+  </view>
+
+  <empty-state wx:else title="暂无订单" desc="下单后可在这里查看履约状态和再次购买" actionText="去找商品" bind:action="onGoShop" />
+</view>

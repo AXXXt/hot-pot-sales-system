@@ -1,0 +1,5 @@
+<scroll-view class="category-scroll" scroll-x="true" enable-flex="true" scroll-with-animation="true" show-scrollbar="false" scroll-into-view="{{scrollIntoViewId}}">
+  <view class="category-scroll__track">
+    <text wx:for="{{categories}}" wx:key="id" id="category-{{item.id}}" class="category-scroll__item {{activeCategoryId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onTap">{{item.label}}</text>
+  </view>
+</scroll-view>

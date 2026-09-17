@@ -1,0 +1,34 @@
+.skeleton {
+  padding: 24rpx;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1rpx solid var(--border-subtle);
+}
+
+.skeleton__line {
+  height: 24rpx;
+  border-radius: 9999rpx;
+  background: linear-gradient(90deg, rgba(0,0,0,0.05), rgba(0,0,0,0.08), rgba(0,0,0,0.05));
+  margin-bottom: 16rpx;
+}
+
+.skeleton__line--title {
+  width: 60%;
+  height: 32rpx;
+}
+
+.skeleton__line--text {
+  width: 100%;
+}
+
+.skeleton__line.short {
+  width: 75%;
+  margin-bottom: 0;
+}
+
+.skeleton {
+  border-radius: 32rpx;
+  background: rgba(255,255,255,0.92);
+  border: 1rpx solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}

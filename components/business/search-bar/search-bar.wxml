@@ -1,0 +1,6 @@
+<view class="search-bar">
+  <view class="search-bar__icon" aria-hidden="true">
+    <view class="search-bar__icon-handle"></view>
+  </view>
+  <input class="search-bar__input" placeholder="{{placeholder}}" value="{{value}}" bindinput="onInput" confirm-type="search" />
+</view>

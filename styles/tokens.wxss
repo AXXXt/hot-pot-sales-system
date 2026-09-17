@@ -1,0 +1,70 @@
+page,
+.page {
+  --brand-primary: #8D1C1C;
+  --brand-deep: #660A0A;
+  --brand-accent: #C43737;
+  --brand-secondary: #9CABC2;
+  --brand-muted: #9CABC2;
+  --brand-surface-pink: #D99A9A;
+  --brand-surface-warm: #E6BF91;
+  --brand-orange: #FF9F0A;
+  --brand-gradient: linear-gradient(145deg, #660A0A 0%, #9B2020 52%, #C43737 100%);
+  --brand-soft-gradient: linear-gradient(145deg, #E6BF91 0%, #D99A9A 48%, #C9C2CF 100%);
+
+  --bg-canvas: linear-gradient(180deg, #F4D7D2 0%, #F8EFED 38%, #F4F0F2 100%);
+  --bg-canvas-solid: #F8EFED;
+  --bg-surface: #FFFFFF;
+  --bg-surface-strong: #FFFFFF;
+  --bg-subtle: rgba(141, 28, 28, 0.07);
+  --bg-elevated: #FFFFFF;
+  --bg-overlay: rgba(49, 10, 10, 0.42);
+
+  --text-primary: #333333;
+  --text-secondary: #6F7D91;
+  --text-tertiary: #9CABC2;
+  --text-disabled: #CDD2DE;
+  --text-inverse: #FFFFFF;
+
+  --border-subtle: rgba(141, 28, 28, 0.08);
+  --border-default: #EAD9D7;
+  --border-strong: #D7B8B5;
+
+  --status-success: #34C759;
+  --status-warning: #F59E0B;
+  --status-danger: #FF3B30;
+  --status-info: #6F7D91;
+
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  --radius-sm: 12rpx;
+  --radius-md: 20rpx;
+  --radius-lg: 28rpx;
+  --radius-xl: 40rpx;
+  --radius-full: 9999rpx;
+
+  --space-1: 4rpx;
+  --space-2: 8rpx;
+  --space-3: 12rpx;
+  --space-4: 16rpx;
+  --space-5: 20rpx;
+  --space-6: 24rpx;
+  --space-8: 32rpx;
+  --space-10: 40rpx;
+  --space-12: 48rpx;
+
+  --shadow-sm: 0 6rpx 18rpx rgba(102, 10, 10, 0.06);
+  --shadow-md: 0 14rpx 34rpx rgba(102, 10, 10, 0.10);
+  --shadow-lg: 0 24rpx 60rpx rgba(102, 10, 10, 0.14);
+  --shadow-glass: 0 16rpx 40rpx rgba(102, 10, 10, 0.10);
+
+  --glass-bg: rgba(255,255,255,0.86);
+  --glass-bg-strong: rgba(255,255,255,0.94);
+  --glass-border: rgba(141, 28, 28, 0.10);
+  --glass-backdrop: blur(24px);
+
+  --motion-fast: 140ms;
+  --motion-normal: 200ms;
+
+  --page-max-width: 1440rpx;
+}

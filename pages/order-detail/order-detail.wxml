@@ -1,0 +1,86 @@
+<view class="page order-detail-page">
+  <view wx:if="{{loading}}" class="od-loading">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="od-error">
+    <text>{{error}}</text>
+  </view>
+
+  <view wx:else class="od-body">
+    <!-- Status header -->
+    <view class="od-header">
+      <text class="od-header__status od-header__status--{{statusVariant}}">{{statusText}}</text>
+      <text class="od-header__no">订单号 {{orderNo}}</text>
+      <text class="od-header__time" wx:if="{{orderTime}}">{{orderTime}}</text>
+    </view>
+
+    <!-- Items -->
+    <view class="od-card">
+      <text class="od-card__title">商品清单</text>
+      <view wx:for="{{items}}" wx:key="id" class="od-item">
+        <view class="od-item__left">
+          <text class="od-item__name">{{item.name}}</text>
+          <text class="od-item__spec" wx:if="{{item.spec}}">{{item.spec}}</text>
+        </view>
+        <view class="od-item__right">
+          <text class="od-item__qty">×{{item.quantity}}</text>
+          <text class="od-item__price">¥{{item.amountText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Amount -->
+    <view class="od-card">
+      <text class="od-card__title">金额信息</text>
+      <view class="od-item">
+        <text class="od-item__label">商品总额</text>
+        <text>¥{{totalAmount}}</text>
+      </view>
+      <view class="od-item" wx:if="{{discountAmount > 0}}">
+        <text class="od-item__label">优惠</text>
+        <text>-¥{{discountAmount}}</text>
+      </view>
+      <view class="od-item">
+        <text class="od-item__label">应付金额</text>
+        <text class="od-item__total">¥{{payableAmount}}</text>
+      </view>
+    </view>
+
+    <view class="od-card" wx:if="{{paymentMethodText}}">
+      <text class="od-card__title">支付信息</text>
+      <view class="od-item">
+        <text class="od-item__label">支付方式</text>
+        <text>{{paymentMethodText}}</text>
+      </view>
+    </view>
+
+    <!-- Remark -->
+    <view class="od-card" wx:if="{{remark}}">
+      <text class="od-card__title">备注</text>
+      <text class="od-card__text">{{remark}}</text>
+    </view>
+
+    <!-- Customer -->
+    <view class="od-card">
+      <text class="od-card__title">客户信息</text>
+      <text class="od-card__text">{{customerName}}</text>
+      <text class="od-card__sub">{{customerContact}}</text>
+    </view>
+
+    <!-- Logistics -->
+    <view class="od-card" wx:if="{{logisticsText}}">
+      <text class="od-card__title">物流信息</text>
+      <text class="od-card__text">{{logisticsText}}</text>
+    </view>
+
+    <!-- Actions -->
+    <view class="od-actions">
+      <view wx:if="{{canCancel}}" class="od-btn od-btn--danger" bindtap="onCancel">取消订单</view>
+      <view wx:if="{{canSubmitFinance}}" class="od-btn od-btn--primary" bindtap="onSubmitFinance">
+        {{submittingFinance ? '提交中…' : '确认报价并支付'}}
+      </view>
+      <view wx:if="{{canConfirm}}" class="od-btn od-btn--primary" bindtap="onConfirmReceipt">确认收货</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,77 @@
+<view class="home">
+  <!-- Header -->
+  <view class="home__header">
+    <view class="home__header-left">
+      <text class="home__title">首页</text>
+      <text class="home__subtitle">采购概览</text>
+    </view>
+    <view class="home__header-right">
+      <view class="home__badge home__badge--guest" wx:if="{{!userInfo.isLogin}}">访客</view>
+      <view class="home__badge home__badge--level" wx:else>{{userInfo.levelName}}</view>
+    </view>
+  </view>
+
+  <!-- Company Info Card -->
+  <view class="home__card">
+    <view class="home__card-top">
+      <text class="home__card-name">{{userInfo.isLogin ? userInfo.companyName : '未登录'}}</text>
+      <text class="home__card-tag">采购信息</text>
+    </view>
+
+    <view wx:if="{{userInfo.isLogin}}" class="home__card-body">
+      <view class="home__card-row">
+        <text class="home__card-key">所在地区</text>
+        <text class="home__card-val">{{userInfo.region}}</text>
+      </view>
+      <view class="home__card-row">
+        <text class="home__card-key">账期额度</text>
+        <text class="home__card-val home__card-val--credit">¥ {{userInfo.creditTotal}} <text class="home__card-val-sub">/ {{userInfo.creditDays}}天</text></text>
+      </view>
+      <view class="home__card-row home__card-row--last">
+        <text class="home__card-key">剩余可用</text>
+        <text class="home__card-val home__card-val--remaining">¥ {{userInfo.creditRemaining}}</text>
+      </view>
+    </view>
+
+    <text class="home__card-desc" wx:else>登录后显示企业信息和账期额度</text>
+
+    <view class="home__card-actions">
+      <view class="home__btn home__btn--primary" bindtap="goCategory">搜索商品</view>
+      <view class="home__btn home__btn--secondary" bindtap="goOrders">查看订单</view>
+    </view>
+  </view>
+
+  <!-- Feed Tabs -->
+  <view class="home__section">
+    <segmented-control items="{{feedTabs}}" activeId="{{activeFeed}}" bind:change="onFeedChange" />
+  </view>
+
+  <!-- Products -->
+  <view class="home__section home__products">
+    <view wx:if="{{loading}}">
+      <skeleton />
+      <view style="height:24rpx"></view>
+      <skeleton />
+    </view>
+    <view wx:elif="{{products.length}}">
+      <product-row
+        wx:for="{{products}}" wx:key="id"
+        productId="{{item.id}}" name="{{item.name}}"
+        brandText="{{item.brandText}}" spec="{{item.spec}}"
+        price="{{item.price}}" priceUnit="{{item.priceUnit}}"
+        statusText="{{item.stockText}}" statusVariant="{{item.statusVariant}}"
+        subText="{{item.subText}}" image="{{item.image}}"
+        bind:tap="goProductDetail" bind:add="onProductAdd"
+      />
+    </view>
+    <empty-state
+      wx:else
+      title="{{activeFeed === 'frequent' ? '暂无常购商品' : activeFeed === 'new' ? '暂无新品' : '暂无热销商品'}}"
+      desc="{{activeFeed === 'frequent' ? '完成采购后，这里会展示购买数量最多的五件商品。' : '请在商品管理中设置对应的展示标签。'}}"
+    />
+  </view>
+  <view wx:if="{{cartCount > 0}}" class="floating-cart-entry" bindtap="goCart">
+    <text class="floating-cart-entry__label">购物车</text>
+    <text class="floating-cart-entry__count">{{cartCount}}</text>
+  </view>
+</view>

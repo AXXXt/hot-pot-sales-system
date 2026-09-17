@@ -1,0 +1,43 @@
+.feature-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--glass-bg);
+  border: 1rpx solid var(--glass-border);
+  border-radius: 28rpx;
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+.feature-card__icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 24rpx;
+  background: rgba(17, 24, 39, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  color: var(--brand-primary);
+  flex-shrink: 0;
+}
+
+.feature-card__body {
+  flex: 1;
+  padding-left: 20rpx;
+}
+
+.feature-card__title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.feature-card__desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}

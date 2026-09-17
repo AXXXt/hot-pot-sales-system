@@ -1,0 +1,75 @@
+.orders-page {
+  min-height: 100vh;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  background: var(--bg-canvas);
+}
+
+.orders-header {
+  position: relative;
+  overflow: hidden;
+  min-height: 230rpx;
+  padding: 54rpx 32rpx 116rpx;
+  background: var(--brand-gradient);
+}
+
+.orders-header::after {
+  content: '';
+  position: absolute;
+  width: 440rpx;
+  height: 440rpx;
+  right: -220rpx;
+  top: -230rpx;
+  border: 7rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+}
+
+.orders-title {
+  position: relative;
+  z-index: 1;
+  font-size: 48rpx;
+  line-height: 60rpx;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.orders-sticky {
+  position: relative;
+  z-index: 2;
+  margin: -78rpx 32rpx 28rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-lg);
+}
+
+.orders-content,
+.orders-loading,
+.orders-error {
+  margin: 0 32rpx;
+}
+
+.orders-content {
+  padding-top: 4rpx;
+}
+
+.orders-loading,
+.orders-error {
+  padding: 80rpx 32rpx;
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
+  text-align: center;
+  box-shadow: var(--shadow-md);
+}
+
+.orders-retry {
+  min-height: 76rpx;
+  margin-top: 28rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-primary);
+  color: #FFFFFF;
+  font-weight: 700;
+}

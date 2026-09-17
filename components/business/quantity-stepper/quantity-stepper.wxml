@@ -1,0 +1,5 @@
+<view class="quantity-stepper">
+  <text class="quantity-stepper__btn" bindtap="decrement">−</text>
+  <text class="quantity-stepper__value">{{value}}</text>
+  <text class="quantity-stepper__btn" bindtap="increment">+</text>
+</view>

@@ -1,0 +1,16 @@
+<view class="product-card card" bindtap="onTap">
+  <image class="product-card__image" src="{{image}}" mode="aspectFill"></image>
+  <view class="product-card__body">
+    <text class="product-card__name">{{name}}</text>
+    <text class="product-card__spec">{{spec}}</text>
+    <view class="product-card__footer">
+      <view class="product-card__meta">
+        <text class="product-card__price">{{price}}</text>
+        <text class="product-card__stock">{{stockText}}</text>
+      </view>
+      <view class="product-card__action">
+        <text class="product-card__action-text">{{actionText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

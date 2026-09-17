@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "订单详情",
+  "usingComponents": {
+    "page-header": "/components/layout/page-header/page-header",
+    "section-title": "/components/layout/section-title/section-title"
+  }
+}

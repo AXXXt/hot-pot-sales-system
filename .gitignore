@@ -1,0 +1,32 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+dist/
+coverage/
+build/
+
+# ---- 环境变量（保留 .env.example） ----
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ---- 日志与临时文件 ----
+*.log
+*.pid
+.backend-dev.pid
+.wx-auto-*
+.wx-open-*
+.codex-home-hot.png
+.codex-simulator.png
+npm-debug.log*
+
+# ---- 工具 / 自动化运行时目录 ----
+.agents/
+.cursor/
+.codex-cua-runtime/
+.codex-mini-automator/
+.wx-auto-localappdata/
+
+# ---- 系统文件 ----
+.DS_Store
+Thumbs.db

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "购物车",
+  "usingComponents": {
+    "page-header": "/components/layout/page-header/page-header",
+    "sticky-action-bar": "/components/business/sticky-action-bar/sticky-action-bar"
+  }
+}

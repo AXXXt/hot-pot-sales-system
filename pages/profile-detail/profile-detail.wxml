@@ -1,0 +1,40 @@
+<view class="page profile-detail-page">
+  <view wx:if="{{loading}}" class="profile-detail-state">加载中…</view>
+  <view wx:elif="{{error}}" class="profile-detail-state profile-detail-state--error">{{error}}</view>
+  <view wx:else>
+    <view wx:if="{{type === 'company'}}" class="profile-detail-card">
+      <text class="profile-detail-card__title">企业资料</text>
+      <view wx:for="{{companyRows}}" wx:key="label" class="profile-detail-row">
+        <text class="profile-detail-row__label">{{item.label}}</text>
+        <text class="profile-detail-row__value">{{item.value}}</text>
+      </view>
+    </view>
+
+    <view wx:elif="{{type === 'address'}}" class="profile-detail-card">
+      <text class="profile-detail-card__title">收货地址</text>
+      <view wx:for="{{addressRows}}" wx:key="label" class="profile-detail-row">
+        <text class="profile-detail-row__label">{{item.label}}</text>
+        <text class="profile-detail-row__value">{{item.value}}</text>
+      </view>
+      <view class="profile-detail-action" bindtap="copyAddress">复制详细地址</view>
+    </view>
+
+    <view wx:elif="{{type === 'prices'}}" class="profile-detail-card">
+      <text class="profile-detail-card__title">协议价格</text>
+      <view wx:if="{{priceItems.length}}">
+        <view wx:for="{{priceItems}}" wx:key="index" class="price-rule">
+          <view class="price-rule__main">
+            <text class="price-rule__name">{{item.productName}}</text>
+            <text wx:if="{{item.skuName || item.specText}}" class="price-rule__spec">{{item.skuName}} {{item.specText}}</text>
+          </view>
+          <view class="price-rule__amount">
+            <text class="price-rule__price">¥{{item.price}}</text>
+            <text class="price-rule__base">基础价 ¥{{item.basePrice}}</text>
+            <text wx:if="{{item.saleUnit}}" class="price-rule__unit">/{{item.saleUnit}}</text>
+          </view>
+        </view>
+      </view>
+      <view wx:else class="profile-detail-empty">暂无生效中的协议价格</view>
+    </view>
+  </view>
+</view>

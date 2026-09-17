@@ -1,0 +1,4 @@
+<view class="sticky-action-bar">
+  <view class="sticky-action-bar__secondary">{{secondaryText}}</view>
+  <view class="sticky-action-bar__primary">{{primaryText}}</view>
+</view>

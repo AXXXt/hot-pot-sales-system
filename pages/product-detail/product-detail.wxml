@@ -1,0 +1,89 @@
+<view class="page product-detail-page">
+  <view wx:if="{{loading}}">
+    <view class="product-detail-skeleton"></view>
+  </view>
+
+  <view wx:elif="{{error}}" class="product-detail-error">
+    <text class="product-detail-error__title">{{error}}</text>
+    <view class="product-detail-error__retry" bindtap="onRetry">重新加载</view>
+  </view>
+
+  <view wx:else class="product-detail-body">
+    <view class="product-media">
+      <view wx:if="{{imageError || !imageList.length}}" class="product-media__empty">
+        <text class="product-media__empty-text">暂无商品图片</text>
+      </view>
+      <swiper wx:elif="{{imageList.length > 1}}" class="product-media__swiper" circular="true" autoplay="false" current="{{imageIndex}}" bindchange="onSwiperChange">
+        <swiper-item wx:for="{{imageList}}" wx:key="index">
+          <image class="product-media__image" src="{{item}}" mode="aspectFill" binderror="onImageFail"></image>
+        </swiper-item>
+      </swiper>
+      <image wx:else class="product-media__image" src="{{imageList[0]}}" mode="aspectFill" binderror="onImageFail"></image>
+      <view wx:if="{{imageList.length > 1}}" class="product-media__dots">{{imageIndex + 1}} / {{imageList.length}}</view>
+    </view>
+
+    <view class="product-section">
+      <text class="product-name">{{product.name}}</text>
+      <text class="product-brand">{{product.brand_name}} · {{product.base_spec}}</text>
+    </view>
+
+    <view class="product-section">
+      <view class="price-row">
+        <text class="price-row__price">{{displayPrice}}</text>
+        <text class="price-row__unit">{{saleUnitText}}</text>
+      </view>
+      <text class="product-support" wx:if="{{customerPriceText}}">{{customerPriceText}}</text>
+      <text class="product-support" wx:if="{{basePriceText}}">{{basePriceText}}</text>
+    </view>
+
+    <view class="product-section">
+      <view class="product-meta">
+        <text>库存 {{stockText}}</text>
+        <text>起订量 {{minOrderText}}</text>
+        <text>{{deliveryText}}</text>
+      </view>
+    </view>
+
+    <view class="product-section" wx:if="{{skus.length}}">
+      <text class="section-title">规格选择</text>
+      <view class="sku-list">
+        <view wx:for="{{skus}}" wx:key="id" class="sku-item {{selectedSkuId === item.id ? 'active' : ''}} {{item.sold_out ? 'disabled' : ''}}" data-id="{{item.id}}" bindtap="onSelectSku">
+          <text class="sku-item__name">{{item.spec_text}}</text>
+          <text class="sku-item__desc">{{item.sale_unit || '单位待确认'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="product-section">
+      <text class="section-title">数量</text>
+      <quantity-stepper value="{{quantity}}" min="{{minQuantity}}" max="{{maxQuantity}}" disabled="{{quantityDisabled}}" bind:change="onQuantityChange" />
+      <text wx:if="{{skuError}}" class="inline-error">{{skuError}}</text>
+    </view>
+
+    <view class="product-section" wx:if="{{paramList.length}}">
+      <text class="section-title">商品参数</text>
+      <view class="param-list">
+        <view wx:for="{{paramList}}" wx:key="label" class="param-item">
+          <text class="param-item__label">{{item.label}}</text>
+          <text class="param-item__value">{{item.value}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="product-section" wx:if="{{product.description}}">
+      <text class="section-title">商品说明</text>
+      <text class="product-desc">{{product.description}}</text>
+    </view>
+  </view>
+
+  <view class="product-actionbar" wx:if="{{!error}}">
+    <view class="product-actionbar__cart" bindtap="onOpenCart">
+      购物车
+      <text wx:if="{{inCartCount > 0}}" class="product-actionbar__badge">{{inCartCount}}</text>
+    </view>
+    <view class="product-actionbar__secondary {{!canBuy || skuLoading ? 'disabled' : ''}}" bindtap="onAddToCart">加入购物车</view>
+    <view class="product-actionbar__primary {{!canBuy || skuLoading ? 'disabled' : ''}}" bindtap="onBuyNow">立即下单</view>
+  </view>
+
+  <cart-sheet visible="{{cartSheetVisible}}" bind:close="onCloseCart" bind:change="onCartChange" />
+</view>

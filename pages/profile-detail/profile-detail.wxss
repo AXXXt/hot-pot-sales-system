@@ -1,0 +1,127 @@
+.profile-detail-page {
+  min-height: 100vh;
+  padding: 28rpx 28rpx calc(48rpx + env(safe-area-inset-bottom));
+  background: var(--bg-canvas);
+}
+
+.profile-detail-state {
+  padding: 160rpx 32rpx;
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 28rpx;
+}
+
+.profile-detail-state--error {
+  color: var(--status-danger);
+}
+
+.profile-detail-card {
+  padding: 34rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.72);
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-lg);
+}
+
+.profile-detail-card__title {
+  display: block;
+  margin-bottom: 20rpx;
+  color: var(--brand-primary);
+  font-size: 30rpx;
+  font-weight: 750;
+}
+
+.profile-detail-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-height: 76rpx;
+  padding: 20rpx 0;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.profile-detail-row__label {
+  flex: 0 0 160rpx;
+  color: var(--text-secondary);
+  font-size: 26rpx;
+}
+
+.profile-detail-row__value {
+  flex: 1;
+  color: var(--text-primary);
+  font-size: 27rpx;
+  line-height: 1.5;
+  text-align: right;
+  word-break: break-all;
+}
+
+.profile-detail-action {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 22rpx;
+  background: #F7E9E6;
+  color: var(--brand-primary);
+  font-size: 27rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.price-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-top: 1rpx solid var(--border-subtle);
+}
+
+.price-rule__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.price-rule__name,
+.price-rule__spec,
+.price-rule__base,
+.price-rule__unit {
+  display: block;
+}
+
+.price-rule__name {
+  color: var(--text-primary);
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.price-rule__spec {
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: 23rpx;
+}
+
+.price-rule__amount {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.price-rule__price {
+  color: var(--brand-primary);
+  font-size: 31rpx;
+  font-weight: 800;
+}
+
+.price-rule__base,
+.price-rule__unit {
+  margin-top: 6rpx;
+  color: var(--text-tertiary);
+  font-size: 21rpx;
+}
+
+.profile-detail-empty {
+  padding: 90rpx 20rpx;
+  border-top: 1rpx solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 26rpx;
+  text-align: center;
+}

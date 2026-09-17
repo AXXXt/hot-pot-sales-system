@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "下单确认",
+  "usingComponents": {
+    "page-header": "/components/layout/page-header/page-header",
+    "section-title": "/components/layout/section-title/section-title",
+    "sticky-action-bar": "/components/business/sticky-action-bar/sticky-action-bar"
+  }
+}

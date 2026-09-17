@@ -1,0 +1,598 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  super_admin
+  admin
+  sales
+  warehouse
+  customer_service
+  finance
+  customer_user
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum BrandStatus {
+  active
+  disabled
+}
+
+enum CustomerStatus {
+  active
+  disabled
+}
+
+enum ProductVisibilityMode {
+  factory
+  all
+  custom
+}
+
+enum ProductStatus {
+  active
+  disabled
+  archived
+}
+
+enum SkuStatus {
+  active
+  disabled
+}
+
+enum OrderStatus {
+  draft
+  pending_quote
+  pending_confirm
+  pending_finance
+  pending_shipment
+  shipped
+  completed
+  cancelled
+}
+
+enum PriceType {
+  level
+  agreement
+  manual
+}
+
+enum PermissionType {
+  menu
+  page
+  action
+  api
+}
+
+enum AuditAction {
+  login
+  logout
+  create
+  update
+  delete
+  price_change
+  inventory_adjust
+  role_change
+  permission_change
+  order_status_change
+}
+
+model Tenant {
+  id               Int                      @id @default(autoincrement())
+  name             String                   @db.VarChar(100)
+  code             String                   @unique @db.VarChar(64)
+  status           String                   @default("active") @db.VarChar(32)
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  brands           Brand[]
+  users            User[]
+  userBrandAccess  UserBrandAccess[]
+  roles            Role[]
+  userRoles        UserRole[]
+  rolePermissions  RolePermission[]
+  customers        Customer[]
+  visibleProducts  CustomerVisibleProduct[]
+  customerLevels   CustomerLevel[]
+  priceRules       CustomerPriceRule[]
+  categories       ProductCategory[]
+  units            Unit[]
+  products         Product[]
+  skus             ProductSku[]
+  orders           Order[]
+  orderItems       OrderItem[]
+  orderStatusLogs  OrderStatusLog[]
+  priceAdjustments OrderPriceAdjustment[]
+  auditLogs        AuditLog[]
+  files            File[]
+  systemConfigs    SystemConfig[]
+  priceHistories   CustomerPriceHistory[]
+
+  @@map("tenants")
+}
+
+model Brand {
+  id             Int                 @id @default(autoincrement())
+  tenantId       Int                 @map("tenant_id")
+  name           String              @db.VarChar(100)
+  code           String              @db.VarChar(64)
+  logoUrl        String?             @map("logo_url") @db.VarChar(500)
+  description    String?             @db.Text
+  status         BrandStatus         @default(active)
+  sortOrder      Int                 @default(0) @map("sort_order")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  userAccess     UserBrandAccess[]
+  products       Product[]
+  customerLevels CustomerLevel[]
+  priceRules     CustomerPriceRule[]
+  orders         Order[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("brands")
+}
+
+model User {
+  id             Int               @id @default(autoincrement())
+  tenantId       Int               @map("tenant_id")
+  customerId     Int?              @map("customer_id")
+  phone          String            @unique @db.VarChar(20)
+  name           String            @db.VarChar(100)
+  userType       UserType          @map("user_type")
+  status         UserStatus        @default(active)
+  lastLoginAt    DateTime?         @map("last_login_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  salesCustomers Customer[]        @relation("SalesOwner")
+  userRoles      UserRole[]
+  brandAccess    UserBrandAccess[]
+  orders         Order[]
+  auditLogs      AuditLog[]
+
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+model UserBrandAccess {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  userId    Int      @map("user_id")
+  brandId   Int      @map("brand_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  brand     Brand    @relation(fields: [brandId], references: [id])
+
+  @@unique([tenantId, userId, brandId])
+  @@index([tenantId, brandId])
+  @@map("user_brand_access")
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  tenantId    Int              @map("tenant_id")
+  name        String           @db.VarChar(100)
+  code        String           @db.VarChar(64)
+  description String?          @db.VarChar(255)
+  status      String           @default("active") @db.VarChar(32)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  userRoles   UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  parentId    Int?             @map("parent_id")
+  type        PermissionType   @map("permission_type")
+  name        String           @db.VarChar(100)
+  code        String           @unique @db.VarChar(100)
+  path        String?          @db.VarChar(255)
+  method      String?          @db.VarChar(20)
+  description String?          @db.VarChar(255)
+  status      String           @default("active") @db.VarChar(32)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  parent      Permission?      @relation("PermissionTree", fields: [parentId], references: [id])
+  children    Permission[]     @relation("PermissionTree")
+  roles       RolePermission[]
+
+  @@index([parentId, type])
+  @@map("permissions")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([tenantId, userId, roleId])
+  @@index([tenantId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  tenantId     Int        @map("tenant_id")
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([tenantId, roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Customer {
+  id                    Int                      @id @default(autoincrement())
+  tenantId              Int                      @map("tenant_id")
+  customerLevelId       Int?                     @map("customer_level_id")
+  salesOwnerId          Int?                     @map("sales_owner_id")
+  customerName          String                   @map("customer_name") @db.VarChar(120)
+  customerType          String?                  @map("customer_type") @db.VarChar(50)
+  contactName           String?                  @map("contact_name") @db.VarChar(100)
+  contactPhone          String?                  @map("contact_phone") @db.VarChar(20)
+  address               String?                  @db.VarChar(255)
+  status                CustomerStatus           @default(active)
+  productVisibilityMode ProductVisibilityMode    @default(factory) @map("product_visibility_mode")
+  creditLimit           Decimal?                 @map("credit_limit") @db.Decimal(12, 2)
+  creditUsed            Decimal                  @default(0) @map("credit_used") @db.Decimal(12, 2)
+  creditDays            Int?                     @map("credit_days")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  tenant                Tenant                   @relation(fields: [tenantId], references: [id])
+  level                 CustomerLevel?           @relation(fields: [customerLevelId], references: [id])
+  salesOwner            User?                    @relation("SalesOwner", fields: [salesOwnerId], references: [id])
+  users                 User[]
+  visibleProducts       CustomerVisibleProduct[]
+  priceRules            CustomerPriceRule[]
+  orders                Order[]
+  priceHistories        CustomerPriceHistory[]
+
+  @@index([tenantId, status])
+  @@map("customers")
+}
+
+model CustomerVisibleProduct {
+  id         Int      @id @default(autoincrement())
+  tenantId   Int      @map("tenant_id")
+  customerId Int      @map("customer_id")
+  productId  Int      @map("product_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, customerId, productId])
+  @@index([tenantId, productId])
+  @@map("customer_visible_products")
+}
+
+model CustomerLevel {
+  id           Int        @id @default(autoincrement())
+  tenantId     Int        @map("tenant_id")
+  brandId      Int        @map("brand_id")
+  name         String     @db.VarChar(100)
+  code         String     @db.VarChar(64)
+  discountRate Decimal?   @map("discount_rate") @db.Decimal(8, 4)
+  description  String?    @db.VarChar(255)
+  status       String     @default("active") @db.VarChar(32)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  brand        Brand      @relation(fields: [brandId], references: [id])
+  customers    Customer[]
+
+  @@unique([tenantId, brandId, code])
+  @@unique([tenantId, brandId, name])
+  @@map("customer_levels")
+}
+
+model CustomerPriceRule {
+  id         Int         @id @default(autoincrement())
+  tenantId   Int         @map("tenant_id")
+  brandId    Int         @map("brand_id")
+  customerId Int         @map("customer_id")
+  productId  Int?        @map("product_id")
+  skuId      Int?        @map("sku_id")
+  priceType  PriceType   @map("price_type")
+  price      Decimal     @db.Decimal(18, 2)
+  startAt    DateTime?   @map("start_at")
+  endAt      DateTime?   @map("end_at")
+  status     String      @default("active") @db.VarChar(32)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  brand      Brand       @relation(fields: [brandId], references: [id])
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  product    Product?    @relation(fields: [productId], references: [id])
+  sku        ProductSku? @relation(fields: [skuId], references: [id])
+
+  @@unique([tenantId, customerId, skuId])
+  @@index([tenantId, customerId, skuId, status])
+  @@map("customer_price_rules")
+}
+
+model ProductCategory {
+  id              Int               @id @default(autoincrement())
+  tenantId        Int               @map("tenant_id")
+  parentId        Int?              @map("parent_id")
+  name            String            @db.VarChar(100)
+  code            String            @db.VarChar(64)
+  sortOrder       Int               @default(0) @map("sort_order")
+  productSequence Int               @default(0) @map("product_sequence")
+  status          String            @default("active") @db.VarChar(32)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  parent          ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children        ProductCategory[] @relation("CategoryTree")
+  products        Product[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("product_categories")
+}
+
+model Unit {
+  id        Int       @id @default(autoincrement())
+  tenantId  Int       @map("tenant_id")
+  name      String    @db.VarChar(50)
+  code      String    @db.VarChar(50)
+  status    String    @default("active") @db.VarChar(32)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  products  Product[]
+
+  @@unique([tenantId, code])
+  @@map("units")
+}
+
+model Product {
+  id                 Int                      @id @default(autoincrement())
+  tenantId           Int                      @map("tenant_id")
+  brandId            Int                      @map("brand_id")
+  categoryId         Int?                     @map("category_id")
+  unitId             Int?                     @map("unit_id")
+  code               String                   @db.VarChar(64)
+  name               String                   @db.VarChar(200)
+  subtitle           String?                  @db.VarChar(255)
+  mainImageUrl       String?                  @map("main_image_url") @db.VarChar(500)
+  images             Json?
+  description        String?                  @db.Text
+  deliveryText       String?                  @map("delivery_text") @db.VarChar(255)
+  baseSpec           String?                  @map("base_spec") @db.VarChar(255)
+  status             ProductStatus            @default(active)
+  isFactoryProduct   Boolean                  @default(false) @map("is_factory_product")
+  supportSample      Boolean                  @default(false) @map("support_sample")
+  isRecommended      Boolean                  @default(false) @map("is_recommended")
+  isNew              Boolean                  @default(false) @map("is_new")
+  isHot              Boolean                  @default(false) @map("is_hot")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  tenant             Tenant                   @relation(fields: [tenantId], references: [id])
+  brand              Brand                    @relation(fields: [brandId], references: [id])
+  category           ProductCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unit               Unit?                    @relation(fields: [unitId], references: [id])
+  skus               ProductSku[]
+  priceRules         CustomerPriceRule[]
+  visibleToCustomers CustomerVisibleProduct[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, brandId, categoryId, status])
+  @@index([tenantId, brandId, status, isNew])
+  @@index([tenantId, brandId, status, isHot])
+  @@map("products")
+}
+
+model ProductSku {
+  id             Int                    @id @default(autoincrement())
+  tenantId       Int                    @map("tenant_id")
+  productId      Int                    @map("product_id")
+  skuCode        String                 @db.VarChar(100)
+  name           String?                @db.VarChar(200)
+  specText       String                 @map("spec_text") @db.VarChar(255)
+  saleUnit       String                 @map("sale_unit") @db.VarChar(50)
+  basePrice      Decimal                @map("base_price") @db.Decimal(18, 2)
+  minOrderQty    Int                    @map("min_order_qty")
+  stockNum       Int                    @default(0) @map("stock_num")
+  status         SkuStatus              @default(active)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id])
+  product        Product                @relation(fields: [productId], references: [id])
+  priceRules     CustomerPriceRule[]
+  orderItems     OrderItem[]
+  priceHistories CustomerPriceHistory[]
+
+  @@unique([tenantId, skuCode])
+  @@index([tenantId, productId, status])
+  @@map("product_skus")
+}
+
+model Order {
+  id               Int                    @id @default(autoincrement())
+  tenantId         Int                    @map("tenant_id")
+  brandId          Int                    @map("brand_id")
+  customerId       Int                    @map("customer_id")
+  userId           Int?                   @map("user_id")
+  quotedAmount     Decimal?               @map("quoted_amount") @db.Decimal(18, 2)
+  quoteNote        String?                @map("quote_note") @db.VarChar(500)
+  paymentProof     String?                @map("payment_proof") @db.VarChar(500)
+  paymentMethod    String?                @map("payment_method") @db.VarChar(32)
+  creditAmount     Decimal                @default(0) @map("credit_amount") @db.Decimal(18, 2)
+  logisticsType    String?                @map("logistics_type") @db.VarChar(50)
+  logisticsInfo    Json?                  @map("logistics_info")
+  sampleFlag       Boolean                @default(false) @map("sample_flag")
+  orderNo          String                 @unique @map("order_no") @db.VarChar(64)
+  status           OrderStatus            @default(draft)
+  totalAmount      Decimal                @map("total_amount") @db.Decimal(18, 2)
+  discountAmount   Decimal                @default(0) @map("discount_amount") @db.Decimal(18, 2)
+  adjustAmount     Decimal                @default(0) @map("adjust_amount") @db.Decimal(18, 2)
+  payableAmount    Decimal                @map("payable_amount") @db.Decimal(18, 2)
+  remark           String?                @db.VarChar(500)
+  confirmedAt      DateTime?              @map("confirmed_at")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id])
+  brand            Brand                  @relation(fields: [brandId], references: [id])
+  customer         Customer               @relation(fields: [customerId], references: [id])
+  user             User?                  @relation(fields: [userId], references: [id])
+  items            OrderItem[]
+  statusLogs       OrderStatusLog[]
+  priceAdjustments OrderPriceAdjustment[]
+
+  @@index([tenantId, customerId, status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          Int        @id @default(autoincrement())
+  tenantId    Int        @map("tenant_id")
+  orderId     Int        @map("order_id")
+  productId   Int?       @map("product_id")
+  skuId       Int        @map("sku_id")
+  productName String     @map("product_name") @db.VarChar(200)
+  skuName     String?    @map("sku_name") @db.VarChar(200)
+  skuSpecText String     @map("sku_spec_text") @db.VarChar(255)
+  saleUnit    String     @map("sale_unit") @db.VarChar(50)
+  quantity    Int
+  unitPrice   Decimal    @map("unit_price") @db.Decimal(18, 2)
+  quotedPrice Decimal?   @map("quoted_price") @db.Decimal(18, 2)
+  amount      Decimal    @db.Decimal(18, 2)
+  priceSource String     @map("price_source") @db.VarChar(50)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  order       Order      @relation(fields: [orderId], references: [id])
+  sku         ProductSku @relation(fields: [skuId], references: [id])
+
+  @@index([tenantId, orderId])
+  @@map("order_items")
+}
+
+model OrderStatusLog {
+  id         Int      @id @default(autoincrement())
+  tenantId   Int      @map("tenant_id")
+  orderId    Int      @map("order_id")
+  fromStatus String   @map("from_status") @db.VarChar(32)
+  toStatus   String   @map("to_status") @db.VarChar(32)
+  operatorId Int?     @map("operator_id")
+  remark     String?  @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, orderId, createdAt])
+  @@map("order_status_logs")
+}
+
+model OrderPriceAdjustment {
+  id           Int      @id @default(autoincrement())
+  tenantId     Int      @map("tenant_id")
+  orderId      Int      @map("order_id")
+  beforeAmount Decimal  @map("before_amount") @db.Decimal(18, 2)
+  afterAmount  Decimal  @map("after_amount") @db.Decimal(18, 2)
+  reason       String   @db.VarChar(255)
+  adjustedBy   Int?     @map("adjusted_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  order        Order    @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, orderId, createdAt])
+  @@map("order_price_adjustments")
+}
+
+model AuditLog {
+  id         Int         @id @default(autoincrement())
+  tenantId   Int         @map("tenant_id")
+  operatorId Int?        @map("operator_id")
+  action     AuditAction
+  module     String?     @db.VarChar(64)
+  targetType String      @map("target_type") @db.VarChar(100)
+  targetId   String?     @map("target_id") @db.VarChar(100)
+  beforeData Json?       @map("before_data")
+  afterData  Json?       @map("after_data")
+  ipAddress  String?     @map("ip_address") @db.VarChar(64)
+  userAgent  String?     @map("user_agent") @db.VarChar(255)
+  requestId  String      @unique @map("request_id") @db.VarChar(64)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  operator   User?       @relation(fields: [operatorId], references: [id])
+
+  @@index([tenantId, operatorId, module, createdAt])
+  @@map("audit_logs")
+}
+
+model File {
+  id              Int      @id @default(autoincrement())
+  tenantId        Int      @map("tenant_id")
+  fileName        String   @map("file_name") @db.VarChar(255)
+  fileUrl         String   @map("file_url") @db.VarChar(500)
+  fileType        String?  @map("file_type") @db.VarChar(50)
+  fileSize        Int?     @map("file_size")
+  mimeType        String?  @map("mime_type") @db.VarChar(100)
+  storageProvider String   @default("minio") @map("storage_provider") @db.VarChar(50)
+  createdBy       Int?     @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("files")
+}
+
+model SystemConfig {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int      @map("tenant_id")
+  configKey   String   @map("config_key") @db.VarChar(100)
+  configValue String   @map("config_value") @db.Text
+  configType  String   @default("string") @map("config_type") @db.VarChar(32)
+  remark      String?  @db.VarChar(255)
+  status      String   @default("active") @db.VarChar(32)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, configKey])
+  @@map("system_configs")
+}
+
+model CustomerPriceHistory {
+  id         Int        @id @default(autoincrement())
+  tenantId   Int        @map("tenant_id")
+  customerId Int        @map("customer_id")
+  skuId      Int        @map("sku_id")
+  price      Decimal    @db.Decimal(18, 2)
+  orderId    Int?       @map("order_id")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  customer   Customer   @relation(fields: [customerId], references: [id])
+  sku        ProductSku @relation(fields: [skuId], references: [id])
+
+  @@index([tenantId, customerId, skuId])
+  @@map("customer_price_history")
+}
