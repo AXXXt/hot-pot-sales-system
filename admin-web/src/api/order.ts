@@ -43,3 +43,7 @@ export function completeOrder(id: number) {
 export function adjustOrderPrice(id: number, data: Record<string, unknown>) {
   return http.post(`/orders/${id}/adjust-price`, data)
 }
+
+export function refundOrder(id: number, data: { amount: string; method?: string; reason?: string }) {
+  return http.post(`/orders/${id}/refund`, data)
+}

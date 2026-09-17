@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder } from '../../api/order'
+import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder, refundOrder } from '../../api/order'
 import { getPaymentProofUrl } from '../../api/upload'
 
 const route = useRoute()
@@ -18,6 +18,31 @@ const historyPrices = ref<any[]>([])
 const quoteItems = ref<any[]>([])
 const quoteNote = ref('')
 const shipForm = reactive({ logisticsType: 'tricycle', driverName: '', driverPhone: '', plateNumber: '' })
+const refundVisible = ref(false)
+const refundSaving = ref(false)
+const refundForm = reactive({ amount: 0, method: 'transfer', reason: '' })
+
+const methodText = (m: string) => ({ transfer: '转账', cash: '现金', other: '其他' } as Record<string, string>)[m] || m || '-'
+
+function openRefund() {
+  refundForm.amount = Number(order.value.payableAmount || 0)
+  refundForm.method = 'transfer'
+  refundForm.reason = ''
+  refundVisible.value = true
+}
+
+async function submitRefund() {
+  const amount = Number(refundForm.amount)
+  if (!Number.isFinite(amount) || amount <= 0) { ElMessage.warning('请输入大于 0 的退款金额'); return }
+  refundSaving.value = true
+  try {
+    await refundOrder(id, { amount: String(amount), method: refundForm.method, reason: refundForm.reason || undefined })
+    ElMessage.success('退款登记成功')
+    refundVisible.value = false
+    await fetch()
+  } catch (e: any) { ElMessage.warning(e.message || '退款登记失败') }
+  finally { refundSaving.value = false }
+}
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 const viewingProof = ref(false)
@@ -235,6 +260,22 @@ onMounted(fetch)
         </el-timeline>
       </el-card>
 
+      <el-card v-if="order.refunds?.length" shadow="never" style="margin-bottom:16px">
+        <template #header><strong>退款记录</strong></template>
+        <el-table :data="order.refunds" size="small" stripe>
+          <el-table-column label="时间" width="170">
+            <template #default="{row}">{{ new Date(row.createdAt).toLocaleString('zh-CN') }}</template>
+          </el-table-column>
+          <el-table-column label="金额" width="120">
+            <template #default="{row}">¥{{ Number(row.amount).toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column label="方式" width="100">
+            <template #default="{row}">{{ methodText(row.method) }}</template>
+          </el-table-column>
+          <el-table-column prop="reason" label="原因" min-width="140"><template #default="{row}">{{ row.reason || '-' }}</template></el-table-column>
+        </el-table>
+      </el-card>
+
       <div class="actions-bar">
         <el-button v-if="order.status === 'draft'" type="primary" :loading="actionLoading==='submit'" @click="doSubmit">提交订单</el-button>
         <el-button v-if="order.status === 'pending_quote'" type="primary" :loading="actionLoading==='quote'" @click="openQuote">填写报价</el-button>
@@ -244,6 +285,7 @@ onMounted(fetch)
         <el-button v-if="order.status === 'shipped'" type="success" :loading="actionLoading==='complete'" @click="doComplete">确认收货</el-button>
         <el-tag v-if="order.status === 'completed'" type="success" size="large">订单已完成</el-tag>
         <el-tag v-if="order.status === 'cancelled'" type="danger" size="large">订单已取消</el-tag>
+        <el-button v-if="order.status === 'cancelled'" type="warning" plain @click="openRefund">退款登记</el-button>
         <el-button v-if="canCancel" type="danger" plain :loading="actionLoading==='cancel'" @click="doCancel">取消订单</el-button>
       </div>
     </template>
@@ -297,6 +339,28 @@ onMounted(fetch)
         <el-button type="primary" :loading="actionLoading==='ship'" @click="submitShip">确认发货</el-button>
       </template>
     </el-dialog>
+  <!-- Refund Dialog -->
+  <el-dialog v-model="refundVisible" title="退款登记" width="440">
+    <el-form label-width="90">
+      <el-form-item label="退款金额" required>
+        <el-input-number v-model="refundForm.amount" :min="0.01" :precision="2" :controls="false" style="width:100%" />
+      </el-form-item>
+      <el-form-item label="退款方式">
+        <el-select v-model="refundForm.method" style="width:100%">
+          <el-option label="转账" value="transfer" />
+          <el-option label="现金" value="cash" />
+          <el-option label="其他" value="other" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="退款原因">
+        <el-input v-model="refundForm.reason" type="textarea" :rows="2" placeholder="可选" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="refundVisible=false">取消</el-button>
+      <el-button type="primary" :loading="refundSaving" @click="submitRefund">确认退款</el-button>
+    </template>
+  </el-dialog>
   </section>
 </template>
 

@@ -2,10 +2,13 @@ import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe, UseGuard
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { AuditService } from './audit.service'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 
 @ApiTags('audit-logs')
 @Controller()
-@UseGuards(JwtAuthGuard)
+@RequirePermissions('audit:read')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class AuditController {
   constructor(private readonly service: AuditService) {}

@@ -3,10 +3,13 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { SystemService } from './system.service'
 import { UpdateSystemConfigDto } from './dto/system-config.dto'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 
 @ApiTags('system')
 @Controller()
-@UseGuards(JwtAuthGuard)
+@RequirePermissions('role:manage')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class SystemController {
   constructor(private readonly service: SystemService) {}

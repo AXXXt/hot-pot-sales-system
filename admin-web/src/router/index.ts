@@ -19,8 +19,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'orders', name: 'orders', component: () => import('../views/orders/OrderListView.vue'), meta:{title:'订单管理',permission:'order:read'} },
       { path: 'orders/:id', name: 'order-detail', component: () => import('../views/orders/OrderDetailView.vue'), meta:{title:'订单详情',permission:'order:read'} },
       { path: 'users', name: 'users', component: () => import('../views/user/UserListView.vue'), meta: { title: '用户管理', permission: 'role:manage' } },
-      { path: 'audit-logs', name: 'audit-logs', component: () => import('../views/SkeletonView.vue'), meta: { title: '审计日志', permission: 'audit:read', description: '查询后台关键操作记录', columns: ['操作人', '模块', '动作', '目标', '时间', '详情'], actions: false } },
-      { path: 'system', name: 'system', component: () => import('../views/SkeletonView.vue'), meta: { title: '系统配置', permission: 'role:manage', description: '维护系统键值配置', columns: ['配置键', '配置值', '说明', '更新时间', '操作'], actions: false } },
+      { path: 'audit-logs', name: 'audit-logs', component: () => import('../views/audit/AuditLogView.vue'), meta: { title: '审计日志', permission: 'audit:read', description: '查询后台关键操作记录' } },
+      { path: 'system', name: 'system', component: () => import('../views/system/SystemView.vue'), meta: { title: '系统配置', permission: 'role:manage', description: '维护系统键值配置' } },
       { path: 'forbidden', name: 'forbidden', component: () => import('../views/system/ForbiddenView.vue'), meta: { title: '无权限' } }
     ]
   },

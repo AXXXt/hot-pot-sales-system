@@ -5,7 +5,7 @@ import {
   ForbiddenException
 } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
-import { CreateOrderDto, AdjustPriceDto } from './dto/order.dto'
+import { CreateOrderDto, AdjustPriceDto, CreateRefundDto } from './dto/order.dto'
 import { customAlphabet } from 'nanoid'
 import { ProductVisibilityService } from '../product/product-visibility.service'
 import { AuditService } from '../audit/audit.service'
@@ -73,7 +73,8 @@ export class OrderService {
           }
         },
         items: { include: { sku: { select: { id: true, skuCode: true, specText: true } } } },
-        statusLogs: { orderBy: { createdAt: 'asc' } }
+        statusLogs: { orderBy: { createdAt: 'asc' } },
+        refunds: { orderBy: { createdAt: 'asc' } }
       }
     })
     if (!order) throw new NotFoundException({ message: '订单不存在', errorCode: 'ORD_1001' })
@@ -463,6 +464,43 @@ export class OrderService {
       operatorId: userId
     })
     return this.detail(id)
+  }
+
+  async refund(id: number, dto: CreateRefundDto, userId?: number) {
+    await this.assertStaffActor(userId)
+    const order = await this.prisma.order.findUnique({ where: { id } })
+    if (!order) throw new NotFoundException({ message: '订单不存在', errorCode: 'ORD_1001' })
+    if (order.status !== 'cancelled') {
+      throw new BadRequestException({ message: '仅已取消订单可登记退款', errorCode: 'ORD_1006' })
+    }
+    const amount = Number(dto.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException({ message: '退款金额必须大于 0', errorCode: 'ORD_1007' })
+    }
+    if (amount > Number(order.payableAmount)) {
+      throw new BadRequestException({ message: '退款金额不能超过订单应付金额', errorCode: 'ORD_1008' })
+    }
+
+    const refund = await this.prisma.orderRefund.create({
+      data: {
+        tenantId: order.tenantId,
+        orderId: id,
+        amount: dto.amount,
+        method: dto.method || 'transfer',
+        reason: dto.reason,
+        operatorId: userId ?? null
+      }
+    })
+
+    await this.audit.write({
+      action: 'price_change',
+      module: 'order',
+      targetType: 'order_refund',
+      targetId: refund.id,
+      afterData: { orderId: id, amount: dto.amount, method: refund.method, reason: dto.reason ?? null },
+      operatorId: userId
+    })
+    return refund
   }
 
   private async assertStaffActor(userId?: number) {

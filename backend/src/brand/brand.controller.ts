@@ -1,13 +1,16 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 import { BrandService } from './brand.service'
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto'
 
 @ApiTags('brand-management')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('admin/brands')
+@RequirePermissions('brand:manage')
 export class BrandController {
   constructor(private readonly brands: BrandService) {}
 

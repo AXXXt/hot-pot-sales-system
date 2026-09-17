@@ -6,6 +6,7 @@ import request from 'supertest'
 import { BrandController } from '../src/brand/brand.controller'
 import { BrandService } from '../src/brand/brand.service'
 import { JwtAuthGuard } from '../src/auth/auth.guard'
+import { PermissionsGuard } from '../src/auth/permissions.guard'
 import { requestIdMiddleware } from '../src/request-id.middleware'
 import { SuccessInterceptor } from '../src/success.interceptor'
 import { AppFilter } from '../src/app.filter'
@@ -35,7 +36,7 @@ describe('BrandController contract', () => {
         context.switchToHttp().getRequest().user = { sub: 1, tenantId: 1 }
         return true
       }
-    }).compile()
+    }).overrideGuard(PermissionsGuard).useValue({ canActivate: () => true }).compile()
 
     app = moduleRef.createNestApplication()
     app.use(requestIdMiddleware)

@@ -149,3 +149,17 @@ export class CreatePriceRuleDto {
   @IsString() @Matches(/^\d+(?:\.\d{1,2})?$/)
   price: string
 }
+
+export class CreateRepaymentDto {
+  @ApiProperty({ description: '还款金额' })
+  @IsString() @Matches(/^\d+(?:\.\d{1,2})?$/)
+  amount: string
+
+  @ApiPropertyOptional({ description: '还款方式', enum: ['transfer', 'cash', 'other'], default: 'transfer' })
+  @IsOptional() @IsIn(['transfer', 'cash', 'other'])
+  method?: string
+
+  @ApiPropertyOptional({ description: '备注' })
+  @IsOptional() @IsString() @MaxLength(255)
+  note?: string
+}

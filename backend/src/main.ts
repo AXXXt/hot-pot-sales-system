@@ -9,12 +9,19 @@ import { AppModule } from './app.module'
 import { requestIdMiddleware } from './request-id.middleware'
 import { SuccessInterceptor } from './success.interceptor'
 import { AppFilter } from './app.filter'
+import { pinoHttp } from 'pino-http'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
   const config = app.get(ConfigService)
   app.use(helmet())
   app.use(requestIdMiddleware)
+  app.use(pinoHttp({
+    genReqId: (req: any) => req.headers?.['x-request-id'] || (req as any).id,
+    autoLogging: {
+      ignore: (req: any) => req.url === '/health' || req.url === '/health/ready'
+    }
+  }))
   const corsOptions: CorsOptions = {
     origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
       const allowed = config.get<string[]>('CORS_ORIGIN') || []

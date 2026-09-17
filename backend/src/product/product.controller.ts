@@ -5,6 +5,8 @@ import { BatchArchiveProductsDto, BatchUpdateProductStatusDto, CreateProductDto,
 import { CreateSkuDto, UpdateSkuDto, UpdateSkuStatusDto } from './dto/create-sku.dto'
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto'
 import { JwtAuthGuard, OptionalJwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 import { ValidateCartDto } from './dto/validate-cart.dto'
 
 @ApiTags('products')
@@ -45,15 +47,16 @@ export class ProductController {
   }
 
   @Post('products')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建商品' })
+  @RequirePermissions('product:create')
   async create(@Body() dto: CreateProductDto, @Req() req: any) {
     return this.product.create(dto, req.user?.tenantId || 1)
   }
 
   @Post('products/cart-validation')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量校验购物车商品' })
   async validateCart(@Body() dto: ValidateCartDto, @Req() req: any) {
@@ -68,41 +71,46 @@ export class ProductController {
   }
 
   @Patch('products/batch-status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量更新商品上下架状态' })
+  @RequirePermissions('product:update')
   async batchUpdateStatus(@Body() dto: BatchUpdateProductStatusDto) {
     return this.product.batchUpdateStatus(dto.productIds, dto.status)
   }
 
   @Patch('products/batch-archive')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量安全删除商品' })
+  @RequirePermissions('product:update')
   async batchArchiveProducts(@Body() dto: BatchArchiveProductsDto) {
     return this.product.batchArchiveProducts(dto.productIds)
   }
 
   @Patch('products/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新商品' })
+  @RequirePermissions('product:update')
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProductDto, @Req() req: any) {
     return this.product.update(id, dto, req.user?.sub)
   }
 
   @Patch('products/:id/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '商品上下架' })
+  @RequirePermissions('product:update')
   async updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateProductStatusDto) {
     return this.product.updateStatus(id, dto.status)
   }
 
   @Delete('products/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '安全删除商品' })
+  @RequirePermissions('product:update')
   async archiveProduct(@Param('id', ParseIntPipe) id: number) {
     return this.product.archiveProduct(id)
   }
@@ -115,25 +123,28 @@ export class ProductController {
   }
 
   @Post('products/:id/skus')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建SKU' })
+  @RequirePermissions('product:update')
   async createSku(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateSkuDto) {
     return this.product.createSku(id, dto)
   }
 
   @Patch('skus/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新SKU' })
+  @RequirePermissions('product:update')
   async updateSku(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuDto) {
     return this.product.updateSku(id, dto)
   }
 
   @Patch('skus/:id/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'SKU启用/禁用' })
+  @RequirePermissions('product:update')
   async updateSkuStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuStatusDto) {
     return this.product.updateSkuStatus(id, dto.status)
   }
@@ -146,41 +157,46 @@ export class ProductController {
   }
 
   @Get('admin/product-categories')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '商品分类管理列表' })
+  @RequirePermissions('product:read')
   async managedCategories(@Req() req: any) {
     return this.product.managedCategories(req.user?.tenantId || 1)
   }
 
   @Post('product-categories')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建分类' })
+  @RequirePermissions('product:update')
   async createCategory(@Req() req: any, @Body() dto: CreateCategoryDto) {
     return this.product.createCategory(dto, req.user?.tenantId || 1)
   }
 
   @Patch('product-categories/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新分类' })
+  @RequirePermissions('product:update')
   async updateCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
     return this.product.updateCategory(id, dto, req.user?.tenantId || 1)
   }
 
   @Delete('product-categories/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '安全删除分类' })
+  @RequirePermissions('product:update')
   async deleteCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     return this.product.deleteCategory(id, req.user?.tenantId || 1)
   }
 
   @Patch('admin/product-categories/:id/restore')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '恢复分类' })
+  @RequirePermissions('product:update')
   async restoreCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     return this.product.restoreCategory(id, req.user?.tenantId || 1)
   }

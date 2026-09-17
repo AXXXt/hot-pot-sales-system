@@ -51,3 +51,11 @@ export function approveCustomer(id: number) {
 export function rejectCustomer(id: number, reason?: string) {
   return http.post(`/customers/${id}/reject`, { reason })
 }
+
+export function getRepayments(customerId: number) {
+  return http.get(`/customers/${customerId}/repayments`)
+}
+
+export function createRepayment(customerId: number, data: Record<string, unknown>) {
+  return http.post(`/customers/${customerId}/repayments`, data)
+}

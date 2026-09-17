@@ -1,0 +1,29 @@
+{
+  "tenantCode": "demo",
+  "customerPhone": "13900000000",
+  "brands": [
+    {
+      "name": "示例品牌",
+      "code": "SHILI",
+      "products": [
+        {
+          "name": "示例毛肚",
+          "baseSpec": "500g/袋",
+          "categoryName": "毛肚类",
+          "isFactoryProduct": true,
+          "skus": [
+            {
+              "skuCode": "SKU-SHILI-001",
+              "specText": "500g/袋",
+              "saleUnit": "袋",
+              "basePrice": "38.00",
+              "minOrderQty": 1,
+              "stockNum": 100,
+              "customerPrice": "35.00"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

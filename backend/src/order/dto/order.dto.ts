@@ -7,7 +7,9 @@ import {
   IsString,
   MaxLength,
   Min,
-  ValidateNested
+  ValidateNested,
+  IsIn,
+  Matches
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
@@ -58,4 +60,17 @@ export class AdjustPriceDto {
   @ApiProperty({ description: '调整原因' })
   @IsString() @MaxLength(255)
   reason: string
+}
+export class CreateRefundDto {
+  @ApiProperty({ description: '退款金额' })
+  @IsString() @Matches(/^\d+(?:\.\d{1,2})?$/)
+  amount: string
+
+  @ApiPropertyOptional({ description: '退款方式', enum: ['transfer', 'cash', 'other'], default: 'transfer' })
+  @IsOptional() @IsIn(['transfer', 'cash', 'other'])
+  method?: string
+
+  @ApiPropertyOptional({ description: '退款原因' })
+  @IsOptional() @IsString() @MaxLength(255)
+  reason?: string
 }

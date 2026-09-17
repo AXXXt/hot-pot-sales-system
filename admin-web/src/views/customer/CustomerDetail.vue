@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Edit } from '@element-plus/icons-vue'
-import { getCustomerDetail, updateCustomer, getCustomerLevels, getPriceRules, createPriceRule, deletePriceRule } from '../../api/customer'
+import { getCustomerDetail, updateCustomer, getCustomerLevels, getPriceRules, createPriceRule, deletePriceRule, getRepayments, createRepayment } from '../../api/customer'
 import { getProducts } from '../../api/product'
 import ProductVisibilityCard from './components/ProductVisibilityCard.vue'
 
@@ -42,6 +42,37 @@ const skuOptions = computed(() => products.value.flatMap((product: any) =>
 const ruleDialogTitle = computed(() => ruleForm.value.id ? '编辑协议价' : '添加协议价')
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
+const repayments = ref<any[]>([])
+const repayVisible = ref(false)
+const repaySaving = ref(false)
+const repayForm = ref<any>({ amount: 0, method: 'transfer', note: '' })
+
+const methodText = (m: string) => ({ transfer: '转账', cash: '现金', other: '其他' } as Record<string, string>)[m] || m || '-'
+
+async function loadRepayments() {
+  try {
+    const res: any = await getRepayments(id)
+    repayments.value = dataOf(res) || []
+  } catch { /* silent */ }
+}
+
+function openRepay() {
+  repayForm.value = { amount: 0, method: 'transfer', note: '' }
+  repayVisible.value = true
+}
+
+async function submitRepay() {
+  const amount = Number(repayForm.value.amount)
+  if (!Number.isFinite(amount) || amount <= 0) { ElMessage.warning('请输入大于 0 的还款金额'); return }
+  repaySaving.value = true
+  try {
+    await createRepayment(id, { amount: String(amount), method: repayForm.value.method, note: repayForm.value.note || undefined })
+    ElMessage.success('还款登记成功')
+    repayVisible.value = false
+    await load()
+  } catch (e: any) { ElMessage.warning(e.message || '还款登记失败') }
+  finally { repaySaving.value = false }
+}
 
 async function load() {
   loading.value = true
@@ -54,6 +85,7 @@ async function load() {
     customer.value = dataOf(cRes)
     levels.value = dataOf(lRes) || []
     priceRules.value = dataOf(pRes) || []
+    await loadRepayments()
   } catch (e: any) {
     const status = e?.response?.status
     if (status === 404 || (e?.message && e.message.includes('404'))) { router.back() }
@@ -221,8 +253,12 @@ onMounted(load)
             <el-descriptions-item label="折扣率">{{ customer.level?.discountRate ? (Number(customer.level.discountRate) * 100).toFixed(0) + '%' : '无折扣' }}</el-descriptions-item>
             <el-descriptions-item label="信用额度">¥ {{ (customer.creditLimit || 0).toLocaleString() }}</el-descriptions-item>
             <el-descriptions-item label="账期天数">{{ customer.creditDays || 0 }} 天</el-descriptions-item>
+            <el-descriptions-item label="已用额度">¥ {{ (customer.creditUsed || 0).toLocaleString() }}</el-descriptions-item>
             <el-descriptions-item label="注册时间">{{ new Date(customer.createdAt).toLocaleString('zh-CN') }}</el-descriptions-item>
           </el-descriptions>
+          <div style="margin-top:12px">
+            <el-button size="small" type="warning" plain @click="openRepay">还款登记</el-button>
+          </div>
         </el-card>
       </div>
 
@@ -257,6 +293,24 @@ onMounted(load)
           </el-table-column>
         </el-table>
         <div v-else class="inline-empty">暂无协议价格</div>
+      </el-card>
+
+      <!-- 还款记录 -->
+      <el-card shadow="never" style="margin-top:16px">
+        <template #header><strong>还款记录</strong></template>
+        <el-table v-if="repayments.length" :data="repayments" size="small" stripe>
+          <el-table-column label="时间" width="170">
+            <template #default="{row}">{{ new Date(row.createdAt).toLocaleString('zh-CN') }}</template>
+          </el-table-column>
+          <el-table-column label="金额" width="120">
+            <template #default="{row}">¥{{ Number(row.amount).toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column label="方式" width="110">
+            <template #default="{row}">{{ methodText(row.method) }}</template>
+          </el-table-column>
+          <el-table-column prop="note" label="备注" min-width="140"><template #default="{row}">{{ row.note || '-' }}</template></el-table-column>
+        </el-table>
+        <div v-else class="inline-empty">暂无还款记录</div>
       </el-card>
     </template>
 
@@ -322,6 +376,28 @@ onMounted(load)
         <el-button type="primary" :loading="ruleSaving" @click="saveRule">保存</el-button>
       </template>
     </el-dialog>
+  <!-- Repayment Dialog -->
+  <el-dialog v-model="repayVisible" title="登记客户还款" width="420">
+    <el-form label-width="90">
+      <el-form-item label="还款金额" required>
+        <el-input-number v-model="repayForm.amount" :min="0.01" :precision="2" :controls="false" style="width:100%" placeholder="大于 0" />
+      </el-form-item>
+      <el-form-item label="还款方式">
+        <el-select v-model="repayForm.method" style="width:100%">
+          <el-option label="转账" value="transfer" />
+          <el-option label="现金" value="cash" />
+          <el-option label="其他" value="other" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="备注">
+        <el-input v-model="repayForm.note" placeholder="可选" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="repayVisible=false">取消</el-button>
+      <el-button type="primary" :loading="repaySaving" @click="submitRepay">确认还款</el-button>
+    </template>
+  </el-dialog>
   </section>
 </template>
 

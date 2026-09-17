@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { OrderService } from './order.service'
-import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto } from './dto/order.dto'
+import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, CreateRefundDto } from './dto/order.dto'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 
 @ApiTags('orders')
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class OrderController {
   constructor(private readonly service: OrderService) {}
@@ -35,6 +37,7 @@ export class OrderController {
 
   @Get('orders/price-history/:customerId')
   @ApiOperation({ summary: '客户历史价格（用于报价回填）' })
+  @RequirePermissions('order:read')
   async getPriceHistory(@Param('customerId', ParseIntPipe) customerId: number, @Query('skuIds') skuIds: string) {
     return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean))
   }
@@ -58,6 +61,7 @@ export class OrderController {
   // pending_quote -> pending_confirm (admin submits quote for customer confirmation)
   @Post('orders/:id/quote')
   @ApiOperation({ summary: '管理端报价 (pending_quote -> pending_confirm)' })
+  @RequirePermissions('order:confirm')
   async quote(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { items: Array<{ skuId: number; quotedPrice: number }>; note?: string },
@@ -85,6 +89,7 @@ export class OrderController {
   // pending_finance -> pending_shipment (admin approves & deducts stock)
   @Post('orders/:id/approve-finance')
   @ApiOperation({ summary: '财务审核通过并扣减库存 (pending_finance -> pending_shipment)' })
+  @RequirePermissions('order:confirm')
   async approveFinance(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.service.approveFinance(id, req.user?.sub)
   }
@@ -92,6 +97,7 @@ export class OrderController {
   // pending_shipment -> shipped (admin enters logistics)
   @Post('orders/:id/ship')
   @ApiOperation({ summary: '录入物流并发货 (pending_shipment -> shipped)' })
+  @RequirePermissions('order:confirm')
   async ship(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { logisticsType: string; driverName?: string; driverPhone?: string; plateNumber?: string },
@@ -117,7 +123,15 @@ export class OrderController {
   // Price adjustment
   @Post('orders/:id/adjust-price')
   @ApiOperation({ summary: '订单改价' })
+  @RequirePermissions('order:confirm')
   async adjustPrice(@Param('id', ParseIntPipe) id: number, @Body() dto: AdjustPriceDto, @Req() req: any) {
     return this.service.adjustPrice(id, dto, req.user?.sub)
+  }
+
+  @Post('orders/:id/refund')
+  @ApiOperation({ summary: '退款登记（仅已取消订单）' })
+  @RequirePermissions('order:confirm')
+  async refund(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateRefundDto, @Req() req: any) {
+    return this.service.refund(id, dto, req.user?.sub)
   }
 }

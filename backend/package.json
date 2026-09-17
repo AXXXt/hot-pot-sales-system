@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev --name init",
     "db:seed:dev": "ts-node prisma/seed.dev.ts",
     "db:backfill-brand-codes": "ts-node prisma/backfill-brand-codes.ts",
+    "data:import": "ts-node prisma/import-data.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

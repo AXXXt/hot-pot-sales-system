@@ -3,10 +3,13 @@ import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { UserService } from './user.service'
 import { CreateUserDto, UpdateUserDto, CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/user.dto'
 import { JwtAuthGuard } from '../auth/auth.guard'
+import { PermissionsGuard } from '../auth/permissions.guard'
+import { RequirePermissions } from '../auth/require-permissions.decorator'
 
 @ApiTags('users')
 @Controller()
-@UseGuards(JwtAuthGuard)
+@RequirePermissions('role:manage')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class UserController {
   constructor(private readonly service: UserService) {}

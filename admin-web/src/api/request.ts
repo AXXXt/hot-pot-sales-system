@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://127.0.0.1:3000/api/v1'
+
 const http = axios.create({
-  baseURL: 'http://127.0.0.1:3000/api/v1',
+  baseURL: API_BASE_URL,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 })
@@ -70,7 +72,7 @@ http.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true
         try {
-          const res = await axios.post('http://127.0.0.1:3000/api/v1/auth/refresh-token', { refreshToken })
+          const res = await axios.post(`${API_BASE_URL}/auth/refresh-token`, { refreshToken })
           if (res.data?.code === 0 && res.data?.data) {
             const { accessToken, refreshToken: newRefresh } = res.data.data
             setTokens(accessToken, newRefresh)

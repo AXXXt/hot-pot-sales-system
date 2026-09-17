@@ -8,6 +8,7 @@ import { ProductService } from '../src/product/product.service'
 import { PrismaService } from '../src/prisma.service'
 import { REDIS } from '../src/redis.provider'
 import { JwtAuthGuard } from '../src/auth/auth.guard'
+import { PermissionsGuard } from '../src/auth/permissions.guard'
 import { requestIdMiddleware } from '../src/request-id.middleware'
 import { SuccessInterceptor } from '../src/success.interceptor'
 import { AppFilter } from '../src/app.filter'
@@ -53,7 +54,7 @@ describe('product HTTP contract', () => {
         context.switchToHttp().getRequest().user = { sub: 1, tenantId: 1 }
         return true
       }
-    }).compile()
+    }).overrideGuard(PermissionsGuard).useValue({ canActivate: () => true }).compile()
 
     app = moduleRef.createNestApplication()
     app.use(requestIdMiddleware)

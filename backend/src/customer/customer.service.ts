@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
-import { CreateCustomerDto, UpdateCustomerDto, CreateCustomerLevelDto, UpdateCustomerLevelDto, CreatePriceRuleDto } from './dto/create-customer.dto'
+import { CreateCustomerDto, UpdateCustomerDto, CreateCustomerLevelDto, UpdateCustomerLevelDto, CreatePriceRuleDto, CreateRepaymentDto } from './dto/create-customer.dto'
 import { UpdateProductVisibilityDto } from './dto/update-product-visibility.dto'
 import { AuditService } from '../audit/audit.service'
 
@@ -391,5 +391,57 @@ export class CustomerService {
       afterData: { status: 'disabled' }
     })
     return updated
+  }
+
+  async repayments(customerId: number) {
+    return this.prisma.customerRepayment.findMany({
+      where: { tenantId: 1, customerId },
+      orderBy: { createdAt: 'desc' }
+    })
+  }
+
+  async createRepayment(customerId: number, dto: CreateRepaymentDto, userId?: number) {
+    const amount = Number(dto.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException({ message: '还款金额必须大于 0', errorCode: 'CUS_1007' })
+    }
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, creditUsed: true }
+    })
+    if (!customer) throw new NotFoundException({ message: '客户不存在', errorCode: 'CUS_1001' })
+
+    const repayment = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.customer.findUnique({
+        where: { id: customerId },
+        select: { creditUsed: true }
+      })
+      const nextCreditUsed = Math.max(0, Number(current?.creditUsed || 0) - amount)
+      await tx.customer.update({
+        where: { id: customerId },
+        data: { creditUsed: nextCreditUsed.toFixed(2) }
+      })
+      return tx.customerRepayment.create({
+        data: {
+          tenantId: 1,
+          customerId,
+          amount: dto.amount,
+          method: dto.method || 'transfer',
+          note: dto.note,
+          operatorId: userId ?? null
+        }
+      })
+    })
+
+    await this.audit.write({
+      action: 'update',
+      module: 'customer',
+      targetType: 'customer_repayment',
+      targetId: repayment.id,
+      afterData: { customerId, amount: dto.amount, method: repayment.method, note: dto.note ?? null },
+      operatorId: userId
+    })
+    return repayment
   }
 }
