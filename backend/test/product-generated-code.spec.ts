@@ -21,7 +21,8 @@ function createService(prisma: any) {
   return new ProductService(
     prisma,
     { get: jest.fn(), set: jest.fn() } as any,
-    { whereForUser: jest.fn().mockResolvedValue({}) } as any
+    { whereForUser: jest.fn().mockResolvedValue({}) } as any,
+    { write: jest.fn() } as any
   )
 }
 

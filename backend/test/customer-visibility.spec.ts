@@ -19,7 +19,7 @@ describe('CustomerService product visibility', () => {
       },
       product: { count: jest.fn().mockResolvedValue(1) }
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.getProductVisibility(3)).resolves.toEqual({
       mode: 'custom',
@@ -59,7 +59,7 @@ describe('CustomerService product visibility', () => {
       },
       $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<void>) => callback(tx))
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await service.updateProductVisibility(3, { mode: 'custom', productIds: [7, 8] } as any)
 
@@ -85,7 +85,7 @@ describe('CustomerService product visibility', () => {
       product: { findMany: jest.fn() },
       $transaction: jest.fn()
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.updateProductVisibility(3, { mode: 'custom', productIds } as any))
       .rejects.toThrow(message)
@@ -100,7 +100,7 @@ describe('CustomerService product visibility', () => {
       },
       $transaction: jest.fn()
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.updateProductVisibility(3, { mode: 'custom', productIds: [7, 8] } as any))
       .rejects.toBeInstanceOf(BadRequestException)
@@ -123,7 +123,7 @@ describe('CustomerService product visibility', () => {
       product: { count: jest.fn().mockResolvedValue(5) },
       $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<void>) => callback(tx))
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await service.updateProductVisibility(3, { mode: 'factory' } as any)
 
@@ -132,7 +132,7 @@ describe('CustomerService product visibility', () => {
 
   it('returns 404 for an unknown customer', async () => {
     const prisma = { customer: { findUnique: jest.fn().mockResolvedValue(null) } }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.getProductVisibility(404)).rejects.toBeInstanceOf(NotFoundException)
   })

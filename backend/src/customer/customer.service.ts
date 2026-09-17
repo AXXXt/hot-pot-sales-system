@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service'
 import { CreateCustomerDto, UpdateCustomerDto, CreateCustomerLevelDto, UpdateCustomerLevelDto, CreatePriceRuleDto } from './dto/create-customer.dto'
 import { UpdateProductVisibilityDto } from './dto/update-product-visibility.dto'
+import { AuditService } from '../audit/audit.service'
 
 @Injectable()
 export class CustomerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService
+  ) {}
 
   async list(query: { keyword?: string; status?: string; page: number; pageSize: number }) {
     const { keyword, status, page, pageSize } = query
@@ -151,6 +155,13 @@ export class CustomerService {
       }
     })
 
+    await this.audit.write({
+      action: 'update',
+      module: 'customer',
+      targetType: 'customer',
+      targetId: id,
+      afterData: { productVisibilityMode: dto.mode, productIds }
+    })
     return this.getProductVisibility(id)
   }
 
@@ -190,6 +201,13 @@ export class CustomerService {
         data: { status: 'active' }
       })
     })
+    await this.audit.write({
+      action: 'update',
+      module: 'customer',
+      targetType: 'customer',
+      targetId: id,
+      afterData: { status: 'active', action: 'approve' }
+    })
     return { id, status: 'active', message: '审核通过' }
   }
 
@@ -208,6 +226,13 @@ export class CustomerService {
       })
     })
     const message = reason ? `已驳回并禁用：${reason}` : '已驳回并禁用'
+    await this.audit.write({
+      action: 'update',
+      module: 'customer',
+      targetType: 'customer',
+      targetId: id,
+      afterData: { status: 'disabled', action: 'reject', reason: reason || '' }
+    })
     return { id, status: 'disabled', message }
   }
 
@@ -305,7 +330,7 @@ export class CustomerService {
       throw new NotFoundException({ message: '商品规格不存在或已下架', errorCode: 'CUS_1005' })
     }
 
-    return this.prisma.customerPriceRule.upsert({
+    const rule = await this.prisma.customerPriceRule.upsert({
       where: {
         tenantId_customerId_skuId: {
           tenantId: 1,
@@ -333,6 +358,15 @@ export class CustomerService {
         status: 'active'
       }
     })
+
+    await this.audit.write({
+      action: 'price_change',
+      module: 'customer',
+      targetType: 'customer_price_rule',
+      targetId: rule.id,
+      afterData: { customerId: dto.customerId, skuId: dto.skuId, price: dto.price, priceType: 'agreement' }
+    })
+    return rule
   }
 
   async deletePriceRule(id: number) {
@@ -344,9 +378,18 @@ export class CustomerService {
       throw new NotFoundException({ message: '协议价不存在', errorCode: 'CUS_1006' })
     }
 
-    return this.prisma.customerPriceRule.update({
+    const updated = await this.prisma.customerPriceRule.update({
       where: { id },
       data: { status: 'disabled' }
     })
+    await this.audit.write({
+      action: 'price_change',
+      module: 'customer',
+      targetType: 'customer_price_rule',
+      targetId: id,
+      beforeData: { status: 'active' },
+      afterData: { status: 'disabled' }
+    })
+    return updated
   }
 }

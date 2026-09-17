@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma.service'
+import { setAuditUserId } from '../audit/audit-context'
 
 async function ensureActiveUser(prisma: PrismaService, userId: number) {
   const user = await prisma.user.findUnique({
@@ -39,6 +40,7 @@ export class JwtAuthGuard implements CanActivate {
 
     await ensureActiveUser(this.prisma, Number(payload.sub))
     request.user = payload
+    setAuditUserId(Number(payload.sub))
     return true
   }
 }
@@ -67,6 +69,7 @@ export class OptionalJwtAuthGuard implements CanActivate {
 
     await ensureActiveUser(this.prisma, Number(payload.sub))
     request.user = payload
+    setAuditUserId(Number(payload.sub))
     return true
   }
 }

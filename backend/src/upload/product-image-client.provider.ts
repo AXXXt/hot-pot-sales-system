@@ -6,7 +6,7 @@ export const PRODUCT_IMAGE_CLIENT = Symbol('PRODUCT_IMAGE_CLIENT')
 
 export type ProductImageClient = Pick<
   Client,
-  'bucketExists' | 'makeBucket' | 'getBucketPolicy' | 'setBucketPolicy' | 'putObject'
+  'bucketExists' | 'makeBucket' | 'getBucketPolicy' | 'setBucketPolicy' | 'putObject' | 'presignedGetObject'
 >
 
 export const productImageClientProvider: Provider = {

@@ -20,7 +20,7 @@ describe('customer agreement pricing', () => {
       }
     }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     const product = await (service as any).detail(1, 7)
 
@@ -61,7 +61,7 @@ describe('customer agreement pricing', () => {
       orderStatusLog: { create: jest.fn().mockResolvedValue({}) }
     }
     const visibility = { whereForCustomer: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new OrderService(prisma as any, visibility as any)
+    const service = new OrderService(prisma as any, visibility as any, { write: jest.fn() } as any)
 
     await service.create({
       customerId: 3,
@@ -103,7 +103,7 @@ describe('customer agreement pricing', () => {
     const visibility = {
       whereForCustomer: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
-    const service = new OrderService(prisma as any, visibility as any)
+    const service = new OrderService(prisma as any, visibility as any, { write: jest.fn() } as any)
 
     await expect(service.create({
       customerId: 3,
@@ -151,7 +151,7 @@ describe('customer agreement pricing', () => {
       orderStatusLog: { create: jest.fn() }
     }
     const visibility = { whereForCustomer: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new OrderService(prisma as any, visibility as any)
+    const service = new OrderService(prisma as any, visibility as any, { write: jest.fn() } as any)
 
     await expect(service.create({
       customerId: 3,

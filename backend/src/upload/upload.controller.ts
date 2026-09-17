@@ -1,6 +1,8 @@
 import {
   Controller,
+  Get,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors
@@ -11,6 +13,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiTags
 } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/auth.guard'
@@ -28,6 +31,13 @@ import {
 @Controller('uploads')
 export class UploadController {
   constructor(private readonly storage: ProductImageStorageService) {}
+
+  @Get('payment-proof-url')
+  @ApiOperation({ summary: '获取转账凭证签名访问地址（私有读）' })
+  @ApiQuery({ name: 'key', required: true, description: '凭证 objectKey 或完整地址' })
+  async paymentProofUrl(@Query('key') key: string) {
+    return this.storage.getPaymentProofSignedUrl(key)
+  }
 
   @Post('payment-proof')
   @ApiOperation({ summary: '上传转账凭证' })

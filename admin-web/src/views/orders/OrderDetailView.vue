@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder } from '../../api/order'
+import { getPaymentProofUrl } from '../../api/upload'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +20,25 @@ const quoteNote = ref('')
 const shipForm = reactive({ logisticsType: 'tricycle', driverName: '', driverPhone: '', plateNumber: '' })
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
+const viewingProof = ref(false)
+
+async function viewPaymentProof() {
+  if (!order.value.paymentProof || viewingProof.value) return
+  viewingProof.value = true
+  try {
+    const res: any = await getPaymentProofUrl(order.value.paymentProof)
+    const url = dataOf(res).url
+    if (url) {
+      window.open(url, '_blank', 'noopener')
+    } else {
+      ElMessage.warning('凭证地址无效')
+    }
+  } catch (e: any) {
+    ElMessage.warning(e.message || '获取凭证失败')
+  } finally {
+    viewingProof.value = false
+  }
+}
 
 async function fetch() {
   loading.value = true; error.value = ''
@@ -173,7 +193,7 @@ onMounted(fetch)
         </el-descriptions>
         <div v-if="order.paymentProof" style="margin-top:12px">
           <el-tag type="success" size="small">已上传付款凭证</el-tag>
-          <span class="inline-hint inline-hint--inline">{{ order.paymentProof }}</span>
+          <el-button link type="primary" size="small" :loading="viewingProof" @click="viewPaymentProof">查看凭证</el-button>
         </div>
         <div v-if="order.logisticsInfo" style="margin-top:12px">
           <el-tag type="primary" size="small">物流信息</el-tag>

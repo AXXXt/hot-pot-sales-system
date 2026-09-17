@@ -16,7 +16,7 @@ describe('customer price rules', () => {
       },
       customerPriceRule: { upsert }
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await service.createPriceRule({ customerId: 3, skuId: 11, price: '80.00' })
 
@@ -52,7 +52,7 @@ describe('customer price rules', () => {
       productSku: { findFirst: jest.fn() },
       customerPriceRule: { upsert: jest.fn() }
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.createPriceRule({ customerId: 3, skuId: 11, price: '0.00' }))
       .rejects.toMatchObject({ response: { errorCode: 'CUS_1004' } })
@@ -67,7 +67,7 @@ describe('customer price rules', () => {
         update
       }
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await service.deletePriceRule(8)
 
@@ -84,7 +84,7 @@ describe('customer price rules', () => {
         update: jest.fn()
       }
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
     await expect(service.deletePriceRule(99))
       .rejects.toMatchObject({ response: { errorCode: 'CUS_1006' } })

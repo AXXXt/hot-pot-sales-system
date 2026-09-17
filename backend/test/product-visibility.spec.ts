@@ -98,7 +98,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.list(listParams, 7)
 
@@ -116,7 +116,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({})
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.list({ page: 1, pageSize: 10, includeDisabled: true } as any, 7)
 
@@ -130,7 +130,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await expect(service.detail(9)).resolves.toMatchObject({ id: 9 })
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
@@ -142,7 +142,7 @@ describe('ProductService visibility integration', () => {
     const findMany = jest.fn().mockResolvedValue([])
     const prisma = { productSku: { findMany } }
     const visibility = { assertVisible: jest.fn().mockResolvedValue(undefined) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.skus(4, 12)
 
@@ -163,7 +163,7 @@ describe('ProductService visibility integration', () => {
       product: { create, findFirst: jest.fn().mockResolvedValue(null) }
     }
     prisma.$transaction = jest.fn(async (callback: (transaction: any) => unknown) => callback(prisma))
-    const service = new ProductService(prisma as any, {} as any, {} as any)
+    const service = new ProductService(prisma as any, {} as any, {} as any, { write: jest.fn() } as any)
 
     await service.create({
       brandId: 5,
@@ -198,7 +198,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await expect(service.validateCart([11, 12], 7)).resolves.toMatchObject({
       items: [expect.objectContaining({ skuId: 11, available: true, price: '20.00' })],
@@ -212,7 +212,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.categories(7)
 
@@ -229,7 +229,7 @@ describe('ProductService visibility integration', () => {
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({})
     }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.categories(1)
 

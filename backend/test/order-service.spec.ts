@@ -45,7 +45,7 @@ describe('OrderService checkout invariants', () => {
     return {
       prisma,
       visibility,
-      service: new OrderService(prisma as any, visibility as any)
+      service: new OrderService(prisma as any, visibility as any, { write: jest.fn() } as any)
     }
   }
 
@@ -197,7 +197,7 @@ describe('OrderService customer finance flow', () => {
       },
       $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<any>) => callback(tx))
     }
-    const service = new OrderService(prisma as any, {} as any)
+    const service = new OrderService(prisma as any, {} as any, { write: jest.fn() } as any)
     return { service, prisma, tx }
   }
 
@@ -287,7 +287,7 @@ describe('OrderService customer finance flow', () => {
       },
       $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<any>) => callback(tx))
     }
-    const service = new OrderService(prisma as any, {} as any)
+    const service = new OrderService(prisma as any, {} as any, { write: jest.fn() } as any)
 
     await service.cancel(100, 9)
 

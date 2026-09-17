@@ -20,7 +20,7 @@ describe('customer status safety', () => {
       },
       $transaction: jest.fn(async (callback: any) => callback(transactionClient))
     }
-    const service = new CustomerService(prisma as any)
+    const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
     return { service, prisma, transactionCustomerUpdate, transactionUserUpdateMany }
   }
 

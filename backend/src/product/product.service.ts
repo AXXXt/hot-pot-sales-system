@@ -7,6 +7,7 @@ import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto'
 import { CreateSkuDto, UpdateSkuDto } from './dto/create-sku.dto'
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto'
 import { ProductVisibilityService } from './product-visibility.service'
+import { AuditService } from '../audit/audit.service'
 import { buildProductCode, toCategorySegment } from './product-code'
 
 const PRODUCT_LIST_INCLUDE = Prisma.validator<Prisma.ProductInclude>()({
@@ -46,7 +47,8 @@ export class ProductService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null> },
-    private readonly visibility: ProductVisibilityService
+    private readonly visibility: ProductVisibilityService,
+    private readonly audit: AuditService
   ) {}
 
   async list(params: ListParams, userId?: number) {
@@ -99,7 +101,7 @@ export class ProductService {
       throw new BadRequestException({ message: '请选择品牌', errorCode: 'BRD_1003' })
     }
 
-    return this.prisma.$transaction(async (transaction) => {
+    const product = await this.prisma.$transaction(async (transaction) => {
       const identity = await this.allocateProductIdentity(transaction, tenantId, dto.brandId!, dto.categoryId)
       return transaction.product.create({
         data: {
@@ -124,6 +126,15 @@ export class ProductService {
         include: { category: { select: { id: true, name: true } }, brand: { select: { id: true, name: true } } }
       })
     })
+
+    await this.audit.write({
+      action: 'create',
+      module: 'product',
+      targetType: 'product',
+      targetId: product.id,
+      afterData: { code: product.code, name: product.name, brandId: product.brandId, categoryId: product.categoryId }
+    })
+    return product
   }
 
   private async allocateProductIdentity(
@@ -219,6 +230,14 @@ export class ProductService {
 
       await transaction.product.update({ where: { id }, data: updateData })
     })
+    await this.audit.write({
+      action: 'update',
+      module: 'product',
+      targetType: 'product',
+      targetId: id,
+      afterData: { ...dto },
+      operatorId: userId
+    })
     return this.detail(id, userId)
   }
 
@@ -227,6 +246,13 @@ export class ProductService {
       throw new BadRequestException({ message: '无效状态', errorCode: 'PRO_1002' })
     }
     await this.prisma.product.update({ where: { id }, data: { status: status as any } })
+    await this.audit.write({
+      action: 'update',
+      module: 'product',
+      targetType: 'product',
+      targetId: id,
+      afterData: { status }
+    })
     return { id, status }
   }
 
@@ -242,6 +268,13 @@ export class ProductService {
     const result = await this.prisma.product.updateMany({
       where: { id: { in: uniqueProductIds } },
       data: { status: status as any }
+    })
+    await this.audit.write({
+      action: 'update',
+      module: 'product',
+      targetType: 'product',
+      targetId: uniqueProductIds.join(','),
+      afterData: { productIds: uniqueProductIds, status, updatedCount: result.count }
     })
     return {
       productIds: uniqueProductIds,
@@ -264,11 +297,20 @@ export class ProductService {
     }
     if (product.status === 'archived') return product
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data: { status: 'archived' },
       select: { id: true, status: true }
     })
+    await this.audit.write({
+      action: 'delete',
+      module: 'product',
+      targetType: 'product',
+      targetId: id,
+      beforeData: { status: product.status },
+      afterData: { status: 'archived' }
+    })
+    return updated
   }
 
   async batchArchiveProducts(productIds: number[]) {
@@ -280,6 +322,13 @@ export class ProductService {
     const result = await this.prisma.product.updateMany({
       where: { id: { in: uniqueProductIds }, status: { not: 'archived' } },
       data: { status: 'archived' }
+    })
+    await this.audit.write({
+      action: 'delete',
+      module: 'product',
+      targetType: 'product',
+      targetId: uniqueProductIds.join(','),
+      afterData: { productIds: uniqueProductIds, status: 'archived', updatedCount: result.count }
     })
     return {
       productIds: uniqueProductIds,

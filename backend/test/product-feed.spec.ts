@@ -22,7 +22,7 @@ describe('ProductService home feeds', () => {
     const count = jest.fn().mockResolvedValue(0)
     const prisma = { product: { findMany, count } }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.list({ ...baseParams, feed } as any, 7)
 
@@ -49,7 +49,7 @@ describe('ProductService home feeds', () => {
       product: { findMany }
     }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     const result = await service.list({ ...baseParams, feed: 'frequent' } as any, 7)
 
@@ -83,7 +83,7 @@ describe('ProductService home feeds', () => {
       product: { findMany }
     }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.list({ page: 1, pageSize: 6, feed: 'frequent' } as any, 7)
 
@@ -108,7 +108,7 @@ describe('ProductService home feeds', () => {
       product: { findMany: jest.fn() }
     }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await expect(service.list({ ...baseParams, feed: 'frequent' } as any, 7)).resolves.toEqual({
       items: [],
@@ -131,7 +131,7 @@ describe('ProductService home feeds', () => {
       product: { create, findFirst: jest.fn().mockResolvedValue(null) }
     }
     prisma.$transaction = jest.fn(async (callback: (transaction: any) => unknown) => callback(prisma))
-    const service = new ProductService(prisma as any, {} as any, {} as any)
+    const service = new ProductService(prisma as any, {} as any, {} as any, { write: jest.fn() } as any)
 
     await service.create({
       brandId: 5,
@@ -152,7 +152,7 @@ describe('ProductService home feeds', () => {
     const count = jest.fn().mockResolvedValue(0)
     const prisma = { product: { findMany, count } }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     await service.list({
       ...baseParams,
@@ -180,7 +180,7 @@ describe('ProductService home feeds', () => {
       product: { findMany, count: jest.fn().mockResolvedValue(3) }
     }
     const visibility = { whereForUser: jest.fn().mockResolvedValue({ status: 'active' }) }
-    const service = new ProductService(prisma as any, {} as any, visibility as any)
+    const service = new ProductService(prisma as any, {} as any, visibility as any, { write: jest.fn() } as any)
 
     const result = await service.list({
       ...baseParams,

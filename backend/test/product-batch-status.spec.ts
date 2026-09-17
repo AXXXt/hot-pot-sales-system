@@ -5,7 +5,7 @@ describe('ProductService batch status updates', () => {
   it('deduplicates product IDs and disables them in one update', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 2 })
     const prisma = { product: { updateMany } }
-    const service = new ProductService(prisma as any, {} as any, {} as any)
+    const service = new ProductService(prisma as any, {} as any, {} as any, { write: jest.fn() } as any)
 
     await expect(service.batchUpdateStatus([3, 3, 7], 'disabled')).resolves.toEqual({
       productIds: [3, 7],
@@ -22,7 +22,7 @@ describe('ProductService batch status updates', () => {
     [[], 'disabled'],
     [[1], 'archived']
   ])('rejects invalid batch updates', async (productIds, status) => {
-    const service = new ProductService({} as any, {} as any, {} as any)
+    const service = new ProductService({} as any, {} as any, {} as any, { write: jest.fn() } as any)
 
     await expect(service.batchUpdateStatus(productIds, status)).rejects.toBeInstanceOf(BadRequestException)
   })

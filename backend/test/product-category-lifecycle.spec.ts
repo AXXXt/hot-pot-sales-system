@@ -23,7 +23,8 @@ function createService(prisma: any, accessWhere: Record<string, unknown> = {}) {
   return new ProductService(
     prisma,
     {} as any,
-    { whereForUser: jest.fn().mockResolvedValue(accessWhere) } as any
+    { whereForUser: jest.fn().mockResolvedValue(accessWhere) } as any,
+    { write: jest.fn() } as any
   )
 }
 

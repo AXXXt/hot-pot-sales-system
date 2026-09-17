@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma.service'
 import { CreateOrderDto, AdjustPriceDto } from './dto/order.dto'
 import { customAlphabet } from 'nanoid'
 import { ProductVisibilityService } from '../product/product-visibility.service'
+import { AuditService } from '../audit/audit.service'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -26,7 +27,8 @@ const TRANSITIONS: Record<string, string[]> = {
 export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly productVisibility: ProductVisibilityService
+    private readonly productVisibility: ProductVisibilityService,
+    private readonly audit: AuditService
   ) {}
 
   async list(query: { status?: string; customerId?: number; page: number; pageSize: number }) {
@@ -219,6 +221,15 @@ export class OrderService {
     }
 
     await this.prisma.order.update({ where: { id }, data: { quotedAmount: total.toString(), payableAmount: total.toString(), totalAmount: total.toString(), quoteNote: note || '' } })
+    await this.audit.write({
+      action: 'price_change',
+      module: 'order',
+      targetType: 'order',
+      targetId: id,
+      beforeData: { quotedAmount: order.quotedAmount?.toString() ?? null },
+      afterData: { quotedAmount: total.toString(), quoteNote: note || '', items: items.map((item) => ({ skuId: item.skuId, quotedPrice: item.quotedPrice })) },
+      operatorId: userId
+    })
     return this.transition(id, 'pending_confirm', userId)
   }
 
@@ -419,8 +430,38 @@ export class OrderService {
     if (!['draft', 'pending_quote', 'pending_confirm'].includes(order.status)) {
       throw new BadRequestException({ message: '客户确认支付后不允许改价' })
     }
-    const before = order.payableAmount
-    await this.prisma.order.update({ where: { id }, data: { payableAmount: dto.afterAmount, adjustAmount: (Number(dto.afterAmount) - Number(before)).toString() } })
+    const before = Number(order.payableAmount)
+    const afterAmount = Number(dto.afterAmount)
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id },
+        data: {
+          payableAmount: dto.afterAmount,
+          adjustAmount: (afterAmount - before).toString()
+        }
+      })
+      await tx.orderPriceAdjustment.create({
+        data: {
+          tenantId: order.tenantId,
+          orderId: id,
+          beforeAmount: before.toString(),
+          afterAmount: dto.afterAmount,
+          reason: dto.reason,
+          adjustedBy: userId ?? null
+        }
+      })
+    })
+
+    await this.audit.write({
+      action: 'price_change',
+      module: 'order',
+      targetType: 'order',
+      targetId: id,
+      beforeData: { payableAmount: before.toString() },
+      afterData: { payableAmount: dto.afterAmount, adjustAmount: (afterAmount - before).toString(), reason: dto.reason },
+      operatorId: userId
+    })
     return this.detail(id)
   }
 
@@ -465,6 +506,15 @@ export class OrderService {
     if (!allowed?.includes(toStatus)) throw new BadRequestException({ message: '不允许从 ' + order.status + ' 转换到 ' + toStatus })
     await this.prisma.order.update({ where: { id }, data: { status: toStatus as any } })
     await this.log(id, order.status, toStatus, userId)
+    await this.audit.write({
+      action: 'order_status_change',
+      module: 'order',
+      targetType: 'order',
+      targetId: id,
+      beforeData: { status: order.status },
+      afterData: { status: toStatus },
+      operatorId: userId
+    })
     return this.detail(id)
   }
 

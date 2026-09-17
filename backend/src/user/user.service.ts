@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service'
 import { CreateUserDto, UpdateUserDto, CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/user.dto'
 import { SmsService } from '../auth/sms.service'
+import { AuditService } from '../audit/audit.service'
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly sms: SmsService
+    private readonly sms: SmsService,
+    private readonly audit: AuditService
   ) {}
 
   async listUsers(page: number, pageSize: number) {
@@ -56,6 +58,13 @@ export class UserService {
         data: dto.roleIds.map(rid => ({ tenantId: 1, userId: user.id, roleId: rid }))
       })
     }
+    await this.audit.write({
+      action: 'create',
+      module: 'user',
+      targetType: 'user',
+      targetId: user.id,
+      afterData: { phone: dto.phone, name: dto.name, userType: dto.userType, customerId: dto.customerId ?? null, roleIds: dto.roleIds ?? [] }
+    })
     return this.getUser(user.id)
   }
 
@@ -78,6 +87,13 @@ export class UserService {
         await this.prisma.userRole.createMany({ data: roleIds.map(rid => ({ tenantId: 1, userId: id, roleId: rid })) })
       }
     }
+    await this.audit.write({
+      action: 'update',
+      module: 'user',
+      targetType: 'user',
+      targetId: id,
+      afterData: { ...userData, roleIds: roleIds ?? undefined }
+    })
     return this.getUser(id)
   }
 
@@ -90,11 +106,27 @@ export class UserService {
   }
 
   async createRole(dto: CreateRoleDto) {
-    return this.prisma.role.create({ data: { tenantId: 1, name: dto.name, code: dto.code, description: dto.description } })
+    const role = await this.prisma.role.create({ data: { tenantId: 1, name: dto.name, code: dto.code, description: dto.description } })
+    await this.audit.write({
+      action: 'create',
+      module: 'user',
+      targetType: 'role',
+      targetId: role.id,
+      afterData: { name: dto.name, code: dto.code, description: dto.description ?? null }
+    })
+    return role
   }
 
   async updateRole(id: number, dto: UpdateRoleDto) {
-    return this.prisma.role.update({ where: { id }, data: dto })
+    const role = await this.prisma.role.update({ where: { id }, data: dto })
+    await this.audit.write({
+      action: 'role_change',
+      module: 'user',
+      targetType: 'role',
+      targetId: id,
+      afterData: { ...dto }
+    })
+    return role
   }
 
   async assignPermissions(roleId: number, dto: AssignPermissionsDto) {
@@ -104,6 +136,13 @@ export class UserService {
         data: dto.permissionIds.map(pid => ({ tenantId: 1, roleId, permissionId: pid }))
       })
     }
+    await this.audit.write({
+      action: 'permission_change',
+      module: 'user',
+      targetType: 'role',
+      targetId: roleId,
+      afterData: { permissionIds: dto.permissionIds }
+    })
     return this.prisma.rolePermission.findMany({ where: { roleId }, include: { permission: true } })
   }
 
