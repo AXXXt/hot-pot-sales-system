@@ -25,7 +25,8 @@ const permissions = [
   { code: 'order:read', name: '查看订单', type: PermissionType.page },
   { code: 'order:confirm', name: '确认订单', type: PermissionType.action },
   { code: 'audit:read', name: '查看审计日志', type: PermissionType.page },
-  { code: 'role:manage', name: '管理角色权限', type: PermissionType.action }
+  { code: 'role:manage', name: '管理角色权限', type: PermissionType.action },
+  { code: 'monitor:read', name: '查看监控告警', type: PermissionType.page }
 ]
 
 const roles = [

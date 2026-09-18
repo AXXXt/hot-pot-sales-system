@@ -11,6 +11,7 @@ import { ProductVisibilityService } from '../product/product-visibility.service'
 import { AuditService } from '../audit/audit.service'
 import { WxService } from '../notify/wx.service'
 import { LogisticsService } from '../logistics/logistics.service'
+import { MetricsService } from '../monitor/metrics.service'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -32,7 +33,8 @@ export class OrderService {
     private readonly productVisibility: ProductVisibilityService,
     private readonly audit: AuditService,
     private readonly wx: WxService,
-    private readonly logistics: LogisticsService
+    private readonly logistics: LogisticsService,
+    private readonly metrics?: MetricsService
   ) {}
 
   async list(query: { status?: string; customerId?: number; page: number; pageSize: number }) {
@@ -104,6 +106,16 @@ export class OrderService {
   }
 
   async create(dto: CreateOrderDto, userId?: number) {
+    await this.metrics?.recordOrderAttempt()
+    try {
+      return await this.createOrder(dto, userId)
+    } catch (error) {
+      await this.metrics?.recordOrderFailure()
+      throw error
+    }
+  }
+
+  private async createOrder(dto: CreateOrderDto, userId?: number) {
     const actor = userId
       ? await this.prisma.user.findUnique({
           where: { id: userId },
@@ -347,22 +359,27 @@ export class OrderService {
     const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } })
     if (!order || order.status !== 'pending_finance') throw new BadRequestException({ message: '当前状态不允许审核' })
 
-    await this.prisma.$transaction(async (tx) => {
-      for (const item of order.items) {
-        const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
-        if (!sku || sku.stockNum < item.quantity) {
-          throw new BadRequestException({
-            message: '库存不足：' + (sku?.name || item.productName) + ' 当前库存 ' + (sku?.stockNum || 0) + '，需要 ' + item.quantity,
-            errorCode: 'INV_1001'
-          })
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        for (const item of order.items) {
+          const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
+          if (!sku || sku.stockNum < item.quantity) {
+            throw new BadRequestException({
+              message: '库存不足：' + (sku?.name || item.productName) + ' 当前库存 ' + (sku?.stockNum || 0) + '，需要 ' + item.quantity,
+              errorCode: 'INV_1001'
+            })
+          }
+          await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: { decrement: item.quantity } } })
         }
-        await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: { decrement: item.quantity } } })
-      }
-      await tx.order.update({ where: { id }, data: { status: 'pending_shipment' as any } })
-    })
+        await tx.order.update({ where: { id }, data: { status: 'pending_shipment' as any } })
+      })
 
-    await this.log(id, 'pending_finance', 'pending_shipment', userId)
-    return this.detail(id)
+      await this.log(id, 'pending_finance', 'pending_shipment', userId)
+      return this.detail(id)
+    } catch (error) {
+      await this.metrics?.recordInventoryFailure()
+      throw error
+    }
   }
 
   // Admin enters logistics info
