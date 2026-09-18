@@ -117,6 +117,10 @@ model Tenant {
   priceHistories   CustomerPriceHistory[]
   repayments       CustomerRepayment[]
   refunds          OrderRefund[]
+  stockMovements   StockMovement[]
+  stockAdjustments StockAdjustment[]
+  stocktakes       Stocktake[]
+  stocktakeItems   StocktakeItem[]
 
   @@map("tenants")
 }
@@ -145,24 +149,28 @@ model Brand {
 }
 
 model User {
-  id             Int               @id @default(autoincrement())
-  tenantId       Int               @map("tenant_id")
-  customerId     Int?              @map("customer_id")
-  phone          String            @unique @db.VarChar(20)
-  openid         String?           @unique @db.VarChar(64)
-  name           String            @db.VarChar(100)
-  userType       UserType          @map("user_type")
-  status         UserStatus        @default(active)
-  lastLoginAt    DateTime?         @map("last_login_at")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  tenant         Tenant            @relation(fields: [tenantId], references: [id])
-  customer       Customer?         @relation(fields: [customerId], references: [id])
-  salesCustomers Customer[]        @relation("SalesOwner")
-  userRoles      UserRole[]
-  brandAccess    UserBrandAccess[]
-  orders         Order[]
-  auditLogs      AuditLog[]
+  id               Int               @id @default(autoincrement())
+  tenantId         Int               @map("tenant_id")
+  customerId       Int?              @map("customer_id")
+  phone            String            @unique @db.VarChar(20)
+  openid           String?           @unique @db.VarChar(64)
+  name             String            @db.VarChar(100)
+  userType         UserType          @map("user_type")
+  status           UserStatus        @default(active)
+  lastLoginAt      DateTime?         @map("last_login_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  salesCustomers   Customer[]        @relation("SalesOwner")
+  userRoles        UserRole[]
+  brandAccess      UserBrandAccess[]
+  orders           Order[]
+  auditLogs        AuditLog[]
+  stockMovements   StockMovement[]   @relation("StockMovementOperator")
+  stockAdjustments StockAdjustment[] @relation("StockAdjustmentOperator")
+  stocktakes       Stocktake[]       @relation("StocktakeOperator")
+  stocktakeReviews Stocktake[]       @relation("StocktakeReviewer")
 
   @@index([tenantId, status])
   @@map("users")
@@ -432,6 +440,8 @@ model ProductSku {
   priceRules     CustomerPriceRule[]
   orderItems     OrderItem[]
   priceHistories CustomerPriceHistory[]
+  movements      StockMovement[]
+  stocktakeItems StocktakeItem[]
 
   @@unique([tenantId, skuCode])
   @@index([tenantId, productId, status])
@@ -603,16 +613,16 @@ model CustomerPriceHistory {
 }
 
 model CustomerRepayment {
-  id         Int       @id @default(autoincrement())
-  tenantId   Int       @map("tenant_id")
-  customerId Int       @map("customer_id")
-  amount     Decimal   @db.Decimal(12, 2)
-  method     String    @db.VarChar(32)
-  note       String?   @db.VarChar(255)
-  operatorId Int?      @map("operator_id")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  customer   Customer  @relation(fields: [customerId], references: [id])
+  id         Int      @id @default(autoincrement())
+  tenantId   Int      @map("tenant_id")
+  customerId Int      @map("customer_id")
+  amount     Decimal  @db.Decimal(12, 2)
+  method     String   @db.VarChar(32)
+  note       String?  @db.VarChar(255)
+  operatorId Int?     @map("operator_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
 
   @@index([tenantId, customerId, createdAt])
   @@map("customer_repayments")
@@ -632,4 +642,83 @@ model OrderRefund {
 
   @@index([tenantId, orderId, createdAt])
   @@map("order_refunds")
+}
+
+model StockMovement {
+  id                Int              @id @default(autoincrement())
+  tenantId          Int              @map("tenant_id")
+  skuId             Int              @map("sku_id")
+  productId         Int?             @map("product_id")
+  changeQty         Int              @map("change_qty")
+  beforeQty         Int              @map("before_qty")
+  afterQty          Int              @map("after_qty")
+  type              String           @db.VarChar(32)
+  sourceType        String           @map("source_type") @db.VarChar(32)
+  sourceId          Int?             @map("source_id")
+  operatorId        Int?             @map("operator_id")
+  remark            String?          @db.VarChar(255)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  tenant            Tenant           @relation(fields: [tenantId], references: [id])
+  sku               ProductSku       @relation(fields: [skuId], references: [id])
+  operator          User?            @relation("StockMovementOperator", fields: [operatorId], references: [id])
+  stockAdjustment   StockAdjustment? @relation(fields: [stockAdjustmentId], references: [id])
+  stockAdjustmentId Int?             @map("stock_adjustment_id")
+
+  @@index([tenantId, skuId, createdAt])
+  @@index([tenantId, sourceType, sourceId])
+  @@map("stock_movements")
+}
+
+model StockAdjustment {
+  id           Int             @id @default(autoincrement())
+  tenantId     Int             @map("tenant_id")
+  adjustmentNo String          @unique @map("adjustment_no") @db.VarChar(64)
+  type         String          @db.VarChar(32)
+  reason       String?         @db.VarChar(255)
+  operatorId   Int?            @map("operator_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  operator     User?           @relation("StockAdjustmentOperator", fields: [operatorId], references: [id])
+  movements    StockMovement[]
+
+  @@index([tenantId, createdAt])
+  @@map("stock_adjustments")
+}
+
+model Stocktake {
+  id          Int             @id @default(autoincrement())
+  tenantId    Int             @map("tenant_id")
+  stocktakeNo String          @unique @map("stocktake_no") @db.VarChar(64)
+  status      String          @default("draft") @db.VarChar(32)
+  remark      String?         @db.VarChar(255)
+  operatorId  Int?            @map("operator_id")
+  reviewedBy  Int?            @map("reviewed_by")
+  completedAt DateTime?       @map("completed_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  operator    User?           @relation("StocktakeOperator", fields: [operatorId], references: [id])
+  reviewer    User?           @relation("StocktakeReviewer", fields: [reviewedBy], references: [id])
+  items       StocktakeItem[]
+
+  @@index([tenantId, status, createdAt])
+  @@map("stocktakes")
+}
+
+model StocktakeItem {
+  id          Int        @id @default(autoincrement())
+  tenantId    Int        @map("tenant_id")
+  stocktakeId Int        @map("stocktake_id")
+  skuId       Int        @map("sku_id")
+  systemQty   Int        @map("system_qty")
+  countedQty  Int?       @map("counted_qty")
+  diffQty     Int        @default(0) @map("diff_qty")
+  remark      String?    @db.VarChar(255)
+  sku         ProductSku @relation(fields: [skuId], references: [id])
+  stocktake   Stocktake  @relation(fields: [stocktakeId], references: [id])
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+
+  @@unique([stocktakeId, skuId])
+  @@index([tenantId, skuId])
+  @@map("stocktake_items")
 }

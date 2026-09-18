@@ -19,6 +19,7 @@ import { BrandModule } from './brand/brand.module'
 import { ExportModule } from './export/export.module'
 import { ImportModule } from './import/import.module'
 import { MetricsModule } from './monitor/monitor.module'
+import { InventoryModule } from './inventory/inventory.module'
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { MetricsModule } from './monitor/monitor.module'
     ExportModule,
     ImportModule,
     MetricsModule,
+    InventoryModule,
   ],
   controllers: [AppController, HealthController],
   providers: [PrismaService, redisProvider, minioProvider]

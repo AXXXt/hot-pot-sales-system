@@ -21,9 +21,9 @@ miniprogram/
 ├─ services/                         # 小程序 API 封装（wx.request + token 刷新 + 字段适配）
 ├─ store/                            # 小程序本地状态（auth/brand/cart/config）
 ├─ admin-web/                        # Vue 管理后台
-│  └─ src/views/                     # dashboard/product/customer/order/user/audit/system
+│  └─ src/views/                     # dashboard/product/inventory/customer/order/user/audit/system
 ├─ backend/                          # NestJS 后端
-│  ├─ src/                           # auth/product/order/customer/user/brand/dashboard/audit/system/upload
+│  ├─ src/                           # auth/product/inventory/order/customer/user/brand/dashboard/audit/system/upload
 │  ├─ prisma/                        # 数据库模型、迁移、种子
 │  └─ test/                          # Jest 测试
 ├─ docs/                             # 架构/设计文档
@@ -95,7 +95,7 @@ npm run dev
 cd backend
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint --max-warnings=0
-npm test            # jest（160 个用例）
+npm test            # jest（201 个用例）
 
 # 管理后台
 cd admin-web
@@ -114,6 +114,17 @@ npm run test:unit   # vitest
 - 开发/测试：`start-dev.cmd` 一键启动本地整套环境
 - 生产：建议后端 Docker 化 + Nginx 反代 HTTPS + MySQL/Redis/MinIO 独立部署，
   详见 `docs/` 与 `05-运维与发布/`。
+
+## 库存管理（进销存）
+
+管理后台「库存管理」提供以下能力：
+
+- **库存总览**：按 SKU 展示实时库存，支持商品名称/编码、品牌、分类、低库存筛选
+- **库存流水**：记录每一笔库存变动（订单出库、取消退回、手动出入库、盘点盘盈/盘亏），含变动前后数量、操作人与来源单号
+- **手动出入库**：期初库存、损耗、赠品、采购补录等场景，支持多明细批量提交，出库自动校验库存
+- **库存盘点**：创建盘点单（全量或指定 SKU）→ 录入实盘数 → 保存草稿 → 完成盘点自动生成盘盈/盘亏调整并写入库存流水
+
+后端接口：`/api/v1/inventory/*`（权限：`inventory:read` / `inventory:adjust`）。
 
 ## 新增 Web 应用
 

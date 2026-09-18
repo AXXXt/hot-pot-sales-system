@@ -16,6 +16,7 @@ const localMenus = [
   { code: 'product:read', name: '商品管理', path: '/products', icon: 'Goods' },
   { code: 'brand:manage', name: '品牌管理', path: '/products/brands', icon: 'CollectionTag' },
   { code: 'product:read', name: '分类管理', path: '/products/categories', icon: 'Menu' },
+  { code: 'inventory:read', name: '库存管理', path: '/inventory', icon: 'Box' },
   { code: 'customer:manage', name: '客户管理', path: '/customers', icon: 'UserFilled' },
   { code: 'order:read', name: '订单管理', path: '/orders', icon: 'Document' },
   { code: 'role:manage', name: '用户与角色', path: '/users', icon: 'Avatar' },

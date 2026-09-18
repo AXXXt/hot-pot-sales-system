@@ -369,7 +369,24 @@ export class OrderService {
               errorCode: 'INV_1001'
             })
           }
-          await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: { decrement: item.quantity } } })
+          const beforeStock = sku.stockNum
+          const afterStock = beforeStock - item.quantity
+          await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: afterStock } })
+          await tx.stockMovement.create({
+            data: {
+              tenantId: order.tenantId,
+              skuId: item.skuId,
+              productId: sku.productId,
+              changeQty: -item.quantity,
+              beforeQty: beforeStock,
+              afterQty: afterStock,
+              type: 'order_out',
+              sourceType: 'order',
+              sourceId: order.id,
+              operatorId: userId,
+              remark: `订单 ${order.orderNo} 审核扣减库存`
+            }
+          })
         }
         await tx.order.update({ where: { id }, data: { status: 'pending_shipment' as any } })
       })
@@ -417,9 +434,27 @@ export class OrderService {
     await this.prisma.$transaction(async (tx) => {
       if (['pending_shipment', 'shipped'].includes(order.status)) {
         for (const item of order.items) {
+          const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
+          const beforeStock = sku?.stockNum ?? 0
+          const afterStock = beforeStock + item.quantity
           await tx.productSku.update({
             where: { id: item.skuId },
-            data: { stockNum: { increment: item.quantity } }
+            data: { stockNum: afterStock }
+          })
+          await tx.stockMovement.create({
+            data: {
+              tenantId: order.tenantId,
+              skuId: item.skuId,
+              productId: sku?.productId ?? null,
+              changeQty: item.quantity,
+              beforeQty: beforeStock,
+              afterQty: afterStock,
+              type: 'order_return',
+              sourceType: 'order',
+              sourceId: order.id,
+              operatorId: userId,
+              remark: `取消订单 ${order.orderNo} 退回库存`
+            }
           })
         }
       }

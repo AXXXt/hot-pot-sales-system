@@ -93,9 +93,10 @@ describe('OrderService stock deduction and rollback', () => {
     }
     const tx = {
       productSku: {
-        findUnique: jest.fn().mockResolvedValue({ id: 11, name: '标准箱', stockNum }),
+        findUnique: jest.fn().mockResolvedValue({ id: 11, productId: 11, name: '标准箱', stockNum }),
         update: jest.fn().mockResolvedValue({})
       },
+      stockMovement: { create: jest.fn().mockResolvedValue({}) },
       customer: {
         findUnique: jest.fn().mockResolvedValue({ creditUsed: '0.00' }),
         update: jest.fn().mockResolvedValue({})
@@ -124,7 +125,7 @@ describe('OrderService stock deduction and rollback', () => {
 
     expect(tx.productSku.update).toHaveBeenCalledWith({
       where: { id: 11 },
-      data: { stockNum: { decrement: 5 } }
+      data: { stockNum: 5 }
     })
     expect(tx.order.update).toHaveBeenCalledWith({
       where: { id: 100 },
@@ -150,7 +151,7 @@ describe('OrderService stock deduction and rollback', () => {
 
     expect(tx.productSku.update).toHaveBeenCalledWith({
       where: { id: 11 },
-      data: { stockNum: { increment: 5 } }
+      data: { stockNum: 15 }
     })
     expect(tx.order.update).toHaveBeenCalledWith({
       where: { id: 100 },
