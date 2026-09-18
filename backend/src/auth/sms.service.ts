@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { REDIS } from '../redis.provider'
 import { Inject } from '@nestjs/common'
@@ -8,6 +8,9 @@ const CODE_PREFIX = 'sms:code:'
 const ATTEMPTS_PREFIX = 'sms:attempts:'
 const CODE_TTL = 300
 const RATE_TTL = 60
+const RATE_TTL_DEV = 5
+const IP_RATE_TTL = 60
+const IP_RATE_TTL_DEV = 10
 const MAX_ATTEMPTS = 5
 
 @Injectable()
@@ -57,16 +60,27 @@ export class SmsService {
   }
 
   async sendCode(phone: string, ip: string): Promise<void> {
+    const provider = this.config.get<string>('SMS_PROVIDER', 'development')
+    const isDev = provider === 'development'
     const rateKey = `${RATE_LIMIT_PREFIX}${phone}`
     const ipRateKey = `${RATE_LIMIT_PREFIX}ip:${ip}`
     const [phoneRate, ipRate] = await Promise.all([
       this.redisGet(rateKey),
       this.redisGet(ipRateKey)
     ])
-    if (phoneRate) throw new Error('验证码发送过于频繁，请稍后再试')
-    if (ipRate) throw new Error('操作过于频繁，请稍后再试')
+    if (phoneRate) {
+      throw new HttpException(
+        { message: '验证码发送过于频繁，请稍后再试', errorCode: 'SMS_4290' },
+        HttpStatus.TOO_MANY_REQUESTS
+      )
+    }
+    if (ipRate) {
+      throw new HttpException(
+        { message: '操作过于频繁，请稍后再试', errorCode: 'SMS_4291' },
+        HttpStatus.TOO_MANY_REQUESTS
+      )
+    }
 
-    const provider = this.config.get<string>('SMS_PROVIDER', 'development')
     let code: string
     if (provider === 'development') {
       code = this.config.get<string>('SMS_DEV_CODE', '123456')
@@ -79,8 +93,8 @@ export class SmsService {
     const codeKey = `${CODE_PREFIX}${phone}`
     await Promise.all([
       this.redisSet(codeKey, code, CODE_TTL),
-      this.redisSet(rateKey, '1', RATE_TTL),
-      this.redisSet(ipRateKey, '1', RATE_TTL)
+      this.redisSet(rateKey, '1', isDev ? RATE_TTL_DEV : RATE_TTL),
+      this.redisSet(ipRateKey, '1', isDev ? IP_RATE_TTL_DEV : IP_RATE_TTL)
     ])
   }
 
@@ -88,7 +102,10 @@ export class SmsService {
     const attemptsKey = `${ATTEMPTS_PREFIX}${phone}`
     const attempts = parseInt((await this.redisGet(attemptsKey)) || '0', 10)
     if (attempts >= MAX_ATTEMPTS) {
-      throw new Error('验证码错误次数过多，请稍后再试')
+      throw new HttpException(
+        { message: '验证码错误次数过多，请稍后再试', errorCode: 'SMS_4292' },
+        HttpStatus.TOO_MANY_REQUESTS
+      )
     }
 
     const codeKey = `${CODE_PREFIX}${phone}`
