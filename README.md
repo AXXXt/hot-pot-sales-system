@@ -114,3 +114,38 @@ npm run test:unit   # vitest
 - 开发/测试：`start-dev.cmd` 一键启动本地整套环境
 - 生产：建议后端 Docker 化 + Nginx 反代 HTTPS + MySQL/Redis/MinIO 独立部署，
   详见 `docs/` 与 `05-运维与发布/`。
+
+## 新增 Web 应用
+
+### web-customer（PC 客户采购端）
+
+面向已审核通过的火锅餐饮客户，提供商品浏览、进货单、按品牌下单、订单状态跟踪与一键复购。
+
+```bash
+cd web-customer
+npm install
+npm run dev
+```
+
+- 本地地址：<http://127.0.0.1:5174>
+- 默认 API：`http://127.0.0.1:3000/api/v1`
+- 可用 `.env` 配置 `VITE_API_BASE_URL`
+- 生产构建：`npm run build`
+
+### official-site（获客官网）
+
+静态营销官网，介绍公司、供应链能力、采购流程和联系方式。
+
+```bash
+cd official-site
+# 可直接使用任意静态服务器
+npx serve .
+```
+
+### 后端 CORS
+
+本地联调时需要在 `backend/.env` 的 `CORS_ORIGIN` 中追加 Web 客户端地址：
+
+```env
+CORS_ORIGIN=http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://localhost:5174
+```
