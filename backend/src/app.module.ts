@@ -16,6 +16,8 @@ import { AuditModule } from './audit/audit.module'
 import { SystemModule } from './system/system.module'
 import { UploadModule } from './upload/upload.module'
 import { BrandModule } from './brand/brand.module'
+import { ExportModule } from './export/export.module'
+import { ImportModule } from './import/import.module'
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { BrandModule } from './brand/brand.module'
     SystemModule,
     UploadModule,
     BrandModule,
+    ExportModule,
+    ImportModule,
   ],
   controllers: [AppController, HealthController],
   providers: [PrismaService, redisProvider, minioProvider]

@@ -55,7 +55,7 @@ describe('disabled account session safety', () => {
       set: jest.fn(),
       del: jest.fn().mockResolvedValue(1)
     }
-    const service = new AuthService(prisma as any, jwt as any, config as any, sms as any, redis as any)
+    const service = new AuthService(prisma as any, jwt as any, config as any, sms as any, {} as any, redis as any)
 
     await expect(service.refreshToken('refresh-token')).rejects.toMatchObject({
       response: { errorCode: 'AUTH_3003' }

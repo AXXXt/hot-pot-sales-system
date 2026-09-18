@@ -41,6 +41,7 @@ describe('AuthService registration defaults', () => {
       {} as any,
       {} as any,
       sms as any,
+      {} as any,
       {} as any
     )
     return { service, prisma, tx }

@@ -61,6 +61,23 @@ function checkStatus(phone) {
   })
 }
 
+function bindOpenid(code) {
+  return request({
+    url: '/api/v1/auth/bind-openid',
+    method: 'POST',
+    data: { code },
+    showLoading: false
+  })
+}
+
+function getSubscribeTemplate() {
+  return request({
+    url: '/api/v1/auth/subscribe-template',
+    method: 'GET',
+    showLoading: false
+  })
+}
+
 module.exports = {
   sendLoginCode,
   loginByPhone,
@@ -68,5 +85,7 @@ module.exports = {
   refreshToken,
   logout,
   getProfile,
-  checkStatus
+  checkStatus,
+  bindOpenid,
+  getSubscribeTemplate
 }

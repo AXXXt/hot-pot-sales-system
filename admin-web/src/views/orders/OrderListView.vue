@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import PageTable from '../../components/PageTable.vue'
 import { getOrders, cancelOrder } from '../../api/order'
+import { downloadExport } from '../../api/export'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +21,15 @@ const routeStatus = typeof route.query.status === 'string' && supportedStatuses.
   ? route.query.status
   : ''
 const query = reactive({ status: routeStatus, keyword: '', page: 1, pageSize: 15 })
+const exporting = ref(false)
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    await downloadExport('/exports/orders', { status: query.status })
+  } catch (e: any) { ElMessage.warning(e.message || '导出失败') }
+  finally { exporting.value = false }
+}
 
 const statusOptions = [
   { label: '全部', value: '' },
@@ -97,6 +107,7 @@ onMounted(load)
           <el-input v-model="query.keyword" placeholder="订单号" clearable style="width:200px" @keyup.enter="search" />
         </el-form-item>
         <el-button type="primary" @click="search">查询</el-button>
+        <el-button :loading="exporting" @click="handleExport">导出 Excel</el-button>
       </el-form>
       <PageTable :loading="loading" :error="error" :empty="!rows.length" @retry="load">
         <el-table :data="rows" stripe size="small">

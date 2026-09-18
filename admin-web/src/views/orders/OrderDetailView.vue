@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder, refundOrder } from '../../api/order'
+import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder, refundOrder, getOrderLogistics } from '../../api/order'
 import { getPaymentProofUrl } from '../../api/upload'
 
 const route = useRoute()
@@ -21,6 +21,24 @@ const shipForm = reactive({ logisticsType: 'tricycle', driverName: '', driverPho
 const refundVisible = ref(false)
 const refundSaving = ref(false)
 const refundForm = reactive({ amount: 0, method: 'transfer', reason: '' })
+const trackVisible = ref(false)
+const trackLoading = ref(false)
+const trackData = ref<any>({ provider: 'manual', track: [] })
+
+async function viewTrack() {
+  if (trackLoading.value) return
+  trackVisible.value = true
+  trackLoading.value = true
+  trackData.value = { provider: 'manual', track: [] }
+  try {
+    const res: any = await getOrderLogistics(id)
+    trackData.value = dataOf(res)
+  } catch (e: any) {
+    ElMessage.warning(e.message || '获取物流轨迹失败')
+  } finally {
+    trackLoading.value = false
+  }
+}
 
 const methodText = (m: string) => ({ transfer: '转账', cash: '现金', other: '其他' } as Record<string, string>)[m] || m || '-'
 
@@ -222,6 +240,7 @@ onMounted(fetch)
         </div>
         <div v-if="order.logisticsInfo" style="margin-top:12px">
           <el-tag type="primary" size="small">物流信息</el-tag>
+          <el-button link type="primary" size="small" @click="viewTrack">查看轨迹</el-button>
           <span style="margin-left:8px;font-size:12px;color:#606266">
             {{ order.logisticsType === 'tricycle' ? '三轮车' : order.logisticsType }}
             <template v-if="order.logisticsInfo.driverName"> / {{ order.logisticsInfo.driverName }}</template>
@@ -359,6 +378,19 @@ onMounted(fetch)
     <template #footer>
       <el-button @click="refundVisible=false">取消</el-button>
       <el-button type="primary" :loading="refundSaving" @click="submitRefund">确认退款</el-button>
+    </template>
+  </el-dialog>
+  <!-- Logistics Track Dialog -->
+  <el-dialog v-model="trackVisible" title="物流轨迹" width="520">
+    <div v-if="trackLoading" class="detail-loading">加载中…</div>
+    <template v-else>
+      <el-tag size="small" style="margin-bottom:12px">{{ trackData.provider === 'lalamove' ? '货拉拉配送' : '手动物流' }}</el-tag>
+      <el-timeline v-if="trackData.track?.length">
+        <el-timeline-item v-for="(p, idx) in trackData.track" :key="idx" :timestamp="p.time || undefined" placement="top">
+          {{ p.text }}
+        </el-timeline-item>
+      </el-timeline>
+      <div v-else class="inline-empty">暂无轨迹信息</div>
     </template>
   </el-dialog>
   </section>

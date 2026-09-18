@@ -6,10 +6,11 @@ import { SmsService } from './sms.service'
 import { JwtAuthGuard, OptionalJwtAuthGuard } from './auth.guard'
 import { PermissionsGuard } from './permissions.guard'
 import { PrismaService } from '../prisma.service'
+import { NotifyModule } from '../notify/notify.module'
 import { redisProvider } from '../redis.provider'
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), NotifyModule],
   controllers: [AuthController],
   providers: [AuthService, SmsService, JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, PrismaService, redisProvider],
   exports: [JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, AuthService, SmsService, JwtModule, PrismaService]

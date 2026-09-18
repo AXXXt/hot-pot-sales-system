@@ -9,6 +9,8 @@ import { CreateOrderDto, AdjustPriceDto, CreateRefundDto } from './dto/order.dto
 import { customAlphabet } from 'nanoid'
 import { ProductVisibilityService } from '../product/product-visibility.service'
 import { AuditService } from '../audit/audit.service'
+import { WxService } from '../notify/wx.service'
+import { LogisticsService } from '../logistics/logistics.service'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -28,7 +30,9 @@ export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productVisibility: ProductVisibilityService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly wx: WxService,
+    private readonly logistics: LogisticsService
   ) {}
 
   async list(query: { status?: string; customerId?: number; page: number; pageSize: number }) {
@@ -88,6 +92,15 @@ export class OrderService {
         creditRemaining: Math.max(0, creditLimit - creditUsed).toFixed(2)
       } : customer
     }
+  }
+
+  async getLogistics(id: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, logisticsType: true, logisticsInfo: true, status: true, createdAt: true }
+    })
+    if (!order) throw new NotFoundException({ message: '订单不存在', errorCode: 'ORD_1001' })
+    return this.logistics.getOrderTrack(order)
   }
 
   async create(dto: CreateOrderDto, userId?: number) {
@@ -553,7 +566,44 @@ export class OrderService {
       afterData: { status: toStatus },
       operatorId: userId
     })
+    await this.notifyOrderStatus(order, toStatus)
     return this.detail(id)
+  }
+
+  /** 订单状态变化时向已绑定微信的客户发送订阅消息；失败不阻断业务 */
+  private async notifyOrderStatus(
+    order: { id: number; userId?: number | null; orderNo: string },
+    toStatus: string
+  ): Promise<void> {
+    const templateId = this.wx.orderTemplateId
+    if (!templateId || !order.userId) return
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { openid: true }
+      })
+      if (!user?.openid) return
+      const statusText: Record<string, string> = {
+        pending_quote: '待报价',
+        pending_confirm: '待确认',
+        pending_finance: '待财务审核',
+        pending_shipment: '待发货',
+        shipped: '已发货',
+        completed: '已完成',
+        cancelled: '已取消'
+      }
+      await this.wx.sendSubscribeMessage({
+        openid: user.openid,
+        templateId,
+        page: `pages/order-detail/order-detail?id=${order.id}`,
+        data: {
+          thing1: { value: order.orderNo.slice(0, 20) },
+          phrase2: { value: statusText[toStatus] || toStatus }
+        }
+      })
+    } catch {
+      // 通知失败不影响业务
+    }
   }
 
   private async log(orderId: number, from: string, to: string, userId?: number) {

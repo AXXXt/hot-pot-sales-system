@@ -4,7 +4,20 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageTable from '../../components/PageTable.vue'
 import { batchArchiveProducts, batchUpdateProductStatus, deleteProduct, getBrands, getCategories, getProducts, updateProductStatus } from '../../api/product'
+import { importProductsExcel } from '../../api/import'
 
+const importing = ref(false)
+
+async function handleUpload(options: any) {
+  importing.value = true
+  try {
+    const res: any = await importProductsExcel(options.file)
+    const d = res?.data || {}
+    ElMessage.success(`导入完成：品牌 ${d.brandCount || 0}，商品 ${d.productCount || 0}，SKU ${d.skuCount || 0}，协议价 ${d.priceRuleCount || 0}，跳过 ${d.skipped || 0}`)
+    await load()
+  } catch (e: any) { ElMessage.warning(e.message || '导入失败') }
+  finally { importing.value = false }
+}
 const router = useRouter()
 const loading = ref(false)
 const batchLoading = ref(false)
@@ -133,6 +146,9 @@ onMounted(init)
   <section>
     <div class="page-heading">
       <div><h1>商品管理</h1><p>维护商品资料、上下架状态与规格信息</p></div>
+            <el-upload :show-file-list="false" :http-request="handleUpload" accept=".xlsx,.xls">
+        <el-button :loading="importing" type="primary" plain style="margin-right:10px">批量导入</el-button>
+      </el-upload>
       <el-button type="primary" @click="router.push('/products/create')">新建商品</el-button>
     </div>
     <el-card shadow="never">

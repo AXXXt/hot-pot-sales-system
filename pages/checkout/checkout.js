@@ -1,6 +1,7 @@
 const cart = require('../../store/modules/cart')
 const auth = require('../../store/modules/auth')
 const { createOrder, submitOrder } = require('../../services/api/order')
+const { getSubscribeTemplate } = require('../../services/api/auth')
 const { validateCart } = require('../../services/api/product')
 
 function mapCheckoutItem(item) {
@@ -164,6 +165,19 @@ Page({
     }
   },
 
+  async requestSubscribe() {
+    try {
+      const res = await getSubscribeTemplate()
+      const templateId = res && res.data && res.data.templateId
+      if (!templateId) return
+      wx.requestSubscribeMessage({
+        tmplIds: [templateId],
+        success: () => {},
+        fail: () => {}
+      })
+    } catch (e) { /* 订阅失败不影响下单 */ }
+  },
+
   showOrderCreated(created, failures) {
     if (!created.length) {
       wx.showToast({
@@ -190,6 +204,7 @@ Page({
       return
     }
 
+    this.requestSubscribe()
     wx.showToast({
       title: created.length > 1 ? `已创建${created.length}个订单` : '下单成功',
       icon: 'success'

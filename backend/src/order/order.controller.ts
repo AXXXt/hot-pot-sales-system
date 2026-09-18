@@ -42,6 +42,12 @@ export class OrderController {
     return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean))
   }
 
+  @Get('orders/:id/logistics')
+  @ApiOperation({ summary: '订单物流轨迹' })
+  async getLogistics(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getLogistics(id)
+  }
+
   // === Create ===
   @Post('orders')
   @ApiOperation({ summary: '创建订单 (draft)' })

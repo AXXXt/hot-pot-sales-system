@@ -47,3 +47,7 @@ export function adjustOrderPrice(id: number, data: Record<string, unknown>) {
 export function refundOrder(id: number, data: { amount: string; method?: string; reason?: string }) {
   return http.post(`/orders/${id}/refund`, data)
 }
+
+export function getOrderLogistics(id: number) {
+  return http.get(`/orders/${id}/logistics`)
+}

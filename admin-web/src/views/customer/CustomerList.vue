@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Phone, Location, Star, Check, Close } from '@element-plus/icons-vue'
 import { getCustomers, createCustomer, getCustomerLevels, approveCustomer, rejectCustomer } from '../../api/customer'
+import { downloadExport } from '../../api/export'
 
 const router = useRouter()
 const loading = ref(true)
@@ -11,6 +12,15 @@ const rows = ref<any[]>([])
 const levels = ref<any[]>([])
 const keyword = ref('')
 const statusFilter = ref('all')
+const exporting = ref(false)
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    await downloadExport('/exports/customers', { keyword: keyword.value, status: statusFilter.value })
+  } catch (e: any) { ElMessage.warning(e.message || '导出失败') }
+  finally { exporting.value = false }
+}
 const drawer = ref(false)
 const saving = ref(false)
 const form = ref({ customerName: '', contactName: '', contactPhone: '', address: '', customerLevelId: null as number | null })
@@ -100,6 +110,7 @@ onMounted(load)
         <el-option label="待审核" value="disabled" />
         <el-option label="已通过" value="active" />
       </el-select>
+      <el-button :loading="exporting" style="margin-left:10px" @click="handleExport">导出 Excel</el-button>
     </div>
 
     <div v-if="loading" class="inline-loading">加载中…</div>

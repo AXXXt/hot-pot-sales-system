@@ -46,6 +46,18 @@ export class AuthController {
   @ApiOperation({ summary: '退出登录' })
   async logout(@Req() req: any) { return this.auth.logout(req.user.sub) }
 
+  @Post('bind-openid')
+  @UseGuards(JwtAuthGuard) @ApiBearerAuth()
+  @ApiOperation({ summary: '绑定微信 openid（小程序 code2session）' })
+  async bindOpenid(@Body() body: { code: string }, @Req() req: any) {
+    return this.auth.bindOpenid(body.code, req.user.sub)
+  }
+
+  @Get('subscribe-template')
+  @UseGuards(JwtAuthGuard) @ApiBearerAuth()
+  @ApiOperation({ summary: '获取订阅消息模板 ID' })
+  async subscribeTemplate() { return this.auth.getSubscribeTemplate() }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard) @ApiBearerAuth()
   @ApiOperation({ summary: '获取当前用户信息' })

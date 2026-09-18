@@ -149,6 +149,7 @@ model User {
   tenantId       Int               @map("tenant_id")
   customerId     Int?              @map("customer_id")
   phone          String            @unique @db.VarChar(20)
+  openid         String?           @unique @db.VarChar(64)
   name           String            @db.VarChar(100)
   userType       UserType          @map("user_type")
   status         UserStatus        @default(active)

@@ -1,3 +1,5 @@
+const env = require('./config')
+
 App({
   globalData: {
     token: '',
@@ -23,5 +25,25 @@ App({
     this.globalData.currentCustomer = currentCustomer
     this.globalData.systemConfig = systemConfig
     this.globalData.cartCount = cartCount
+
+    // 静默绑定微信 openid（用于订阅消息通知）
+    if (token) {
+      this.bindOpenidSilently(token)
+    }
+  },
+
+  bindOpenidSilently(token) {
+    wx.login({
+      success: (res) => {
+        if (!res.code) return
+        wx.request({
+          url: env.baseUrl + '/api/v1/auth/bind-openid',
+          method: 'POST',
+          data: { code: res.code },
+          header: { 'content-type': 'application/json', Authorization: 'Bearer ' + token },
+          success: () => {}
+        })
+      }
+    })
   }
 })

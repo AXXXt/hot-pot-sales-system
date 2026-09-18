@@ -6,6 +6,7 @@ import { SmsService } from './sms.service'
 import { LoginDto } from './dto/login.dto'
 import { REDIS } from '../redis.provider'
 import { Inject } from '@nestjs/common'
+import { WxService } from '../notify/wx.service'
 
 const REFRESH_PREFIX = 'refresh:'
 const REFRESH_BLACKLIST_PREFIX = 'refresh:bl:'
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly sms: SmsService,
+    private readonly wx: WxService,
     @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null>; del: (key: string) => Promise<number> }
   ) {}
 
@@ -202,6 +204,19 @@ export class AuthService {
   }
 
   async logout(userId: number) { await this.redis.del(`${REFRESH_PREFIX}${userId}`); return { loggedOut: true } }
+
+  async bindOpenid(code: string, userId: number) {
+    const openid = await this.wx.codeToOpenid(code)
+    if (!openid) {
+      return { bound: false, reason: '微信未配置或 code 无效' }
+    }
+    await this.prisma.user.update({ where: { id: userId }, data: { openid } })
+    return { bound: true, openid }
+  }
+
+  async getSubscribeTemplate() {
+    return { templateId: this.config.get<string>('WX_SUBSCRIBE_TPL_ORDER') || '' }
+  }
 
   async getProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
