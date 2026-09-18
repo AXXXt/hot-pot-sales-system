@@ -175,109 +175,111 @@ async function main() {
     create: { tenantId: tenant.id, userId: user.id, brandId: brand.id }
   })
 
-  const categories = []
-  for (let index = 1; index <= 12; index += 1) {
-    categories.push(
-      await prisma.productCategory.upsert({
-        where: {
-          tenantId_code: {
+  const seedAlreadyRan = !!(await prisma.auditLog.findUnique({ where: { requestId: 'seed-request' } }))
+  if (!seedAlreadyRan) {
+    const categories = []
+    for (let index = 1; index <= 12; index += 1) {
+      categories.push(
+        await prisma.productCategory.upsert({
+          where: {
+            tenantId_code: {
+              tenantId: tenant.id,
+              code: `category-${index}`
+            }
+          },
+          update: { name: `食材分类 ${index}`, sortOrder: index, status: 'active' },
+          create: {
             tenantId: tenant.id,
-            code: `category-${index}`
+            code: `category-${index}`,
+            name: `食材分类 ${index}`,
+            sortOrder: index,
+            status: 'active'
           }
+        })
+      )
+    }
+
+    for (let index = 1; index <= 20; index += 1) {
+      const category = categories[(index - 1) % categories.length]
+      const product = await prisma.product.upsert({
+        where: { tenantId_code: { tenantId: tenant.id, code: `product-${index}` } },
+        update: {
+          name: `演示火锅食材 ${index}`,
+          categoryId: category.id,
+          unitId: unit.id,
+          status: ProductStatus.active,
+          isRecommended: index <= 5,
+          isFactoryProduct: index <= 5,
+          isNew: index <= 5,
+          isHot: index >= 4 && index <= 8
         },
-        update: { name: `食材分类 ${index}`, sortOrder: index, status: 'active' },
         create: {
           tenantId: tenant.id,
-          code: `category-${index}`,
-          name: `食材分类 ${index}`,
-          sortOrder: index,
+          brandId: brand.id,
+          categoryId: category.id,
+          unitId: unit.id,
+          code: `product-${index}`,
+          name: `演示火锅食材 ${index}`,
+          subtitle: '工厂直供，适合门店快速复购',
+          baseSpec: '500g / 袋',
+          deliveryText: '次日配送',
+          images: [],
+          status: ProductStatus.active,
+          isRecommended: index <= 5,
+          isFactoryProduct: index <= 5,
+          isNew: index <= 5,
+          isHot: index >= 4 && index <= 8
+        }
+      })
+
+      const sku = await prisma.productSku.upsert({
+        where: { tenantId_skuCode: { tenantId: tenant.id, skuCode: `SKU-DEMO-${String(index).padStart(3, '0')}` } },
+        update: { productId: product.id, status: SkuStatus.active, minOrderQty: 1 },
+        create: {
+          tenantId: tenant.id,
+          productId: product.id,
+          skuCode: `SKU-DEMO-${String(index).padStart(3, '0')}`,
+          name: `标准规格 ${index}`,
+          specText: '500g / 袋',
+          saleUnit: '袋',
+          basePrice: `${(68 + index).toFixed(2)}`,
+          minOrderQty: 1,
+          status: SkuStatus.active
+        }
+      })
+
+      await prisma.customerPriceRule.upsert({
+        where: {
+          tenantId_customerId_skuId: {
+            tenantId: tenant.id,
+            customerId: customer.id,
+            skuId: sku.id
+          }
+        },
+        update: {
+          brandId: brand.id,
+          productId: product.id,
+          priceType: PriceType.agreement,
+          price: `${(64 + index).toFixed(2)}`,
+          status: 'active',
+          startAt: null,
+          endAt: null
+        },
+        create: {
+          tenantId: tenant.id,
+          brandId: brand.id,
+          customerId: customer.id,
+          productId: product.id,
+          skuId: sku.id,
+          priceType: PriceType.agreement,
+          price: `${(64 + index).toFixed(2)}`,
           status: 'active'
         }
       })
-    )
+    }
   }
 
-  for (let index = 1; index <= 20; index += 1) {
-    const category = categories[(index - 1) % categories.length]
-    const product = await prisma.product.upsert({
-      where: { tenantId_code: { tenantId: tenant.id, code: `product-${index}` } },
-      update: {
-        name: `演示火锅食材 ${index}`,
-        categoryId: category.id,
-        unitId: unit.id,
-        status: ProductStatus.active,
-        isRecommended: index <= 5,
-        isFactoryProduct: index <= 5,
-        isNew: index <= 5,
-        isHot: index >= 4 && index <= 8
-      },
-      create: {
-        tenantId: tenant.id,
-        brandId: brand.id,
-        categoryId: category.id,
-        unitId: unit.id,
-        code: `product-${index}`,
-        name: `演示火锅食材 ${index}`,
-        subtitle: '工厂直供，适合门店快速复购',
-        baseSpec: '500g / 袋',
-        deliveryText: '次日配送',
-        images: [],
-        status: ProductStatus.active,
-        isRecommended: index <= 5,
-        isFactoryProduct: index <= 5,
-        isNew: index <= 5,
-        isHot: index >= 4 && index <= 8
-      }
-    })
-
-    const sku = await prisma.productSku.upsert({
-      where: { tenantId_skuCode: { tenantId: tenant.id, skuCode: `SKU-DEMO-${String(index).padStart(3, '0')}` } },
-      update: { productId: product.id, status: SkuStatus.active, minOrderQty: 1 },
-      create: {
-        tenantId: tenant.id,
-        productId: product.id,
-        skuCode: `SKU-DEMO-${String(index).padStart(3, '0')}`,
-        name: `标准规格 ${index}`,
-        specText: '500g / 袋',
-        saleUnit: '袋',
-        basePrice: `${(68 + index).toFixed(2)}`,
-        minOrderQty: 1,
-        status: SkuStatus.active
-      }
-    })
-
-    await prisma.customerPriceRule.upsert({
-      where: {
-        tenantId_customerId_skuId: {
-          tenantId: tenant.id,
-          customerId: customer.id,
-          skuId: sku.id
-        }
-      },
-      update: {
-        brandId: brand.id,
-        productId: product.id,
-        priceType: PriceType.agreement,
-        price: `${(64 + index).toFixed(2)}`,
-        status: 'active',
-        startAt: null,
-        endAt: null
-      },
-      create: {
-        tenantId: tenant.id,
-        brandId: brand.id,
-        customerId: customer.id,
-        productId: product.id,
-        skuId: sku.id,
-        priceType: PriceType.agreement,
-        price: `${(64 + index).toFixed(2)}`,
-        status: 'active'
-      }
-    })
-  }
-
-  const audit = await prisma.auditLog.findUnique({ where: { requestId: 'seed-request' } })
-  if (!audit) {
+  if (!seedAlreadyRan) {
     await prisma.auditLog.create({
       data: {
         tenantId: tenant.id,
@@ -294,7 +296,7 @@ async function main() {
     })
   }
 
-  console.log(JSON.stringify({ tenantId: tenant.id, brandId: brand.id, userId: user.id, productCount: 20 }, null, 2))
+  console.log(JSON.stringify({ tenantId: tenant.id, brandId: brand.id, userId: user.id, productCount: seedAlreadyRan ? 0 : 20 }, null, 2))
 }
 
 main()
