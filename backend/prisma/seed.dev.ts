@@ -26,7 +26,9 @@ const permissions = [
   { code: 'order:confirm', name: '确认订单', type: PermissionType.action },
   { code: 'audit:read', name: '查看审计日志', type: PermissionType.page },
   { code: 'role:manage', name: '管理角色权限', type: PermissionType.action },
-  { code: 'monitor:read', name: '查看监控告警', type: PermissionType.page }
+  { code: 'monitor:read', name: '查看监控告警', type: PermissionType.page },
+  { code: 'lead:read', name: '查看获客线索', type: PermissionType.page },
+  { code: 'lead:manage', name: '管理获客线索', type: PermissionType.action }
 ]
 
 const roles = [
@@ -95,6 +97,23 @@ async function main() {
       },
       update: {},
       create: { tenantId: tenant.id, roleId: superAdminRole.id, permissionId: permission.id }
+    })
+  }
+
+  // 销售角色：可查看与跟进获客线索
+  const salesRole = roleRows.find((role) => role.code === 'sales')!
+  for (const code of ['lead:read', 'lead:manage']) {
+    const permission = permissionRows.find((row) => row.code === code)!
+    await prisma.rolePermission.upsert({
+      where: {
+        tenantId_roleId_permissionId: {
+          tenantId: tenant.id,
+          roleId: salesRole.id,
+          permissionId: permission.id
+        }
+      },
+      update: {},
+      create: { tenantId: tenant.id, roleId: salesRole.id, permissionId: permission.id }
     })
   }
 

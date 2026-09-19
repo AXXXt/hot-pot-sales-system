@@ -86,6 +86,13 @@ enum AuditAction {
   order_status_change
 }
 
+enum LeadStatus {
+  new
+  contacted
+  converted
+  invalid
+}
+
 model Tenant {
   id               Int                      @id @default(autoincrement())
   name             String                   @db.VarChar(100)
@@ -121,6 +128,7 @@ model Tenant {
   stockAdjustments StockAdjustment[]
   stocktakes       Stocktake[]
   stocktakeItems   StocktakeItem[]
+  leads            Lead[]
 
   @@map("tenants")
 }
@@ -171,6 +179,8 @@ model User {
   stockAdjustments StockAdjustment[] @relation("StockAdjustmentOperator")
   stocktakes       Stocktake[]       @relation("StocktakeOperator")
   stocktakeReviews Stocktake[]       @relation("StocktakeReviewer")
+  assignedLeads    Lead[]            @relation("LeadAssignee")
+  leadFollowUps    LeadFollowUp[]
 
   @@index([tenantId, status])
   @@map("users")
@@ -721,4 +731,51 @@ model StocktakeItem {
   @@unique([stocktakeId, skuId])
   @@index([tenantId, skuId])
   @@map("stocktake_items")
+}
+
+enum LeadSource {
+  official_site
+  phone
+  manual
+}
+
+model Lead {
+  id               Int         @id @default(autoincrement())
+  tenantId         Int         @map("tenant_id")
+  phone            String      @db.VarChar(20)
+  name             String?     @db.VarChar(100)
+  storeName        String?     @map("store_name") @db.VarChar(120)
+  storeScale       String?     @map("store_scale") @db.VarChar(32)
+  interestedItems  String?     @map("interested_items") @db.VarChar(500)
+  remark           String?     @db.VarChar(500)
+  source           LeadSource  @default(official_site)
+  status           LeadStatus  @default(new)
+  assignedToId     Int?        @map("assigned_to_id")
+  nextFollowUpAt   DateTime?   @map("next_follow_up_at")
+  lastContactAt    DateTime?   @map("last_contact_at")
+  ipAddress        String?     @map("ip_address") @db.VarChar(64)
+  userAgent        String?     @map("user_agent") @db.VarChar(255)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  tenant           Tenant      @relation(fields: [tenantId], references: [id])
+  assignedTo       User?       @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  followUps        LeadFollowUp[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, phone])
+  @@map("leads")
+}
+
+model LeadFollowUp {
+  id             Int        @id @default(autoincrement())
+  leadId         Int        @map("lead_id")
+  operatorId     Int?       @map("operator_id")
+  content        String     @db.VarChar(500)
+  nextFollowUpAt DateTime?  @map("next_follow_up_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  operator       User?      @relation(fields: [operatorId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_follow_ups")
 }

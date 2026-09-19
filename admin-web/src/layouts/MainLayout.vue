@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElNotification } from 'element-plus'
 import { Fold, Expand, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { useAppStore } from '../stores/app'
+import { getLeadStats } from '../api/lead'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,6 +20,7 @@ const localMenus = [
   { code: 'product:read', name: '分类管理', path: '/products/categories', icon: 'Menu' },
   { code: 'inventory:read', name: '库存管理', path: '/inventory', icon: 'Box' },
   { code: 'customer:manage', name: '客户管理', path: '/customers', icon: 'UserFilled' },
+  { code: 'lead:read', name: '获客线索', path: '/leads', icon: 'Connection' },
   { code: 'order:read', name: '订单管理', path: '/orders', icon: 'Document' },
   { code: 'role:manage', name: '用户与角色', path: '/users', icon: 'Avatar' },
 ]
@@ -28,11 +31,44 @@ const bottomMenus = [
 const menus = computed(() => localMenus.filter((item) => auth.can(item.code)))
 const bottom = computed(() => bottomMenus.filter((item) => auth.can(item.code)))
 
+const newLeadCount = ref(0)
+let leadPollTimer: ReturnType<typeof setInterval> | null = null
+
+const dataOf = (r: any) => r?.data ?? r ?? {}
+
+async function refreshLeadStats(initial = false) {
+  if (!auth.can('lead:read')) return
+  try {
+    const res: any = await getLeadStats()
+    const count = dataOf(res).newCount || 0
+    if (!initial && count > newLeadCount.value) {
+      ElNotification({
+        title: '新获客线索',
+        message: `有 ${count - newLeadCount.value} 条新留资，请及时跟进`,
+        type: 'success',
+        duration: 6000
+      })
+    }
+    newLeadCount.value = count
+  } catch { /* 静默失败，不影响主流程 */ }
+}
+
+function startLeadPolling() {
+  if (leadPollTimer) return
+  refreshLeadStats(true)
+  leadPollTimer = setInterval(() => refreshLeadStats(), 60_000)
+}
+
+function stopLeadPolling() {
+  if (leadPollTimer) { clearInterval(leadPollTimer); leadPollTimer = null }
+}
+
 onMounted(async () => {
   if (window.matchMedia('(max-width: 640px)').matches && !app.sidebarCollapsed) {
     app.toggleSidebar()
   }
   if (!auth.accessToken) return
+  startLeadPolling()
   if (auth.profile) { profileReady.value = true; return }
   try {
     await auth.loadProfile()
@@ -42,6 +78,8 @@ onMounted(async () => {
     router.replace('/login')
   }
 })
+
+onUnmounted(stopLeadPolling)
 
 async function handleLogout() {
   await auth.signOut()
@@ -62,7 +100,10 @@ function handleMenuSelect() {
       <el-menu router :collapse="app.sidebarCollapsed" :default-active="route.path" class="nav" @select="handleMenuSelect">
         <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.name }}</span>
+          <el-badge v-if="item.path === '/leads' && newLeadCount > 0" :value="newLeadCount" :max="99" class="lead-badge">
+            <span>{{ item.name }}</span>
+          </el-badge>
+          <span v-else>{{ item.name }}</span>
         </el-menu-item>
       </el-menu>
       <div style="flex:1" />
@@ -134,6 +175,10 @@ function handleMenuSelect() {
 .brand strong {
   font-size: 15px;
   letter-spacing: .2px;
+}
+
+.lead-badge :deep(.el-badge__content) {
+  border: none;
 }
 
 .brand-mark {

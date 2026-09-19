@@ -162,12 +162,47 @@
             <a class="button ghost large" href="http://127.0.0.1:5174/login" target="_blank" rel="noopener">客户登录入口</a>
           </div>
         </div>
-        <div class="contact-card">
-          <h3>合作信息</h3>
-          <div><span>公司名称</span><strong>河南唯多鲜食品有限公司</strong></div>
-          <div><span>联系人</span><strong>安玺潼</strong></div>
-          <div><span>联系电话</span><strong><a href="tel:18137222005">18137222005</a></strong></div>
-          <div><span>服务客户</span><strong>火锅餐饮 / 团餐 / 批发客户</strong></div>
+        <div class="contact-card lead-card">
+          <h3>获取合作方案</h3>
+          <p class="lead-sub">留下联系方式，工作时间内我们会尽快与您联系</p>
+          <form id="leadForm" novalidate>
+            <div class="form-field">
+              <label for="leadPhone">手机号 <i>*</i></label>
+              <input id="leadPhone" name="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="用于接收合作方案" required>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="leadName">称呼</label>
+                <input id="leadName" name="name" type="text" maxlength="20" placeholder="怎么称呼您">
+              </div>
+              <div class="form-field">
+                <label for="leadScale">门店规模</label>
+                <select id="leadScale" name="storeScale">
+                  <option value="">请选择</option>
+                  <option value="1-3家">1-3 家</option>
+                  <option value="4-10家">4-10 家</option>
+                  <option value="10家以上">10 家以上</option>
+                  <option value="批发/团餐">批发 / 团餐</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="leadStore">门店名称</label>
+              <input id="leadStore" name="storeName" type="text" maxlength="60" placeholder="选填，便于我们提前准备方案">
+            </div>
+            <div class="form-field">
+              <label for="leadItems">意向商品 / 留言</label>
+              <textarea id="leadItems" name="interestedItems" rows="3" maxlength="500" placeholder="例如：毛肚、牛肉卷、底料，每周固定补货"></textarea>
+            </div>
+            <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button class="button primary lead-submit" id="leadSubmit" type="submit">提交，获取合作方案</button>
+            <p class="lead-note">提交即视为同意我们通过电话与您联系，信息仅用于合作洽谈</p>
+          </form>
+          <div id="leadSuccess" class="lead-success" hidden>
+            <div class="lead-success-icon">✓</div>
+            <strong>提交成功</strong>
+            <p>已收到您的联系方式，我们会尽快与您联系。<br>也可直接拨打 <a href="tel:18137222005">18137222005</a></p>
+          </div>
         </div>
       </div>
     </section>

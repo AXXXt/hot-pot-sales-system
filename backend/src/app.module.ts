@@ -20,6 +20,7 @@ import { ExportModule } from './export/export.module'
 import { ImportModule } from './import/import.module'
 import { MetricsModule } from './monitor/monitor.module'
 import { InventoryModule } from './inventory/inventory.module'
+import { LeadModule } from './lead/lead.module'
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { InventoryModule } from './inventory/inventory.module'
     ImportModule,
     MetricsModule,
     InventoryModule,
+    LeadModule,
   ],
   controllers: [AppController, HealthController],
   providers: [PrismaService, redisProvider, minioProvider]

@@ -17,6 +17,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'inventory', name: 'inventory', component: () => import('../views/inventory/InventoryView.vue'), meta: { title: '库存管理', permission: 'inventory:read', description: '库存总览、流水、出入库与盘点' } },
       { path: 'customers', name: 'customers', component: () => import('../views/customer/CustomerList.vue'), meta: { title: '客户管理', permission: 'customer:manage' } },
       { path: 'customers/:id', name: 'customer-detail', component: () => import('../views/customer/CustomerDetail.vue'), meta: { title: '客户详情', permission: 'customer:manage' } },
+      { path: 'leads', name: 'leads', component: () => import('../views/lead/LeadListView.vue'), meta: { title: '获客线索', permission: 'lead:read', description: '官网留资跟进与转化' } },
       { path: 'orders', name: 'orders', component: () => import('../views/orders/OrderListView.vue'), meta:{title:'订单管理',permission:'order:read'} },
       { path: 'orders/:id', name: 'order-detail', component: () => import('../views/orders/OrderDetailView.vue'), meta:{title:'订单详情',permission:'order:read'} },
       { path: 'users', name: 'users', component: () => import('../views/user/UserListView.vue'), meta: { title: '用户管理', permission: 'role:manage' } },
