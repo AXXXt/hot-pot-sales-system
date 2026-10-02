@@ -66,9 +66,9 @@
             <text class="auth-form__agree-text">同意</text>
           </label>
         </checkbox-group>
-        <text class="auth-form__agree-link">用户协议</text>
+        <text class="auth-form__agree-link" catchtap="openTerms">用户协议</text>
         <text class="auth-form__agree-text">和</text>
-        <text class="auth-form__agree-link">隐私政策</text>
+        <text class="auth-form__agree-link" catchtap="openPrivacy">隐私政策</text>
       </view>
 
       <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onLoginSubmit">{{submitting ? '登录中…' : '登录'}}</view>
@@ -134,9 +134,9 @@
             <text class="auth-form__agree-text">同意</text>
           </label>
         </checkbox-group>
-        <text class="auth-form__agree-link">用户协议</text>
+        <text class="auth-form__agree-link" catchtap="openTerms">用户协议</text>
         <text class="auth-form__agree-text">和</text>
-        <text class="auth-form__agree-link">隐私政策</text>
+        <text class="auth-form__agree-link" catchtap="openPrivacy">隐私政策</text>
       </view>
 
       <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onSubmit">{{submitting ? '提交中…' : '提交注册申请'}}</view>

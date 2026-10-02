@@ -34,6 +34,8 @@ export interface OrderDetail {
   payableAmount: string
   remark?: string
   paymentMethod?: string
+  paymentProof?: string
+  quoteNote?: string
   createdAt: string
   items: OrderItem[]
   customer?: {
@@ -66,6 +68,18 @@ export function cancelOrder(id: number) {
 
 export function completeOrder(id: number) {
   return http.post(`/orders/${id}/complete`)
+}
+
+export function submitFinance(id: number, data: { paymentProof?: string; creditRequested?: boolean }) {
+  return http.post(`/orders/${id}/submit-finance`, data)
+}
+
+export function uploadPaymentProof(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return http.post<{ url: string; objectKey: string }>('/uploads/payment-proof', body, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 }
 
 export function getOrderLogistics(id: number) {

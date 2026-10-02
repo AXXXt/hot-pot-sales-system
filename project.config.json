@@ -3,12 +3,74 @@
   "libVersion": "3.17.0",
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": "backend" },
-      { "type": "folder", "value": "admin-web" },
-      { "type": "folder", "value": "docs" },
-      { "type": "folder", "value": "node_modules" },
-      { "type": "folder", "value": "dist" },
-      { "type": "folder", "value": "coverage" }
+      { "value": "components/business/sticky-action-bar", "type": "folder" },
+      { "value": "components/layout/page-header", "type": "folder" },
+      { "value": "components/layout/section-title", "type": "folder" },
+      { "value": ".git", "type": "folder" },
+      { "value": ".gitignore", "type": "file" },
+      { "value": ".gitattributes", "type": "file" },
+      { "value": "skills-lock.json", "type": "file" },
+      { "value": ".env", "type": "prefix" },
+      { "value": ".wx-", "type": "prefix" },
+      { "value": ".log", "type": "suffix" },
+      { "value": ".pid", "type": "suffix" },
+      { "value": ".pem", "type": "suffix" },
+      { "value": ".key", "type": "suffix" },
+      { "value": ".p12", "type": "suffix" },
+      { "value": ".pfx", "type": "suffix" },
+      { "value": ".sql", "type": "suffix" },
+      { "value": ".gz", "type": "suffix" },
+      { "value": ".zip", "type": "suffix" },
+      { "value": ".md", "type": "suffix" },
+      { "value": ".cmd", "type": "suffix" },
+      { "value": ".bat", "type": "suffix" },
+      { "value": ".ps1", "type": "suffix" },
+      { "value": ".yml", "type": "suffix" },
+      { "value": ".yaml", "type": "suffix" },
+      { "value": "web-customer", "type": "folder" },
+      { "value": "official-site", "type": "folder" },
+      { "value": "tests", "type": "folder" },
+      { "value": "scripts", "type": "folder" },
+      { "value": "backup", "type": "folder" },
+      { "value": ".github", "type": "folder" },
+      { "value": "deploy", "type": "folder" },
+      { "value": "dev-docs", "type": "folder" },
+      { "value": ".agents", "type": "folder" },
+      { "value": ".cursor", "type": "folder" },
+      { "value": ".codex-cua-runtime", "type": "folder" },
+      { "value": ".codex-mini-automator", "type": "folder" },
+      { "value": ".wx-auto-localappdata", "type": "folder" },
+      { "value": "01-项目总览", "type": "folder" },
+      { "value": "02-后端与数据", "type": "folder" },
+      { "value": "03-前端与设计", "type": "folder" },
+      { "value": "04-小程序开发", "type": "folder" },
+      { "value": "05-运维与发布", "type": "folder" },
+      { "value": ".codex-home-hot.png", "type": "file" },
+      { "value": ".codex-simulator.png", "type": "file" },
+      {
+        "value": "backend",
+        "type": "folder"
+      },
+      {
+        "value": "admin-web",
+        "type": "folder"
+      },
+      {
+        "value": "docs",
+        "type": "folder"
+      },
+      {
+        "value": "node_modules",
+        "type": "folder"
+      },
+      {
+        "value": "dist",
+        "type": "folder"
+      },
+      {
+        "value": "coverage",
+        "type": "folder"
+      }
     ],
     "include": []
   },

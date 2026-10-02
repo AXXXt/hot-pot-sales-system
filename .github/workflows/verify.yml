@@ -1,0 +1,63 @@
+name: Verify launch readiness
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-test-only
+          MYSQL_DATABASE: miniprogram_ci_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pci-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    env:
+      DATABASE_URL: mysql://root:ci-test-only@127.0.0.1:3306/miniprogram_ci_test
+      TEST_DATABASE_URL: mysql://root:ci-test-only@127.0.0.1:3306/miniprogram_ci_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --silent
+      - run: npx prisma migrate deploy
+      - run: npm run test:integration
+      - run: npm run build
+      - run: node --test ../tests/*.test.js
+  web:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [admin-web, web-customer]
+    defaults:
+      run:
+        working-directory: '${{ matrix.app }}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: '${{ matrix.app }}/package-lock.json'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: '${{ matrix.app }}-test-results'
+          path: '${{ matrix.app }}/test-results/'

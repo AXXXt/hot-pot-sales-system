@@ -23,14 +23,6 @@ interface LogisticsOrderInput {
 export class LogisticsService {
   constructor(private readonly config: ConfigService) {}
 
-  /**
-   * 货拉拉是否已配置。真实对接需在货拉拉开放平台申请企业账号与 API Key，
-   * 并依据其 API 文档在此扩展 createShipment / queryTrack。
-   */
-  private get lalamoveConfigured(): boolean {
-    return Boolean(this.config.get<string>('LALAMOVE_API_KEY') && this.config.get<string>('LALAMOVE_ENDPOINT'))
-  }
-
   /** 订单物流轨迹（手动物流信息；货拉拉接入后可扩展为实时轨迹） */
   async getOrderTrack(order: LogisticsOrderInput): Promise<OrderTrack> {
     const track: TrackPoint[] = []
@@ -51,10 +43,7 @@ export class LogisticsService {
     if (order.status === 'shipped') track.push({ time: '', text: '货物已发出' })
     if (order.status === 'completed') track.push({ time: '', text: '客户已确认收货' })
 
-    // 货拉拉接入占位：若配置且订单有运单号，可在此调用 Lalamove 开放平台查询实时轨迹
-    if (this.lalamoveConfigured && info.shipmentId) {
-      return { provider: 'lalamove', shipmentId: info.shipmentId as string, track }
-    }
+    // Configuration alone does not establish a live provider integration.
     return { provider: 'manual', track }
   }
 

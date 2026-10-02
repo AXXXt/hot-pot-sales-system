@@ -1,8 +1,10 @@
-import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Inject, Injectable, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { randomUUID } from 'node:crypto'
 import { PRODUCT_IMAGE_CLIENT, ProductImageClient } from './product-image-client.provider'
 import { ProductImageDescriptor } from './product-image.validation'
+import { PrismaService } from '../prisma.service'
+import { getOrderScope } from '../order/order-access.guard'
 
 interface BucketPolicy {
   Version: string
@@ -21,7 +23,8 @@ export class ProductImageStorageService {
 
   constructor(
     @Inject(PRODUCT_IMAGE_CLIENT) private readonly client: ProductImageClient,
-    config: ConfigService
+    config: ConfigService,
+    private readonly prisma: PrismaService
   ) {
     this.bucket = config.getOrThrow<string>('MINIO_BUCKET')
     this.publicUrl = config.getOrThrow<string>('MINIO_PUBLIC_URL').replace(/\/+$/, '')
@@ -40,22 +43,39 @@ export class ProductImageStorageService {
     buffer: Buffer,
     mimetype: ProductImageDescriptor['mimetype'],
     extension: ProductImageDescriptor['extension'],
+    userId: number,
     now = new Date()
   ) {
-    return this.uploadImage('payment-proofs', buffer, mimetype, extension, now)
+    const scope = await getOrderScope(this.prisma, userId)
+    const result = await this.uploadImage('payment-proofs', buffer, mimetype, extension, now)
+    await this.prisma.file.create({
+      data: {
+        tenantId: scope.tenantId, createdBy: userId, fileName: result.objectKey,
+        fileUrl: result.url, fileType: 'payment-proof', fileSize: buffer.length, mimeType: mimetype
+      }
+    })
+    return result
   }
 
   /**
    * 生成转账凭证的临时签名访问地址（凭证桶为私有读，无签名无法访问）。
    * key 支持两种格式：objectKey（payment-proofs/...）或完整地址。
    */
-  async getPaymentProofSignedUrl(key: string, expiresSeconds = 3600) {
+  async getPaymentProofSignedUrl(key: string, userId: number, expiresSeconds = 3600) {
+    const objectKey = this.resolvePaymentProofObjectKey(key)
+    if (!objectKey) throw new BadRequestException({ message: '凭证地址无效', errorCode: 'UPL_1003' })
+    const scope = await getOrderScope(this.prisma, userId)
+    const url = `${this.publicUrl}/${this.bucket}/${objectKey}`
+    const order = await this.prisma.order.findFirst({
+      where: { ...scope, paymentProof: { in: [objectKey, url] } }, select: { id: true }
+    })
+    const ownFile = !order && await this.prisma.file.findFirst({
+      where: { tenantId: scope.tenantId, createdBy: userId, fileType: 'payment-proof', fileUrl: url },
+      select: { id: true }
+    })
+    if (!order && !ownFile) throw new ForbiddenException('无权访问该付款凭证')
     try {
       await this.ensureReady()
-      const objectKey = this.resolvePaymentProofObjectKey(key)
-      if (!objectKey) {
-        throw new BadRequestException({ message: '凭证地址无效', errorCode: 'UPL_1003' })
-      }
       const url = await this.client.presignedGetObject(this.bucket, objectKey, expiresSeconds)
       return { url, expiresIn: expiresSeconds, objectKey }
     } catch (error) {
@@ -95,7 +115,7 @@ export class ProductImageStorageService {
 
       await this.client.putObject(this.bucket, objectKey, buffer, buffer.length, {
         'Content-Type': mimetype,
-        'Cache-Control': 'public, max-age=31536000, immutable'
+        'Cache-Control': prefix === 'products' ? 'public, max-age=31536000, immutable' : 'private, no-store'
       })
 
       return {

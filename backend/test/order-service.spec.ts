@@ -17,10 +17,10 @@ describe('OrderService checkout invariants', () => {
     }
     const prisma = {
       user: {
-        findUnique: jest.fn().mockResolvedValue({ customerId: 3, userType: 'customer_user' })
+        findUnique: jest.fn().mockResolvedValue({ tenantId: 7, customerId: 3, userType: 'customer_user' })
       },
       customer: {
-        findUnique: jest.fn().mockResolvedValue({ id: 3, status: 'active' })
+        findUnique: jest.fn().mockResolvedValue({ id: 3, tenantId: 7, status: 'active' })
       },
       productSku: {
         findMany: jest.fn().mockResolvedValue([sku])
@@ -33,12 +33,14 @@ describe('OrderService checkout invariants', () => {
         findMany: jest.fn(),
         count: jest.fn(),
         findUnique: jest.fn(),
-        update: jest.fn()
+        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 })
       },
       orderStatusLog: {
         create: jest.fn().mockResolvedValue({})
       }
     }
+    Object.assign(prisma, { $transaction: async (fn: any) => fn(prisma) })
     const visibility = {
       whereForCustomer: jest.fn().mockResolvedValue({ status: 'active' })
     }
@@ -63,12 +65,18 @@ describe('OrderService checkout invariants', () => {
     expect(visibility.whereForCustomer).toHaveBeenCalledWith(3)
     expect(prisma.order.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
+        tenantId: 7,
         totalAmount: '50',
         payableAmount: '50',
         items: {
-          create: [expect.objectContaining({ skuId: 11, quantity: 5, amount: '50' })]
-        }
+          create: [expect.objectContaining({ tenantId: 7, skuId: 11, quantity: 5, amount: '50' })]
+        },
+        statusLogs: { create: { tenantId: 7, fromStatus: '', toStatus: 'draft', operatorId: 9 } }
       })
+    }))
+    expect(prisma.orderStatusLog.create).not.toHaveBeenCalled()
+    expect(prisma.productSku.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ tenantId: 7, product: { is: { status: 'active', tenantId: 7 } } })
     }))
   })
 
@@ -120,8 +128,8 @@ describe('OrderService checkout invariants', () => {
 
     await service.transition(100, 'cancelled', 9)
 
-    expect(prisma.order.update).toHaveBeenCalledWith({
-      where: { id: 100 },
+    expect(prisma.order.updateMany).toHaveBeenCalledWith({
+      where: { id: 100, status: 'draft', updatedAt: undefined },
       data: { status: 'cancelled' }
     })
   })
@@ -274,9 +282,9 @@ describe('OrderService customer finance flow', () => {
       productSku: { update: jest.fn() },
       customer: {
         findUnique: jest.fn().mockResolvedValue({ creditUsed: '80.00' }),
-        update: jest.fn().mockResolvedValue({})
+        updateMany: jest.fn().mockResolvedValue({ count: 1 })
       },
-      order: { update: jest.fn().mockResolvedValue({}) },
+      order: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       orderStatusLog: { create: jest.fn().mockResolvedValue({}) }
     }
     const prisma = {
@@ -291,12 +299,12 @@ describe('OrderService customer finance flow', () => {
 
     await service.cancel(100, 9)
 
-    expect(tx.customer.update).toHaveBeenCalledWith({
-      where: { id: 3 },
+    expect(tx.customer.updateMany).toHaveBeenCalledWith({
+      where: { id: 3, creditUsed: '80.00' },
       data: { creditUsed: '20.00' }
     })
-    expect(tx.order.update).toHaveBeenCalledWith({
-      where: { id: 100 },
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: { id: 100, status: 'pending_finance', updatedAt: undefined },
       data: { status: 'cancelled' }
     })
   })

@@ -2,6 +2,8 @@
 node_modules/
 dist/
 coverage/
+test-results/
+playwright-report/
 build/
 
 # ---- 环境变量（保留 .env.example） ----
@@ -32,3 +34,7 @@ npm-debug.log*
 Thumbs.db
 # ---- 数据库备份产物 ----
 backup/
+deploy/.work/
+
+# Identity documents are local-only, never source assets.
+output/pdf/

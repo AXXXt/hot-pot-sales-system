@@ -1,0 +1,11 @@
+<view class="legal-page">
+  <text class="legal-title">{{title}}</text>
+  <text class="legal-version">版本 {{version}}</text>
+  <view class="legal-notice">{{notice}}</view>
+  <text class="legal-paragraph">{{intro}}</text>
+  <view wx:for="{{sections}}" wx:key="title" class="legal-section">
+    <text class="legal-heading">{{item.title}}</text>
+    <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="legal-paragraph" selectable>{{paragraph}}</text>
+  </view>
+  <button class="legal-contact" bindtap="contact">联系服务方</button>
+</view>

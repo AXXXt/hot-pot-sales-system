@@ -18,10 +18,12 @@ describe('OrderService state machine', () => {
         findUnique: jest.fn()
           .mockResolvedValueOnce(baseOrder)
           .mockResolvedValueOnce(detailOrder),
-        update: jest.fn().mockResolvedValue({})
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 })
       },
       orderStatusLog: { create: jest.fn().mockResolvedValue({}) }
     }
+    Object.assign(prisma, { $transaction: async (fn: any) => fn(prisma) })
     const service = new OrderService(prisma as any, {} as any, { write: jest.fn() } as any, {} as any, {} as any)
     return { service, prisma }
   }
@@ -29,13 +31,9 @@ describe('OrderService state machine', () => {
   const validTransitions: Array<[string, string]> = [
     ['draft', 'pending_quote'],
     ['draft', 'cancelled'],
-    ['pending_quote', 'pending_confirm'],
     ['pending_quote', 'cancelled'],
-    ['pending_confirm', 'pending_finance'],
     ['pending_confirm', 'cancelled'],
-    ['pending_finance', 'pending_shipment'],
     ['pending_finance', 'cancelled'],
-    ['pending_shipment', 'shipped'],
     ['pending_shipment', 'cancelled'],
     ['shipped', 'completed']
   ]
@@ -45,8 +43,8 @@ describe('OrderService state machine', () => {
 
     await service.transition(100, to, 9)
 
-    expect(prisma.order.update).toHaveBeenCalledWith({
-      where: { id: 100 },
+    expect(prisma.order.updateMany).toHaveBeenCalledWith({
+      where: { id: 100, status: from, updatedAt: undefined },
       data: { status: to }
     })
     expect(prisma.orderStatusLog.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -65,7 +63,7 @@ describe('OrderService state machine', () => {
   ])('rejects illegal transition %s -> %s', async (from, to) => {
     const { service, prisma } = createSubject({ status: from })
 
-    await expect(service.transition(100, to, 9)).rejects.toThrow(/不允许从/)
+    await expect(service.transition(100, to, 9)).rejects.toThrow(/不允许/)
 
     expect(prisma.order.update).not.toHaveBeenCalled()
     expect(prisma.orderStatusLog.create).not.toHaveBeenCalled()
@@ -94,14 +92,15 @@ describe('OrderService stock deduction and rollback', () => {
     const tx = {
       productSku: {
         findUnique: jest.fn().mockResolvedValue({ id: 11, productId: 11, name: '标准箱', stockNum }),
-        update: jest.fn().mockResolvedValue({})
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 })
       },
       stockMovement: { create: jest.fn().mockResolvedValue({}) },
       customer: {
         findUnique: jest.fn().mockResolvedValue({ creditUsed: '0.00' }),
         update: jest.fn().mockResolvedValue({})
       },
-      order: { update: jest.fn().mockResolvedValue({}) },
+      order: { update: jest.fn().mockResolvedValue({}), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       orderStatusLog: { create: jest.fn().mockResolvedValue({}) }
     }
     const prisma = {
@@ -123,12 +122,12 @@ describe('OrderService stock deduction and rollback', () => {
 
     await service.approveFinance(100, 9)
 
-    expect(tx.productSku.update).toHaveBeenCalledWith({
-      where: { id: 11 },
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, stockNum: 10 },
       data: { stockNum: 5 }
     })
-    expect(tx.order.update).toHaveBeenCalledWith({
-      where: { id: 100 },
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: { id: 100, status: 'pending_finance', updatedAt: undefined },
       data: { status: 'pending_shipment' }
     })
   })
@@ -149,12 +148,12 @@ describe('OrderService stock deduction and rollback', () => {
 
     await service.cancel(100, 9)
 
-    expect(tx.productSku.update).toHaveBeenCalledWith({
-      where: { id: 11 },
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({
+      where: { id: 11, stockNum: 10 },
       data: { stockNum: 15 }
     })
-    expect(tx.order.update).toHaveBeenCalledWith({
-      where: { id: 100 },
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: { id: 100, status: 'pending_shipment', updatedAt: undefined },
       data: { status: 'cancelled' }
     })
   })

@@ -1,5 +1,6 @@
 import { plainToInstance } from 'class-transformer'
 import { IsIn, IsNotEmpty, IsOptional, validateSync } from 'class-validator'
+import { experienceSmsSettings } from '../auth/sms-experience.config'
 
 class EnvSchema {
   @IsIn(['development', 'test', 'production'])
@@ -68,13 +69,21 @@ const developmentDefaults: Record<string, string> = {
 
 export function validateEnv(config: Record<string, unknown>) {
   const nodeEnv = String(config.NODE_ENV || 'development')
-  const merged = nodeEnv === 'production'
+  const merged: Record<string, unknown> = nodeEnv === 'production'
     ? { ...config, NODE_ENV: nodeEnv }
     : { ...developmentDefaults, ...config, NODE_ENV: nodeEnv }
   const env = plainToInstance(EnvSchema, merged, { enableImplicitConversion: true })
   const errors = validateSync(env, { skipMissingProperties: false })
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration: ${errors.toString()}`)
+  }
+
+  if (env.SMS_PROVIDER === 'experience') {
+    const settings = experienceSmsSettings({ get: (key, fallback) => merged[key] ?? fallback })
+    // An expired window disables SMS at runtime, not the entire backend on restart.
+    if (!settings.valid || settings.expiresAt > Date.now() + 7 * 24 * 60 * 60 * 1000) {
+      throw new Error('Experience SMS requires explicit valid SMS_TEST_PHONES and SMS_TEST_EXPIRES_AT no more than 7 days ahead')
+    }
   }
 
   if (nodeEnv === 'production') {
@@ -88,7 +97,7 @@ export function validateEnv(config: Record<string, unknown>) {
       throw new Error('Production JWT secrets must not use development defaults')
     }
     if (!env.SMS_PROVIDER || env.SMS_PROVIDER === 'development') {
-      throw new Error('Production SMS_PROVIDER must be a real provider')
+      throw new Error('Production SMS_PROVIDER must be a real provider or explicitly disabled')
     }
   }
 

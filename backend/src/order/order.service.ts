@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service'
 import { WxService } from '../notify/wx.service'
 import { LogisticsService } from '../logistics/logistics.service'
 import { MetricsService } from '../monitor/metrics.service'
+import { Prisma } from '@prisma/client'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -37,9 +38,9 @@ export class OrderService {
     private readonly metrics?: MetricsService
   ) {}
 
-  async list(query: { status?: string; customerId?: number; page: number; pageSize: number }) {
+  async list(query: { status?: string; customerId?: number; tenantId?: number; page: number; pageSize: number }) {
     const { status, customerId, page, pageSize } = query
-    const where: any = { tenantId: 1 }
+    const where: any = { tenantId: query.tenantId || 1 }
     if (status && status !== 'all') where.status = status
     if (customerId) where.customerId = customerId
     const [orders, total] = await Promise.all([
@@ -119,12 +120,13 @@ export class OrderService {
     const actor = userId
       ? await this.prisma.user.findUnique({
           where: { id: userId },
-          select: { customerId: true, userType: true }
+          select: { customerId: true, userType: true, tenantId: true }
         })
       : null
     const customerId = actor?.customerId ?? dto.customerId
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId } })
     if (!customer) throw new NotFoundException({ message: '客户不存在' })
+    if (actor?.tenantId && customer.tenantId !== actor.tenantId) throw new ForbiddenException('无权为该客户创建订单')
     if (customer.status !== 'active') throw new BadRequestException({ message: '客户账号未审核通过' })
 
     const items = this.normalizeItems(dto.items)
@@ -133,8 +135,9 @@ export class OrderService {
     const skus = await this.prisma.productSku.findMany({
       where: {
         id: { in: skuIds },
+        tenantId: customer.tenantId,
         status: 'active',
-        product: { is: productWhere }
+        product: { is: { ...productWhere, tenantId: customer.tenantId } }
       },
       include: { product: { select: { id: true, name: true, brandId: true } } }
     })
@@ -156,6 +159,7 @@ export class OrderService {
     const now = new Date()
     const priceRules = await this.prisma.customerPriceRule.findMany({
       where: {
+        tenantId: customer.tenantId,
         customerId,
         skuId: { in: skuIds },
         status: 'active',
@@ -168,30 +172,30 @@ export class OrderService {
     })
     const skuMap = new Map(skus.map(s => [s.id, s]))
     const priceMap = new Map(priceRules.filter(rule => rule.skuId != null).map(rule => [rule.skuId!, rule.price]))
-    let total = 0
+    let total = new Prisma.Decimal(0)
     const orderItems = items.map(item => {
       const sku = skuMap.get(item.skuId)
       if (!sku) throw new NotFoundException({ message: 'SKU ' + item.skuId + ' 不存在或已下架' })
       const agreementPrice = priceMap.get(sku.id)
       const unitPrice = agreementPrice ?? sku.basePrice
-      const amt = Number(unitPrice) * item.quantity
-      total += amt
-      return { tenantId: 1, productId: sku.productId, skuId: sku.id, productName: sku.product.name, skuName: sku.name, skuSpecText: sku.specText, saleUnit: sku.saleUnit, quantity: item.quantity, unitPrice: unitPrice.toString(), amount: amt.toString(), priceSource: agreementPrice !== undefined ? 'agreement' : 'base' }
+      const amt = new Prisma.Decimal(unitPrice).mul(item.quantity)
+      total = total.add(amt)
+      return { tenantId: customer.tenantId, productId: sku.productId, skuId: sku.id, productName: sku.product.name, skuName: sku.name, skuSpecText: sku.specText, saleUnit: sku.saleUnit, quantity: item.quantity, unitPrice: unitPrice.toString(), amount: amt.toString(), priceSource: agreementPrice !== undefined ? 'agreement' : 'base' }
     })
 
     const orderNo = 'OD' + no()
     const initialStatus = (dto as any).sampleFlag ? 'pending_shipment' : 'draft'
     const order = await this.prisma.order.create({
       data: {
-        tenantId: 1, brandId: orderBrandId, customerId, userId, orderNo,
+        tenantId: customer.tenantId, brandId: orderBrandId, customerId, userId, orderNo,
         status: initialStatus,
         totalAmount: total.toString(), discountAmount: '0', adjustAmount: '0', payableAmount: total.toString(),
         remark: dto.remark, sampleFlag: (dto as any).sampleFlag || false,
-        items: { create: orderItems }
+        items: { create: orderItems },
+        statusLogs: { create: { tenantId: customer.tenantId, fromStatus: '', toStatus: initialStatus, operatorId: userId } }
       },
       include: { items: true, customer: { select: { id: true, customerName: true } } }
     })
-    await this.log(order.id, '', initialStatus, userId)
     return order
   }
 
@@ -236,17 +240,26 @@ export class OrderService {
     const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } })
     if (!order || order.status !== 'pending_quote') throw new BadRequestException({ message: '当前状态不允许报价' })
 
-    let total = 0
-    for (const qi of items) {
-      const oi = order.items.find(i => i.skuId === qi.skuId)
-      if (!oi) continue
-      await this.prisma.orderItem.update({ where: { id: oi.id }, data: { quotedPrice: qi.quotedPrice.toString(), unitPrice: qi.quotedPrice.toString(), amount: (qi.quotedPrice * oi.quantity).toString(), priceSource: 'manual' } })
-      total += qi.quotedPrice * oi.quantity
-      // Save to price history
-      await this.prisma.customerPriceHistory.create({ data: { tenantId: 1, customerId: order.customerId, skuId: qi.skuId, price: qi.quotedPrice.toString(), orderId: id } })
+    if (!Array.isArray(items) || items.length !== order.items.length || !items.length
+      || new Set(items.map(item => item.skuId)).size !== items.length
+      || items.some(item => !order.items.some(oi => oi.skuId === item.skuId))) {
+      throw new BadRequestException('请为订单中的每个商品填写一次完整报价')
     }
+    const prices = items.map(item => this.money(item.quotedPrice))
+    let total = new Prisma.Decimal(0)
+    await this.prisma.$transaction(async tx => {
+      await this.claimOrder(tx, order, 'pending_confirm')
+      for (const [index, qi] of items.entries()) {
+        const oi = order.items.find(i => i.skuId === qi.skuId)
+        const amount = prices[index].mul(oi!.quantity)
+        await tx.orderItem.update({ where: { id: oi!.id }, data: { quotedPrice: prices[index], unitPrice: prices[index], amount, priceSource: 'manual' } })
+        total = total.add(amount)
+        await tx.customerPriceHistory.create({ data: { tenantId: order.tenantId, customerId: order.customerId, skuId: qi.skuId, price: prices[index], orderId: id } })
+      }
 
-    await this.prisma.order.update({ where: { id }, data: { quotedAmount: total.toString(), payableAmount: total.toString(), totalAmount: total.toString(), quoteNote: note || '' } })
+      await tx.order.update({ where: { id }, data: { quotedAmount: total, payableAmount: total, totalAmount: total, adjustAmount: '0', discountAmount: '0', quoteNote: note || '' } })
+      await this.logInTransaction(tx, order, 'pending_confirm', userId)
+    })
     await this.audit.write({
       action: 'price_change',
       module: 'order',
@@ -256,13 +269,14 @@ export class OrderService {
       afterData: { quotedAmount: total.toString(), quoteNote: note || '', items: items.map((item) => ({ skuId: item.skuId, quotedPrice: item.quotedPrice })) },
       operatorId: userId
     })
-    return this.transition(id, 'pending_confirm', userId)
+    await this.notifyOrderStatus(order, 'pending_confirm')
+    return this.detail(id)
   }
 
   // Get price history for a customer's SKUs (for auto-fill in quoting)
-  async getPriceHistory(customerId: number, skuIds: number[]) {
+  async getPriceHistory(customerId: number, skuIds: number[], tenantId = 1) {
     const history = await this.prisma.customerPriceHistory.findMany({
-      where: { customerId, skuId: { in: skuIds } },
+      where: { tenantId, customerId, skuId: { in: skuIds } },
       orderBy: { createdAt: 'desc' },
       distinct: ['skuId'],
       select: { skuId: true, price: true }
@@ -286,6 +300,12 @@ export class OrderService {
     const proof = paymentProof || order.paymentProof || null
     if (!creditRequested && !proof) {
       throw new BadRequestException({ message: '请上传转账凭证或选择账期支付' })
+    }
+    if (!creditRequested && proof !== order.paymentProof) {
+      const file = await this.prisma.file.findFirst({
+        where: { tenantId: order.tenantId, createdBy: userId, fileType: 'payment-proof', fileUrl: proof! }
+      })
+      if (!file) throw new BadRequestException('请上传本人有效的转账凭证')
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -327,7 +347,7 @@ export class OrderService {
       }
 
       const orderUpdate = await tx.order.updateMany({
-        where: { id, status: 'pending_confirm' },
+        where: { id, status: 'pending_confirm', updatedAt: currentOrder.updatedAt },
         data: {
           status: 'pending_finance',
           paymentMethod: creditRequested ? 'credit' : 'transfer',
@@ -361,7 +381,8 @@ export class OrderService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
+        await this.claimOrder(tx, order, 'pending_shipment')
+        for (const item of [...order.items].sort((a, b) => a.skuId - b.skuId)) {
           const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
           if (!sku || sku.stockNum < item.quantity) {
             throw new BadRequestException({
@@ -371,7 +392,7 @@ export class OrderService {
           }
           const beforeStock = sku.stockNum
           const afterStock = beforeStock - item.quantity
-          await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: afterStock } })
+          await this.changeStock(tx, item.skuId, beforeStock, afterStock)
           await tx.stockMovement.create({
             data: {
               tenantId: order.tenantId,
@@ -388,10 +409,10 @@ export class OrderService {
             }
           })
         }
-        await tx.order.update({ where: { id }, data: { status: 'pending_shipment' as any } })
+        await this.logInTransaction(tx, order, 'pending_shipment', userId)
       })
 
-      await this.log(id, 'pending_finance', 'pending_shipment', userId)
+      await this.notifyOrderStatus(order, 'pending_shipment')
       return this.detail(id)
     } catch (error) {
       await this.metrics?.recordInventoryFailure()
@@ -408,11 +429,17 @@ export class OrderService {
         throw new BadRequestException({ message: '冷链/普货必须填写车牌号、司机姓名和联系方式' })
       }
     }
-    await this.prisma.order.update({
-      where: { id },
-      data: { logisticsType: logistics.logisticsType, logisticsInfo: logistics as any }
+    if (!['tricycle', 'cold-chain', 'regular'].includes(logistics.logisticsType)) throw new BadRequestException('配送方式无效')
+    await this.prisma.$transaction(async tx => {
+      await this.claimOrder(tx, order, 'shipped')
+      await tx.order.update({
+        where: { id },
+        data: { logisticsType: logistics.logisticsType, logisticsInfo: logistics as any }
+      })
+      await this.logInTransaction(tx, order, 'shipped', userId)
     })
-    return this.transition(id, 'shipped', userId)
+    await this.notifyOrderStatus(order, 'shipped')
+    return this.detail(id)
   }
 
   // User confirms receipt
@@ -432,15 +459,13 @@ export class OrderService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await this.claimOrder(tx, order, 'cancelled')
       if (['pending_shipment', 'shipped'].includes(order.status)) {
-        for (const item of order.items) {
+        for (const item of [...order.items].sort((a, b) => a.skuId - b.skuId)) {
           const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
           const beforeStock = sku?.stockNum ?? 0
           const afterStock = beforeStock + item.quantity
-          await tx.productSku.update({
-            where: { id: item.skuId },
-            data: { stockNum: afterStock }
-          })
+          await this.changeStock(tx, item.skuId, beforeStock, afterStock)
           await tx.stockMovement.create({
             data: {
               tenantId: order.tenantId,
@@ -469,13 +494,13 @@ export class OrderService {
           0,
           Number(customer?.creditUsed || 0) - occupiedCredit
         )
-        await tx.customer.update({
-          where: { id: order.customerId },
+        const creditUpdate = await tx.customer.updateMany({
+          where: { id: order.customerId, creditUsed: customer!.creditUsed },
           data: { creditUsed: nextCreditUsed.toFixed(2) }
         })
+        if (creditUpdate.count !== 1) throw new BadRequestException('账期额度已变化，请重试')
       }
 
-      await tx.order.update({ where: { id }, data: { status: 'cancelled' } })
       await tx.orderStatusLog.create({
         data: {
           tenantId: order.tenantId,
@@ -486,6 +511,7 @@ export class OrderService {
         }
       })
     })
+    await this.notifyOrderStatus(order, 'cancelled')
     return this.detail(id)
   }
 
@@ -497,16 +523,17 @@ export class OrderService {
       throw new BadRequestException({ message: '客户确认支付后不允许改价' })
     }
     const before = Number(order.payableAmount)
-    const afterAmount = Number(dto.afterAmount)
+    const afterAmount = this.money(dto.afterAmount)
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id },
+      const updated = await tx.order.updateMany({
+        where: { id, status: order.status, updatedAt: order.updatedAt },
         data: {
           payableAmount: dto.afterAmount,
-          adjustAmount: (afterAmount - before).toString()
+          adjustAmount: afterAmount.minus(order.totalAmount).add(order.discountAmount).toString()
         }
       })
+      if (updated.count !== 1) throw new BadRequestException('订单已变化，请刷新后重试')
       await tx.orderPriceAdjustment.create({
         data: {
           tenantId: order.tenantId,
@@ -525,7 +552,7 @@ export class OrderService {
       targetType: 'order',
       targetId: id,
       beforeData: { payableAmount: before.toString() },
-      afterData: { payableAmount: dto.afterAmount, adjustAmount: (afterAmount - before).toString(), reason: dto.reason },
+      afterData: { payableAmount: dto.afterAmount, adjustAmount: afterAmount.minus(order.totalAmount).add(order.discountAmount).toString(), reason: dto.reason },
       operatorId: userId
     })
     return this.detail(id)
@@ -538,23 +565,25 @@ export class OrderService {
     if (order.status !== 'cancelled') {
       throw new BadRequestException({ message: '仅已取消订单可登记退款', errorCode: 'ORD_1006' })
     }
-    const amount = Number(dto.amount)
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new BadRequestException({ message: '退款金额必须大于 0', errorCode: 'ORD_1007' })
-    }
-    if (amount > Number(order.payableAmount)) {
-      throw new BadRequestException({ message: '退款金额不能超过订单应付金额', errorCode: 'ORD_1008' })
-    }
+    const amount = this.money(dto.amount)
 
-    const refund = await this.prisma.orderRefund.create({
-      data: {
-        tenantId: order.tenantId,
-        orderId: id,
-        amount: dto.amount,
-        method: dto.method || 'transfer',
-        reason: dto.reason,
-        operatorId: userId ?? null
+    const refund = await this.prisma.$transaction(async tx => {
+      // Serialize refund totals for the same order before reading prior refunds.
+      await tx.$queryRaw`SELECT id FROM orders WHERE id = ${id} FOR UPDATE`
+      const previous = await tx.orderRefund.aggregate({ where: { orderId: id }, _sum: { amount: true } })
+      if (amount.add(previous._sum.amount || 0).gt(order.payableAmount)) {
+        throw new BadRequestException({ message: '累计退款金额不能超过订单应付金额', errorCode: 'ORD_1008' })
       }
+      return tx.orderRefund.create({
+        data: {
+          tenantId: order.tenantId,
+          orderId: id,
+          amount: dto.amount,
+          method: dto.method || 'transfer',
+          reason: dto.reason,
+          operatorId: userId ?? null
+        }
+      })
     })
 
     await this.audit.write({
@@ -603,12 +632,16 @@ export class OrderService {
 
   // Generic transition helper
   async transition(id: number, toStatus: string, userId?: number) {
+    if (toStatus === 'cancelled') return this.cancel(id, userId)
     const order = await this.prisma.order.findUnique({ where: { id } })
     if (!order) throw new NotFoundException({ message: '订单不存在' })
     const allowed = TRANSITIONS[order.status]
     if (!allowed?.includes(toStatus)) throw new BadRequestException({ message: '不允许从 ' + order.status + ' 转换到 ' + toStatus })
-    await this.prisma.order.update({ where: { id }, data: { status: toStatus as any } })
-    await this.log(id, order.status, toStatus, userId)
+    if (!['pending_quote', 'completed'].includes(toStatus)) throw new BadRequestException('请通过对应业务操作更新订单')
+    await this.prisma.$transaction(async tx => {
+      await this.claimOrder(tx, order, toStatus)
+      await this.logInTransaction(tx, order, toStatus, userId)
+    })
     await this.audit.write({
       action: 'order_status_change',
       module: 'order',
@@ -658,7 +691,27 @@ export class OrderService {
     }
   }
 
-  private async log(orderId: number, from: string, to: string, userId?: number) {
-    await this.prisma.orderStatusLog.create({ data: { tenantId: 1, orderId, fromStatus: from || '', toStatus: to, operatorId: userId } })
+  private money(value: string | number) {
+    if (!/^\d{1,16}(?:\.\d{1,2})?$/.test(String(value))) throw new BadRequestException('金额格式无效，最多保留两位小数')
+    const amount = new Prisma.Decimal(value)
+    if (!amount.isFinite() || amount.lte(0)) throw new BadRequestException('金额必须大于 0')
+    return amount
+  }
+
+  private async claimOrder(tx: Prisma.TransactionClient, order: { id: number; status: string; updatedAt: Date }, status: string) {
+    const result = await tx.order.updateMany({
+      where: { id: order.id, status: order.status as any, updatedAt: order.updatedAt },
+      data: { status: status as any }
+    })
+    if (result.count !== 1) throw new BadRequestException('订单状态已变化，请刷新后重试')
+  }
+
+  private async changeStock(tx: Prisma.TransactionClient, skuId: number, before: number, after: number) {
+    const result = await tx.productSku.updateMany({ where: { id: skuId, stockNum: before }, data: { stockNum: after } })
+    if (result.count !== 1) throw new BadRequestException('库存已变化，请重试')
+  }
+
+  private async logInTransaction(tx: Prisma.TransactionClient, order: { id: number; tenantId: number; status: string }, to: string, userId?: number) {
+    await tx.orderStatusLog.create({ data: { tenantId: order.tenantId, orderId: order.id, fromStatus: order.status, toStatus: to, operatorId: userId } })
   }
 }

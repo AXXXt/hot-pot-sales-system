@@ -75,7 +75,7 @@ describe('product image storage', () => {
     }
     return {
       client,
-      service: new ProductImageStorageService(client as any, config as any)
+      service: new ProductImageStorageService(client as any, config as any, {} as any)
     }
   }
 

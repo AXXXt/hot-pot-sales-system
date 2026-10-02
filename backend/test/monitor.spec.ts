@@ -112,7 +112,7 @@ describe('OrderService monitoring hooks', () => {
     const order = { id: 100, status: 'pending_finance', items: [{ skuId: 11, quantity: 3, productName: '牛肉卷' }] }
     const tx = {
       productSku: { findUnique: jest.fn().mockResolvedValue({ id: 11, stockNum: 1 }) },
-      order: { update: jest.fn() }
+      order: { update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }
     }
     const prisma = {
       user: { findUnique: jest.fn().mockResolvedValue({ userType: 'admin' }) },

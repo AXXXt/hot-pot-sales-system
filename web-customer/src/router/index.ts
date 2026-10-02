@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import { getAccessToken } from '../api/request'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/legal/:type', component: () => import('../views/LegalView.vue'), meta: { public: true, title: '协议与隐私' } },
   { path: '/login', name: 'login', component: () => import('../views/LoginView.vue'), meta: { public: true, title: '客户登录' } },
   {
     path: '/',

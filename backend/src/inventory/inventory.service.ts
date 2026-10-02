@@ -257,7 +257,8 @@ export class InventoryService {
           })
         }
         const after = before + changeQty
-        await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: after } })
+        const stockUpdate = await tx.productSku.updateMany({ where: { id: item.skuId, stockNum: before }, data: { stockNum: after } })
+        if (stockUpdate.count !== 1) throw new BadRequestException('库存已变化，请重试')
         const movement = await tx.stockMovement.create({
           data: {
             tenantId: 1,
@@ -406,6 +407,11 @@ export class InventoryService {
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可填写实盘数', errorCode: 'INV_1008' })
 
     await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.stocktake.updateMany({
+        where: { id, status: 'draft', updatedAt: stocktake.updatedAt },
+        data: { updatedAt: new Date() }
+      })
+      if (claimed.count !== 1) throw new BadRequestException('盘点单已变化，请刷新后重试')
       for (const input of dto.items) {
         const item = stocktake.items.find((entry) => entry.skuId === input.skuId)
         if (!item) throw new BadRequestException({ message: `SKU ${input.skuId} 不在盘点单中`, errorCode: 'INV_1009' })
@@ -432,6 +438,9 @@ export class InventoryService {
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可完成', errorCode: 'INV_1008' })
 
     const inputs = new Map(dto.items.map((item) => [item.skuId, item]))
+    if (inputs.size !== dto.items.length || inputs.size !== stocktake.items.length) {
+      throw new BadRequestException('请为盘点单中的每个规格填写一次实盘数')
+    }
     for (const item of stocktake.items) {
       if (!inputs.has(item.skuId)) {
         throw new BadRequestException({ message: `SKU ${item.skuId} 未填写实盘数`, errorCode: 'INV_1010' })
@@ -439,6 +448,11 @@ export class InventoryService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.stocktake.updateMany({
+        where: { id, status: 'draft', updatedAt: stocktake.updatedAt },
+        data: { status: 'completed', reviewedBy: userId, completedAt: new Date() }
+      })
+      if (claimed.count !== 1) throw new BadRequestException('盘点单已变化，请刷新后重试')
       for (const input of dto.items) {
         const item = stocktake.items.find((entry) => entry.skuId === input.skuId)
         if (!item) continue
@@ -457,7 +471,8 @@ export class InventoryService {
         const after = input.countedQty
         const diff = after - before
         if (diff !== 0) {
-          await tx.productSku.update({ where: { id: item.skuId }, data: { stockNum: after } })
+          const stockUpdate = await tx.productSku.updateMany({ where: { id: item.skuId, stockNum: before }, data: { stockNum: after } })
+          if (stockUpdate.count !== 1) throw new BadRequestException('库存已变化，请重试')
           await tx.stockMovement.create({
             data: {
               tenantId: 1,
@@ -485,10 +500,6 @@ export class InventoryService {
         }
       }
 
-      await tx.stocktake.update({
-        where: { id },
-        data: { status: 'completed', reviewedBy: userId, completedAt: new Date() }
-      })
     })
 
     await this.audit.write({
@@ -508,10 +519,11 @@ export class InventoryService {
     if (!stocktake) throw new NotFoundException({ message: '盘点单不存在', errorCode: 'INV_1005' })
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可取消', errorCode: 'INV_1011' })
 
-    const updated = await this.prisma.stocktake.update({
-      where: { id },
+    const updated = await this.prisma.stocktake.updateMany({
+      where: { id, status: 'draft' },
       data: { status: 'cancelled', reviewedBy: userId }
     })
+    if (updated.count !== 1) throw new BadRequestException('盘点单已变化，请刷新后重试')
     await this.audit.write({
       action: AuditAction.inventory_adjust,
       module: 'inventory',
@@ -520,6 +532,6 @@ export class InventoryService {
       afterData: { stocktakeNo: stocktake.stocktakeNo, status: 'cancelled' },
       operatorId: userId
     })
-    return updated
+    return this.stocktakeDetail(id)
   }
 }

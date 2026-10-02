@@ -54,6 +54,8 @@ Page({
   onCompanyInput(e) { this.setData({ customerName: e.detail.value }) },
   onAddressInput(e) { this.setData({ address: e.detail.value }) },
   onAgreeChange(e)  { this.setData({ agree: e.detail.value.length > 0 }) },
+  openTerms() { wx.navigateTo({ url: '/pages/legal/legal?type=terms' }) },
+  openPrivacy() { wx.navigateTo({ url: '/pages/legal/legal?type=privacy' }) },
 
   onRegionChange(e) {
     const val = e.detail.value

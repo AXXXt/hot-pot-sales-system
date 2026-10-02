@@ -5,9 +5,9 @@ import { OrderService } from '../src/order/order.service'
 function createInventorySubject() {
   const tx: any = {
     stockAdjustment: { create: jest.fn() },
-    productSku: { findUnique: jest.fn(), update: jest.fn() },
+    productSku: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     stockMovement: { create: jest.fn() },
-    stocktake: { create: jest.fn(), update: jest.fn() },
+    stocktake: { create: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     stocktakeItem: { createMany: jest.fn(), update: jest.fn() }
   }
   const prisma: any = {
@@ -36,7 +36,7 @@ describe('InventoryService', () => {
       9
     )
 
-    expect(tx.productSku.update).toHaveBeenCalledWith({ where: { id: 26 }, data: { stockNum: 105 } })
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, stockNum: 100 }, data: { stockNum: 105 } })
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ changeQty: 5, beforeQty: 100, afterQty: 105, type: 'manual_in', sourceType: 'adjustment', sourceId: 1 })
@@ -110,13 +110,13 @@ describe('InventoryService', () => {
       9
     )
 
-    expect(tx.productSku.update).toHaveBeenCalledWith({ where: { id: 26 }, data: { stockNum: 100 } })
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, stockNum: 105 }, data: { stockNum: 100 } })
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ changeQty: -5, beforeQty: 105, afterQty: 100, type: 'stocktake_out', sourceType: 'stocktake', sourceId: 9 })
       })
     )
-    expect(tx.stocktake.update).toHaveBeenCalledWith(
+    expect(tx.stocktake.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'completed' }) })
     )
   })
@@ -142,9 +142,9 @@ describe('OrderService stock movement logging', () => {
 
   function createOrderSubject() {
     const tx: any = {
-      productSku: { findUnique: jest.fn(), update: jest.fn() },
+      productSku: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       stockMovement: { create: jest.fn() },
-      order: { update: jest.fn() },
+      order: { update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       orderStatusLog: { create: jest.fn() },
       customer: { findUnique: jest.fn(), update: jest.fn() }
     }

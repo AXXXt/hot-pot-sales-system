@@ -9,7 +9,9 @@ import {
   Min,
   ValidateNested,
   IsIn,
-  Matches
+  Matches,
+  IsNumber,
+  Max
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
@@ -54,12 +56,28 @@ export class SubmitFinanceDto {
 
 export class AdjustPriceDto {
   @ApiProperty({ description: '调整后金额' })
-  @IsString()
+  @IsString() @Matches(/^\d{1,16}(?:\.\d{1,2})?$/)
   afterAmount: string
 
   @ApiProperty({ description: '调整原因' })
   @IsString() @MaxLength(255)
   reason: string
+}
+
+class QuoteItemDto {
+  @IsInt() @Min(1)
+  skuId: number
+
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(999999999999)
+  quotedPrice: number
+}
+
+export class QuoteOrderDto {
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => QuoteItemDto)
+  items: QuoteItemDto[]
+
+  @IsOptional() @IsString() @MaxLength(500)
+  note?: string
 }
 export class CreateRefundDto {
   @ApiProperty({ description: '退款金额' })

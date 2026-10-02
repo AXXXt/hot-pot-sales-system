@@ -37,7 +37,7 @@ describe('product image upload HTTP contract', () => {
           provide: PrismaService,
           useValue: {
             user: {
-              findUnique: jest.fn().mockResolvedValue({ status: 'active', customer: null })
+              findUnique: jest.fn().mockResolvedValue({ status: 'active', customer: null, userType: 'super_admin' })
             }
           }
         },
@@ -115,7 +115,8 @@ describe('product image upload HTTP contract', () => {
     expect(storage.uploadPaymentProof).toHaveBeenCalledWith(
       expect.any(Buffer),
       'image/jpeg',
-      'jpg'
+      'jpg',
+      1
     )
   })
 

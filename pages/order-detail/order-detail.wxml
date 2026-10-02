@@ -76,6 +76,7 @@
 
     <!-- Actions -->
     <view class="od-actions">
+      <button wx:if="{{canSubmitDraft}}" class="od-btn od-btn--primary" loading="{{submittingDraft}}" disabled="{{submittingDraft}}" bindtap="onSubmitDraft">继续提交订单</button>
       <view wx:if="{{canCancel}}" class="od-btn od-btn--danger" bindtap="onCancel">取消订单</view>
       <view wx:if="{{canSubmitFinance}}" class="od-btn od-btn--primary" bindtap="onSubmitFinance">
         {{submittingFinance ? '提交中…' : '确认报价并支付'}}

@@ -10,6 +10,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 const sending = ref(false)
+const agree = ref(false)
 const seconds = ref(0)
 const form = reactive({ phone: '', code: '' })
 const rules: FormRules = {
@@ -35,6 +36,7 @@ async function handleSendCode() {
 }
 
 async function handleLogin() {
+  if (!agree.value) { ElMessage.warning('请先阅读并同意用户协议和隐私政策'); return }
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   try {
@@ -74,6 +76,7 @@ onUnmounted(() => window.clearInterval(timer))
               </el-button>
             </div>
           </el-form-item>
+          <div class="agreement"><el-checkbox v-model="agree">我已阅读并同意</el-checkbox><router-link to="/legal/terms" target="_blank">用户协议</router-link><span>和</span><router-link to="/legal/privacy" target="_blank">隐私政策</router-link></div>
           <el-button native-type="submit" type="primary" size="large" class="login-submit" :loading="auth.loading">登录采购台</el-button>
           <p class="login-tip">未开通账号？请联系合作热线 18137222005</p>
         </el-form>
@@ -98,5 +101,7 @@ h2 { margin: 0 0 6px; color: var(--brand); font-size: 26px; }
 .code-row { display: grid; grid-template-columns: 1fr 120px; gap: 10px; width: 100%; }
 .login-submit { width: 100%; margin-top: 4px; }
 .login-tip { margin: 18px 0 0; color: var(--muted); font-size: 13px; }
+.agreement { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; margin-bottom: 12px; }
+.agreement .el-checkbox { margin-right: 0; }
 @media (max-width: 760px) { .login-panel { grid-template-columns: 1fr; } aside { display: none; } .form-area { padding: 40px 26px; } }
 </style>

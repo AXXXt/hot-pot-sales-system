@@ -418,10 +418,12 @@ export class CustomerService {
         select: { creditUsed: true }
       })
       const nextCreditUsed = Math.max(0, Number(current?.creditUsed || 0) - amount)
-      await tx.customer.update({
-        where: { id: customerId },
+      if (!current) throw new NotFoundException('客户不存在')
+      const updated = await tx.customer.updateMany({
+        where: { id: customerId, creditUsed: current.creditUsed },
         data: { creditUsed: nextCreditUsed.toFixed(2) }
       })
+      if (updated.count !== 1) throw new BadRequestException('账期余额已变化，请刷新后重试')
       return tx.customerRepayment.create({
         data: {
           tenantId: 1,

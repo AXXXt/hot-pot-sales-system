@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { REDIS } from '../redis.provider'
 import { Inject } from '@nestjs/common'
+import { EXPERIENCE_SMS_CODE, experienceSmsSettings } from './sms-experience.config'
 
 const RATE_LIMIT_PREFIX = 'sms:rate:'
 const CODE_PREFIX = 'sms:code:'
@@ -24,6 +25,29 @@ export class SmsService {
     @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null>; del: (key: string) => Promise<number> }
   ) {}
 
+  private isExperience() {
+    return this.config.get<string>('SMS_PROVIDER') === 'experience'
+  }
+
+  private assertExperienceAccess(phone: string) {
+    const settings = experienceSmsSettings(this.config)
+    if (!settings.active) {
+      throw new HttpException({ message: '体验验证码已关闭或到期，请联系管理员', errorCode: 'SMS_TEST_EXPIRED' }, HttpStatus.SERVICE_UNAVAILABLE)
+    }
+    if (!settings.phones.includes(phone)) {
+      throw new HttpException({ message: '该手机号未加入体验测试名单，请联系管理员', errorCode: 'SMS_TEST_FORBIDDEN' }, HttpStatus.FORBIDDEN)
+    }
+  }
+
+  private codeKey(phone: string) {
+    // Keep test codes isolated from any future real SMS provider.
+    return `${this.isExperience() ? 'sms:experience:code:' : CODE_PREFIX}${phone}`
+  }
+
+  private unavailable() {
+    return new HttpException({ message: '验证码服务暂不可用，请稍后重试', errorCode: 'SMS_UNAVAILABLE' }, HttpStatus.SERVICE_UNAVAILABLE)
+  }
+
   private async redisGet(key: string): Promise<string | null> {
     if (this.redisDown) {
       const entry = this.memoryStore.get(key)
@@ -34,6 +58,7 @@ export class SmsService {
     try {
       return await this.redis.get(key)
     } catch {
+      if (this.isExperience()) throw this.unavailable()
       this.redisDown = true
       this.logger.warn('Redis unavailable, falling back to in-memory store')
       return this.redisGet(key)
@@ -48,6 +73,7 @@ export class SmsService {
     try {
       await this.redis.set(key, value, 'EX', ttl)
     } catch {
+      if (this.isExperience()) throw this.unavailable()
       this.redisDown = true
       this.logger.warn('Redis unavailable, falling back to in-memory store')
       this.memoryStore.set(key, { value, expiresAt: Date.now() + ttl * 1000 })
@@ -56,11 +82,18 @@ export class SmsService {
 
   private async redisDel(key: string): Promise<void> {
     if (this.redisDown) { this.memoryStore.delete(key); return }
-    try { await this.redis.del(key) } catch { this.memoryStore.delete(key) }
+    try { await this.redis.del(key) } catch {
+      if (this.isExperience()) throw this.unavailable()
+      this.memoryStore.delete(key)
+    }
   }
 
   async sendCode(phone: string, ip: string): Promise<void> {
     const provider = this.config.get<string>('SMS_PROVIDER', 'development')
+    if (provider === 'disabled') {
+      throw new HttpException({ message: '短信登录暂未开放，请联系工作人员', errorCode: 'SMS_DISABLED' }, HttpStatus.SERVICE_UNAVAILABLE)
+    }
+    if (this.isExperience()) this.assertExperienceAccess(phone)
     const isDev = provider === 'development'
     const rateKey = `${RATE_LIMIT_PREFIX}${phone}`
     const ipRateKey = `${RATE_LIMIT_PREFIX}ip:${ip}`
@@ -82,7 +115,9 @@ export class SmsService {
     }
 
     let code: string
-    if (provider === 'development') {
+    if (this.isExperience()) {
+      code = EXPERIENCE_SMS_CODE
+    } else if (provider === 'development') {
       code = this.config.get<string>('SMS_DEV_CODE', '123456')
       this.logger.warn(`[DEV_SMS] phone=${phone} code=${code}`)
     } else {
@@ -90,7 +125,7 @@ export class SmsService {
       this.logger.log(`[SMS] code sent to ${phone}`)
     }
 
-    const codeKey = `${CODE_PREFIX}${phone}`
+    const codeKey = this.codeKey(phone)
     await Promise.all([
       this.redisSet(codeKey, code, CODE_TTL),
       this.redisSet(rateKey, '1', isDev ? RATE_TTL_DEV : RATE_TTL),
@@ -99,6 +134,8 @@ export class SmsService {
   }
 
   async verifyCode(phone: string, code: string): Promise<boolean> {
+    if (this.config.get<string>('SMS_PROVIDER') === 'disabled') return false
+    if (this.isExperience()) this.assertExperienceAccess(phone)
     const attemptsKey = `${ATTEMPTS_PREFIX}${phone}`
     const attempts = parseInt((await this.redisGet(attemptsKey)) || '0', 10)
     if (attempts >= MAX_ATTEMPTS) {
@@ -108,7 +145,7 @@ export class SmsService {
       )
     }
 
-    const codeKey = `${CODE_PREFIX}${phone}`
+    const codeKey = this.codeKey(phone)
     const stored = await this.redisGet(codeKey)
     if (!stored || stored !== code) {
       await this.redisSet(attemptsKey, String(attempts + 1), CODE_TTL)

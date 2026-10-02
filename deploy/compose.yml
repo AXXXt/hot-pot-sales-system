@@ -1,0 +1,109 @@
+name: weiduoxian
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: '3'
+  security_opt: [no-new-privileges:true]
+services:
+  mysql:
+    <<: *service
+    image: mysql:8.4.3
+    mem_limit: 640m
+    memswap_limit: 896m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?required}
+      MYSQL_DATABASE: weiduoxian
+      MYSQL_USER: weiduoxian
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?required}
+    command: ['--innodb-buffer-pool-size=134217728', '--max-connections=30', '--performance-schema=OFF', '--skip-name-resolve', '--mysqlx=OFF', '--innodb-redo-log-capacity=67108864', '--binlog-expire-logs-seconds=259200']
+    volumes: [mysql_data:/var/lib/mysql]
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 15s
+      timeout: 5s
+      retries: 20
+  redis:
+    <<: *service
+    image: redis:7.4.1
+    mem_limit: 96m
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 48mb --maxmemory-policy noeviction --appendonly yes']
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  minio:
+    <<: *service
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    mem_limit: 384m
+    memswap_limit: 512m
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?required}
+      MINIO_REGION_NAME: us-east-1
+      GOMEMLIMIT: 256MiB
+    command: server /data --console-address :9001
+    volumes: [minio_data:/data]
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 15s
+      timeout: 5s
+      retries: 20
+  backend:
+    <<: *service
+    image: weiduoxian-backend:${RELEASE_TAG:?required}
+    mem_limit: 384m
+    memswap_limit: 512m
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      NODE_OPTIONS: --max-old-space-size=224
+      DATABASE_URL: ${DATABASE_URL:?required}
+      REDIS_URL: ${REDIS_URL:?required}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?required}
+      CORS_ORIGIN: ${CORS_ORIGIN:?required}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: '9000'
+      MINIO_USE_SSL: 'false'
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?required}
+      MINIO_BUCKET: b2b-miniapp
+      MINIO_PUBLIC_URL: https://weiduoxian.cn
+      MINIO_SIGNING_ENDPOINT: weiduoxian.cn
+      MINIO_REGION: us-east-1
+      SMS_PROVIDER: ${SMS_PROVIDER:-disabled}
+      SMS_TEST_PHONES: ${SMS_TEST_PHONES:-}
+      SMS_TEST_EXPIRES_AT: ${SMS_TEST_EXPIRES_AT:-}
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://localhost:3000/health/ready").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 20s
+      timeout: 10s
+      retries: 6
+  nginx:
+    <<: *service
+    image: nginx:1.27-alpine
+    mem_limit: 64m
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./nginx/${NGINX_CONFIG:-http.conf}:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/api.inc:/etc/nginx/api.inc:ro
+      - ./sites:/srv/sites:ro
+      - /var/www/letsencrypt:/var/www/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      backend: {condition: service_healthy}
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:

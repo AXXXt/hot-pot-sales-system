@@ -1,4 +1,5 @@
-const { getOrderDetail, cancelOrder, completeOrder, submitFinance } = require('../../services/api/order')
+// 订单详情、草稿恢复与付款确认。
+const { getOrderDetail, cancelOrder, completeOrder, submitFinance, submitOrder } = require('../../services/api/order')
 const { uploadPaymentProof } = require('../../services/api/upload')
 
 const STATUS_MAP = {
@@ -32,6 +33,8 @@ Page({
     canCancel: false,
     canConfirm: false,
     canSubmitFinance: false,
+    canSubmitDraft: false,
+    submittingDraft: false,
     paymentProof: '',
     paymentMethodText: '',
     creditRemaining: '0.00',
@@ -80,6 +83,7 @@ Page({
         canCancel: ['draft', 'pending_quote', 'pending_confirm', 'pending_finance'].includes(order.status),
         canConfirm: order.status === 'shipped',
         canSubmitFinance: order.status === 'pending_confirm',
+        canSubmitDraft: order.status === 'draft',
         paymentProof: order.paymentProof || '',
         paymentMethodText: order.paymentMethod === 'credit'
           ? '账期支付'
@@ -150,6 +154,14 @@ Page({
       return
     }
 
+    const consent = await new Promise(resolve => wx.showModal({
+      title: '付款凭证授权',
+      content: '为核验本次付款，我们将处理您上传的转账凭证。请遮盖余额、完整银行卡号和无关交易，仅保留本次核验所需信息。是否同意并继续？',
+      confirmText: '同意并继续',
+      success: res => resolve(Boolean(res.confirm)),
+      fail: () => resolve(false)
+    }))
+    if (!consent) return
     const file = await this.choosePaymentProofFile()
     if (!file) return
     if (Number(file.size || 0) > 5 * 1024 * 1024) {
@@ -184,6 +196,20 @@ Page({
         fail: () => resolve(false)
       })
     })
+  },
+
+  async onSubmitDraft() {
+    if (this.data.submittingDraft) return
+    this.setData({ submittingDraft: true })
+    try {
+      await submitOrder(this.data.orderId)
+      wx.showToast({ title: '已提交，等待报价', icon: 'success' })
+      await this.loadDetail(this.data.orderId)
+    } catch (error) {
+      wx.showToast({ title: error?.message || '提交失败，请重试', icon: 'none' })
+    } finally {
+      this.setData({ submittingDraft: false })
+    }
   },
 
   choosePaymentProofFile() {

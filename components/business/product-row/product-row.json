@@ -1,8 +1,5 @@
 {
   "component": true,
   "styleIsolation": "apply-shared",
-  "usingComponents": {
-    "status-badge": "/components/base/status-badge/status-badge",
-    "quantity-stepper": "/components/business/quantity-stepper/quantity-stepper"
-  }
+  "usingComponents": {}
 }

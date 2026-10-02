@@ -1,0 +1,13 @@
+**
+!backend/
+!backend/src/
+!backend/src/**
+!backend/prisma/
+!backend/prisma/**
+!backend/package.json
+!backend/package-lock.json
+!backend/tsconfig*.json
+!backend/nest-cli.json
+!deploy/
+!deploy/bootstrap.cjs
+!deploy/backend.Dockerfile

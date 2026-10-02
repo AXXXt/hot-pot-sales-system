@@ -8,11 +8,12 @@ import { AuditModule } from '../audit/audit.module'
 import { NotifyModule } from '../notify/notify.module'
 import { LogisticsModule } from '../logistics/logistics.module'
 import { MetricsModule } from '../monitor/monitor.module'
+import { OrderAccessGuard } from './order-access.guard'
 
 @Module({
   imports: [AuthModule, ProductModule, AuditModule, NotifyModule, LogisticsModule, MetricsModule],
   controllers: [OrderController],
-  providers: [OrderService, PrismaService],
+  providers: [OrderService, PrismaService, OrderAccessGuard],
   exports: [OrderService]
 })
 export class OrderModule {}

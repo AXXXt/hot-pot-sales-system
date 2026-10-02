@@ -1,6 +1,6 @@
 const env = {
-  baseUrl: 'http://127.0.0.1:3000',
-  isDevelopment: true
+  baseUrl: 'https://weiduoxian.cn',
+  isDevelopment: false
 }
 
 module.exports = env

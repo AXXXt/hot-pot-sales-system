@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="唯多鲜">
+  <rect width="64" height="64" rx="15" fill="#0B0D0E"/>
+  <circle cx="32" cy="29" r="14.5" fill="none" stroke="#E23A2E" stroke-width="4.5"/>
+  <circle cx="32" cy="29" r="5.5" fill="#E23A2E" opacity="0.6"/>
+  <rect x="15" y="46" width="34" height="4" rx="2" fill="#C9A227" opacity="0.85"/>
+</svg>

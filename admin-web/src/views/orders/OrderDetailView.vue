@@ -41,17 +41,21 @@ async function viewTrack() {
 }
 
 const methodText = (m: string) => ({ transfer: '转账', cash: '现金', other: '其他' } as Record<string, string>)[m] || m || '-'
+const refundableAmount = computed(() => Math.max(0, Math.round((Number(order.value.payableAmount || 0) - (order.value.refunds || []).reduce((sum: number, refund: any) => sum + Number(refund.amount), 0)) * 100) / 100))
 
 function openRefund() {
-  refundForm.amount = Number(order.value.payableAmount || 0)
+  if (refundableAmount.value <= 0) { ElMessage.warning('该订单已全部登记退款'); return }
+  refundForm.amount = refundableAmount.value
   refundForm.method = 'transfer'
   refundForm.reason = ''
   refundVisible.value = true
 }
 
 async function submitRefund() {
+  if (refundSaving.value) return
   const amount = Number(refundForm.amount)
   if (!Number.isFinite(amount) || amount <= 0) { ElMessage.warning('请输入大于 0 的退款金额'); return }
+  if (amount > refundableAmount.value) { ElMessage.warning('金额不能超过剩余可退款金额'); return }
   refundSaving.value = true
   try {
     await refundOrder(id, { amount: String(amount), method: refundForm.method, reason: refundForm.reason || undefined })
@@ -129,6 +133,10 @@ async function openQuote() {
 }
 
 async function submitQuote() {
+  if (!quoteItems.value.length || quoteItems.value.some(item => !Number.isFinite(item.quotedPrice) || item.quotedPrice <= 0)) {
+    ElMessage.warning('请为每个商品填写大于 0 的报价')
+    return
+  }
   actionLoading.value = 'quote'
   try {
     await quoteOrder(id, { items: quoteItems.value.map(i => ({ skuId: i.skuId, quotedPrice: i.quotedPrice })), note: quoteNote.value })
@@ -325,7 +333,7 @@ onMounted(fetch)
         </el-table-column>
         <el-table-column label="报价单价" width="180">
           <template #default="{row}">
-            <el-input-number v-model="row.quotedPrice" :min="0" :precision="2" size="small" controls-position="right" style="width:150px" />
+            <el-input-number v-model="row.quotedPrice" :min="0.01" :precision="2" size="small" controls-position="right" style="width:150px" />
           </template>
         </el-table-column>
       </el-table>
@@ -360,9 +368,10 @@ onMounted(fetch)
     </el-dialog>
   <!-- Refund Dialog -->
   <el-dialog v-model="refundVisible" title="退款登记" width="440">
+    <p>剩余可登记退款：¥{{ refundableAmount.toFixed(2) }}</p>
     <el-form label-width="90">
       <el-form-item label="退款金额" required>
-        <el-input-number v-model="refundForm.amount" :min="0.01" :precision="2" :controls="false" style="width:100%" />
+        <el-input-number v-model="refundForm.amount" :min="0.01" :max="refundableAmount" :precision="2" :controls="false" style="width:100%" />
       </el-form-item>
       <el-form-item label="退款方式">
         <el-select v-model="refundForm.method" style="width:100%">

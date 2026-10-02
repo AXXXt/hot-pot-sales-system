@@ -10,12 +10,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --runInBand",
     "test:e2e": "jest --runInBand --config test/jest-e2e.json",
+    "test:integration": "jest --runInBand --config test/jest-integration.json",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init",
     "db:seed:dev": "ts-node prisma/seed.dev.ts",
     "db:backfill-brand-codes": "ts-node prisma/backfill-brand-codes.ts",
     "data:import": "ts-node prisma/import-data.ts",
-    "start": "node dist/main.js"
+    "start": "node dist/src/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

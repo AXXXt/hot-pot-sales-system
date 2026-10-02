@@ -1,14 +1,15 @@
 import { Controller, Get, Post, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { OrderService } from './order.service'
-import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, CreateRefundDto } from './dto/order.dto'
+import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, CreateRefundDto, QuoteOrderDto } from './dto/order.dto'
+import { OrderAccessGuard } from './order-access.guard'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
 
 @ApiTags('orders')
 @Controller()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, OrderAccessGuard)
 @ApiBearerAuth()
 export class OrderController {
   constructor(private readonly service: OrderService) {}
@@ -21,12 +22,13 @@ export class OrderController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async list(
+    @Req() req: any,
     @Query('status') status?: string,
     @Query('customerId') customerId?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10
   ) {
-    return this.service.list({ status, customerId: customerId ? parseInt(customerId, 10) : undefined, page, pageSize })
+    return this.service.list({ status, customerId: req.orderScope.customerId ?? (customerId ? parseInt(customerId, 10) : undefined), tenantId: req.orderScope.tenantId, page, pageSize })
   }
 
   @Get('orders/:id')
@@ -38,8 +40,8 @@ export class OrderController {
   @Get('orders/price-history/:customerId')
   @ApiOperation({ summary: '客户历史价格（用于报价回填）' })
   @RequirePermissions('order:read')
-  async getPriceHistory(@Param('customerId', ParseIntPipe) customerId: number, @Query('skuIds') skuIds: string) {
-    return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean))
+  async getPriceHistory(@Param('customerId', ParseIntPipe) customerId: number, @Query('skuIds') skuIds: string, @Req() req: any) {
+    return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean), req.orderScope.tenantId)
   }
 
   @Get('orders/:id/logistics')
@@ -70,7 +72,7 @@ export class OrderController {
   @RequirePermissions('order:confirm')
   async quote(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { items: Array<{ skuId: number; quotedPrice: number }>; note?: string },
+    @Body() body: QuoteOrderDto,
     @Req() req: any
   ) {
     return this.service.quote(id, body.items, body.note, req.user?.sub)

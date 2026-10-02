@@ -1,8 +1,30 @@
 const env = require('../config')
 const { auth } = require('../store/index')
 
+const REQUEST_TIMEOUT_MS = 15000
 let isRefreshing = false
 let refreshQueue = []
+
+// 将微信请求失败对象转换为页面可读的错误，同时保留原始 errMsg 供真机排查。
+function networkError(error) {
+  const errMsg = error && typeof error.errMsg === 'string' ? error.errMsg : ''
+  let code = 'SYS_NETWORK'
+  let message = '网络连接失败，请稍后重试'
+  if (/domain list|合法域名/i.test(errMsg)) {
+    code = 'SYS_DOMAIN_NOT_ALLOWED'
+    message = '接口域名未配置，请联系管理员'
+  } else if (/ssl|tls|certificate|err_cert/i.test(errMsg)) {
+    code = 'SYS_TLS_FAILED'
+    message = 'HTTPS连接失败，请联系管理员'
+  } else if (/timeout|timed out/i.test(errMsg)) {
+    code = 'SYS_NETWORK_TIMEOUT'
+    message = '网络请求超时，请稍后重试'
+  } else if (/connection[_ ]reset|econnreset/i.test(errMsg)) {
+    code = 'SYS_CONNECTION_RESET'
+    message = '网络连接被中断，请稍后重试'
+  }
+  return { code, message, errMsg, data: null, requestId: '' }
+}
 
 function request({ url, method = 'GET', data = {}, header = {}, showLoading = true }) {
   const baseUrl = env.baseUrl || ''
@@ -27,6 +49,7 @@ function request({ url, method = 'GET', data = {}, header = {}, showLoading = tr
         url: `${baseUrl}${url}`,
         method,
         data,
+        timeout: REQUEST_TIMEOUT_MS,
         header: {
           'content-type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -55,7 +78,7 @@ function request({ url, method = 'GET', data = {}, header = {}, showLoading = tr
           resolve(payload)
         },
         fail(err) {
-          reject(err)
+          reject(networkError(err))
         },
         complete() {
           if (showLoading) wx.hideLoading()
@@ -84,6 +107,7 @@ function request({ url, method = 'GET', data = {}, header = {}, showLoading = tr
     wx.request({
       url: `${baseUrl}/api/v1/auth/refresh-token`,
       method: 'POST',
+      timeout: REQUEST_TIMEOUT_MS,
       data: { refreshToken },
       header: { 'content-type': 'application/json' },
       success(refreshRes) {

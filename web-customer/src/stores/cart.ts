@@ -106,9 +106,9 @@ export const useCartStore = defineStore('client-cart', () => {
   function applyValidation(result: CartValidationResult) {
     const priceMap = new Map(result.items.map(item => [item.skuId, item]))
     const invalidIds = new Set(result.invalidSkuIds)
-    items.value = items.value.flatMap(item => {
+    items.value = items.value.flatMap<CartItem>(item => {
       const validated = priceMap.get(item.skuId)
-      if (!validated) return invalidIds.has(item.skuId) ? [item] : [item]
+      if (!validated) return [{ ...item, available: false, unavailableReason: invalidIds.has(item.skuId) ? '商品已下架或不可购买' : '商品校验失败，请刷新重试' }]
       return [{
         ...item,
         productId: validated.productId,
@@ -134,8 +134,13 @@ export const useCartStore = defineStore('client-cart', () => {
     items.value = []
   }
 
+  function removeItemsBySkuIds(skuIds: number[]) {
+    const removed = new Set(skuIds)
+    items.value = items.value.filter(item => !removed.has(item.skuId))
+  }
+
   return {
     items, totalCount, validItems, totalAmount, brandCount, hasUnavailable,
-    addItem, addRepeatedSku, setQuantity, applyValidation, clearInvalid, clear
+    addItem, addRepeatedSku, setQuantity, applyValidation, clearInvalid, clear, removeItemsBySkuIds
   }
 })

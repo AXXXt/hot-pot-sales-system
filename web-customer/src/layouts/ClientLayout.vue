@@ -56,7 +56,7 @@ async function handleCommand(command: string) {
     <footer class="site-footer">
       <div class="footer-inner">
         <div><strong>河南唯多鲜食品有限公司</strong><p>同城冷链 · 稳定供货 · 餐饮食材定制</p></div>
-        <div class="footer-contact"><span>合作热线：18137222005</span><a href="https://www.baidu.com/s?wd=火锅食材B2B采购" target="_blank" rel="noopener">了解更多</a></div>
+        <div class="footer-contact"><span>合作热线：18137222005</span><a href="https://weiduoxian.cn" target="_blank" rel="noopener">了解更多</a></div>
       </div>
     </footer>
   </div>

@@ -9,7 +9,8 @@
     "pages/order-detail/order-detail",
     "pages/profile/profile",
     "pages/profile-detail/profile-detail",
-    "pages/login/login"
+    "pages/login/login",
+    "pages/legal/legal"
   ],
   "window": {
     "navigationBarTextStyle": "white",
