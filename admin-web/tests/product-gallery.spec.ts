@@ -5,6 +5,7 @@ test('multiple uploads preserve selection order, survive one failure, reorder an
   const writes: any[] = []
   let upload = 0
   await page.addInitScript(() => localStorage.setItem('accessToken', 'gallery-test'))
+  await page.route('https://example.com/*.jpg', route => route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR1sAAAAASUVORK5CYII=', 'base64') }))
   await page.route('**/api/v1/**', async route => {
     const req = route.request(); const path = new URL(req.url()).pathname
     let data: any = []
@@ -30,6 +31,7 @@ test('multiple uploads preserve selection order, survive one failure, reorder an
   await expect(page.getByRole('button', { name: '保存商品', exact: true })).toBeDisabled()
   await expect(page.locator('.product-image-card')).toHaveCount(3)
   await expect(page.getByRole('button', { name: '保存商品', exact: true })).toBeEnabled()
+  await expect(page.locator('.product-image-card img')).toHaveCount(3)
   expect(await page.locator('.product-image-card img').evaluateAll(nodes => nodes.map(node => (node as HTMLImageElement).src))).toEqual([product.mainImageUrl, 'https://example.com/new-1.jpg', 'https://example.com/new-3.jpg'])
   await page.getByRole('button', { name: '将第3张设为主图', exact: true }).click()
   await page.getByRole('button', { name: '删除第2张图片', exact: true }).click()
