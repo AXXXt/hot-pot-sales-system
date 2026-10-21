@@ -42,6 +42,13 @@ const identityChanged = computed(() => !isNew.value && (
 ))
 const displayedName = computed(() => isNew.value || identityChanged.value ? generatedName.value : form.name || generatedName.value)
 const displayedCode = computed(() => isNew.value || identityChanged.value ? generatedCodePreview.value : form.productCode || generatedCodePreview.value)
+const nextSkuCode = computed(() => {
+  const sequence = skus.value.reduce((max, item) => {
+    const value = Number(item.skuCode?.match(/-(\d+)$/)?.[1] || 0)
+    return Number.isSafeInteger(value) ? Math.max(max, value) : max
+  }, 0) + 1
+  return `${form.productCode}-${String(sequence).padStart(2, '0')}`
+})
 
 async function init() {
   loading.value = true
@@ -177,15 +184,15 @@ function editSku(x?: any) {
 
 async function saveSku() {
   if (skuSaving.value) return
-  if (!sku.specName.trim() || !sku.saleUnit.trim() || (!sku.id && !sku.skuCode.trim())) {
-    ElMessage.warning('请填写规格编码、规格名和销售单位')
+  if (!sku.specName.trim() || !sku.saleUnit.trim()) {
+    ElMessage.warning('请填写规格名和销售单位')
     return
   }
   skuSaving.value = true
   try {
     const body: any = { specText: sku.specName.trim(), saleUnit: sku.saleUnit.trim(), basePrice: String(sku.salePrice), minOrderQty: sku.minOrderQty }
     if (sku.id) { await updateSku(sku.id, body) }
-    else { body.skuCode = sku.skuCode.trim(); body.name = sku.specName.trim(); await createSku(id.value, body) }
+    else { body.name = sku.specName.trim(); await createSku(id.value, body) }
     ElMessage.success('商品规格已保存')
     skuVisible.value = false
     await init()
@@ -313,7 +320,7 @@ watch(() => route.params.id, init)
 
     <el-dialog v-model="skuVisible" :title="sku.id ? '编辑商品规格' : '新建商品规格'" width="480">
       <el-form label-width="90">
-        <el-form-item label="编码"><el-input v-model="sku.skuCode" :disabled="!!sku.id" maxlength="100" /></el-form-item>
+        <el-form-item label="编码"><el-input :model-value="sku.id ? sku.skuCode : nextSkuCode" readonly aria-label="规格编码" /><small v-if="!sku.id">按已有规格继续编号，正式编码在保存时分配。</small></el-form-item>
         <el-form-item label="规格名"><el-input v-model="sku.specName" /></el-form-item>
         <el-form-item label="销售单位"><el-input v-model="sku.saleUnit" maxlength="50" placeholder="例如：袋、箱" /></el-form-item>
         <el-form-item label="售价"><el-input-number v-model="sku.salePrice" :min="0" :precision="2" style="width:100%" /></el-form-item>

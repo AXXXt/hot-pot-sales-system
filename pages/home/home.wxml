@@ -32,7 +32,7 @@
         brandText="{{item.brandText}}"
         spec="{{item.spec}}"
         price="{{item.price}}"
-        priceUnit="{{item.priceUnit}}"
+        priceUnit="{{item.priceUnit}}" priceFrom="{{item.priceFrom}}"
         statusText="{{item.stockText}}"
         statusVariant="{{item.statusVariant}}"
         subText="{{item.subText}}"

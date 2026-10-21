@@ -11,6 +11,7 @@ import { AuditService } from '../audit/audit.service'
 import { buildProductCode, toCategorySegment } from './product-code'
 import { normalizeProductTitle, presentProduct, productDisplayName } from './product-presentation'
 import { imageUpdate } from './product-images'
+import { nextSkuCode } from './sku-code'
 
 const PRODUCT_LIST_INCLUDE = Prisma.validator<Prisma.ProductInclude>()({
   category: { select: { id: true, name: true } },
@@ -410,20 +411,30 @@ export class ProductService {
   }
 
   async createSku(productId: number, dto: CreateSkuDto) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } })
-    if (!product) throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
-    return this.prisma.productSku.create({
-      data: {
+    return this.prisma.$transaction(async tx => {
+      // 同一商品并发新增规格时串行分配，不采用客户端预览值。
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM products WHERE id = ${productId} FOR UPDATE`)
+      const product = await tx.product.findUnique({ where: { id: productId } })
+      if (!product) throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
+      const existing = await tx.productSku.findMany({ where: { productId }, select: { skuCode: true } })
+      const codes = existing.map(sku => sku.skuCode)
+      let skuCode = nextSkuCode(product.code, codes)
+      for (let attempts = 0; await tx.productSku.findUnique({ where: { tenantId_skuCode: { tenantId: product.tenantId, skuCode } }, select: { id: true } }); attempts++) {
+        if (attempts >= 100) throw new ConflictException('规格编码冲突，请检查历史规格')
+        codes.push(skuCode)
+        skuCode = nextSkuCode(product.code, codes)
+      }
+      return tx.productSku.create({ data: {
         tenantId: product.tenantId,
         productId,
-        skuCode: dto.skuCode,
+        skuCode,
         name: dto.name,
         specText: dto.specText,
         saleUnit: dto.saleUnit,
         basePrice: dto.basePrice,
         minOrderQty: dto.minOrderQty
-      }
-    })
+      } })
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted })
   }
 
   async updateSku(id: number, dto: UpdateSkuDto) {

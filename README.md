@@ -2,7 +2,7 @@
 
 微信小程序（客户下单）+ Vue 管理后台（内部运营）+ NestJS 后端 + MySQL/Redis/MinIO 的 B2B 火锅食材订货平台。
 
-当前已发布版本：**v1.2.5（2026-10-21，`ai-20261021-8`）**。在新电脑继续开发前，请先阅读[开发交接与接续提示词](dev-docs/development_handoff.md)、[本地联调环境](dev-docs/local_development.md)和[生产部署记录](dev-docs/production_deployment.md)。
+当前已发布版本：**v1.2.6（2026-10-21，`ai-20261021-9`）**。在新电脑继续开发前，请先阅读[开发交接与接续提示词](dev-docs/development_handoff.md)、[本地联调环境](dev-docs/local_development.md)和[生产部署记录](dev-docs/production_deployment.md)。
 
 ## 技术栈
 
@@ -76,7 +76,7 @@ npm run dev
 
 运行 `node scripts/prepare-local-mini.cjs` 后，用微信开发者工具导入 `.wx-local-project`，项目名为 `weiduoxian-online-development`，默认连接线上 `https://weiduoxian.cn`。仅在明确需要本地后端联调时使用 `--local-backend`，不要擅自切换。
 
-不要修改根目录 `config.js` 的生产地址，不要上传调试生成目录。正式上传应使用只包含运行文件的独立发布目录；原项目源包曾超过微信2MB限制。当前1.2.5开发包已上传，正式审核发布待微信后台操作。
+不要修改根目录 `config.js` 的生产地址，不要上传调试生成目录。正式上传应使用只包含运行文件的独立发布目录；原项目源包曾超过微信2MB限制。当前1.2.6开发包已上传，正式审核发布待微信后台操作。
 
 ## 演示账号（开发环境）
 
@@ -104,7 +104,7 @@ npm run dev
 cd backend
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint --max-warnings=0
-npm test            # Jest；最近一次验证45套件、352项
+npm test            # Jest；最近一次验证46套件、366项
 
 # 管理后台
 cd admin-web

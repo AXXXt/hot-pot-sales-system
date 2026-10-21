@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { PrismaService } from '../prisma.service'
 import { StaffAccessService, StaffActor } from '../auth/staff-access.service'
 
-export const DEFAULT_FEATURES = { products: true, vision: true, analytics: true, tasks: true }
+export const DEFAULT_FEATURES = { products: true, vision: true, analytics: true, tasks: true, inventory: true }
 const PROVIDER_HOSTS = ['dashscope.aliyuncs.com', 'dashscope-intl.aliyuncs.com', 'api.deepseek.com']
 
 export function validateModelEndpoint(value: string) {
@@ -30,10 +30,10 @@ export class AiSettingsService {
     const value = await this.configFor(actor.tenantId)
     return { enabled: value?.enabled ?? false, baseUrl: value?.baseUrl ?? '', textModel: value?.textModel ?? '', visionModel: value?.visionModel ?? '',
       allowWrites: value?.allowWrites ?? false, dailyRequests: value?.dailyRequests ?? 100,
-      features: value?.features ?? DEFAULT_FEATURES, hasKey: Boolean(value?.encryptedKey), encryptionReady: Buffer.from(this.config.get<string>('AI_ENCRYPTION_KEY') || '', 'base64').length === 32 }
+      features: { ...DEFAULT_FEATURES, ...(value?.features as object ?? {}) }, hasKey: Boolean(value?.encryptedKey), encryptionReady: Buffer.from(this.config.get<string>('AI_ENCRYPTION_KEY') || '', 'base64').length === 32 }
   }
 
-  async save(actor: StaffActor, input: { enabled: boolean; baseUrl: string; textModel: string; visionModel: string; allowWrites: boolean; dailyRequests: number; features: typeof DEFAULT_FEATURES; apiKey?: string }) {
+  async save(actor: StaffActor, input: { enabled: boolean; baseUrl: string; textModel: string; visionModel: string; allowWrites: boolean; dailyRequests: number; features: Partial<typeof DEFAULT_FEATURES>; apiKey?: string }) {
     this.access.require(actor, 'ai:configure')
     const baseUrl = input.baseUrl ? validateModelEndpoint(input.baseUrl) : ''
     if (input.enabled && (!baseUrl || !input.textModel)) throw new BadRequestException('启用前请配置模型服务地址和文本模型')
@@ -44,7 +44,7 @@ export class AiSettingsService {
     if (input.enabled && !encryptedKey && !previous?.encryptedKey) throw new BadRequestException('启用前请保存模型 API Key')
     await this.prisma.$transaction(async tx => {
       const data = { enabled: input.enabled, baseUrl, textModel: input.textModel, visionModel: input.visionModel,
-        allowWrites: input.allowWrites, dailyRequests: input.dailyRequests, features: input.features, ...(encryptedKey ? { encryptedKey } : {}) }
+        allowWrites: input.allowWrites, dailyRequests: input.dailyRequests, features: { ...DEFAULT_FEATURES, ...(previous?.features as object ?? {}), ...input.features }, ...(encryptedKey ? { encryptedKey } : {}) }
       await tx.aiConfig.upsert({ where: { tenantId: actor.tenantId }, create: { tenantId: actor.tenantId, ...data }, update: data })
       await tx.auditLog.create({ data: { tenantId: actor.tenantId, operatorId: actor.id, action: 'update', module: 'ai', targetType: 'ai_config', targetId: String(actor.tenantId),
         requestId: `ai-config-${randomBytes(16).toString('hex')}`, afterData: { enabled: data.enabled, textModel: data.textModel, allowWrites: data.allowWrites, keyChanged: Boolean(encryptedKey) } } })

@@ -1,9 +1,15 @@
+// 商品接口适配：展示真实名称、最低规格价和整件商品的可购状态。
 const { request } = require('../request')
 
 function adaptProductListItem(p) {
-  const firstSku = (p.skus && p.skus[0]) || {}
-  const displayPrice = firstSku.customerPrice || firstSku.basePrice || ''
-  const stockNum = Number(firstSku.stockNum || 0)
+  const skus = (p.skus || []).filter(s => !s.status || s.status === 'active')
+  const amount = s => Number(s.customerPrice ?? s.basePrice ?? Infinity)
+  const firstSku = skus.reduce((best, item) => !best || amount(item) < amount(best) ? item : best, null) || {}
+  const displayPrice = firstSku.customerPrice ?? firstSku.basePrice ?? ''
+  const available = skus.filter(s => Number(s.stockNum || 0) >= Math.max(Number(s.minOrderQty || 1), 1))
+  const stockNum = skus.reduce((max, s) => Math.max(max, Number(s.stockNum || 0)), 0)
+  const canBuy = available.length > 0
+  const stockText = !canBuy && stockNum > 0 ? '库存不足' : stockNum > 10 ? '库存充足' : stockNum > 0 ? '库存紧张' : '售罄'
   return {
     id: p.id,
     skuId: firstSku.id || null,
@@ -26,18 +32,19 @@ function adaptProductListItem(p) {
     image: p.mainImageUrl || '',
     price: String(displayPrice),
     priceUnit: firstSku.saleUnit || '',
-    spec: firstSku.specText || p.baseSpec || '',
-    stockText: stockNum > 10 ? '库存充足' : stockNum > 0 ? '库存紧张' : '售罄',
-    statusVariant: stockNum > 0 ? 'success' : 'danger',
-    subText: firstSku.customerPrice ? '协议价' : '',
+    priceFrom: skus.length > 1,
+    spec: (firstSku.specText || p.baseSpec || '') + (skus.length > 1 ? ` 等${skus.length}种规格` : ''),
+    stockText,
+    statusVariant: canBuy ? 'success' : 'danger',
+    subText: firstSku.customerPrice != null ? '协议价' : '',
     sale_price: firstSku.basePrice,
-    customer_price: firstSku.customerPrice || null,
+    customer_price: firstSku.customerPrice ?? null,
     sale_unit: firstSku.saleUnit || '',
     min_order_qty: firstSku.minOrderQty || 1,
     minOrderQty: firstSku.minOrderQty || 1,
     stock_qty: stockNum,
-    stock_text: stockNum > 10 ? '库存充足' : stockNum > 0 ? '库存紧张' : '售罄',
-    sold_out: stockNum <= 0,
+    stock_text: stockText,
+    sold_out: !canBuy,
     skus: (p.skus || []).map((s) => ({
       id: s.id,
       sku_code: s.skuCode,
@@ -45,7 +52,7 @@ function adaptProductListItem(p) {
       spec_text: s.specText,
       sale_unit: s.saleUnit,
       sale_price: s.basePrice,
-      customer_price: s.customerPrice || null,
+      customer_price: s.customerPrice ?? null,
       min_order_qty: s.minOrderQty,
       stock_qty: s.stockNum || 0,
       stock_text: (s.stockNum || 0) > 10 ? '库存充足' : (s.stockNum || 0) > 0 ? '库存紧张' : '售罄',
@@ -80,7 +87,7 @@ function adaptProductDetail(p) {
       spec_text: s.specText,
       sale_unit: s.saleUnit,
       sale_price: s.basePrice,
-      customer_price: s.customerPrice || null,
+      customer_price: s.customerPrice ?? null,
       base_price: s.basePrice,
       min_order_qty: s.minOrderQty,
       stock_qty: s.stockNum || 0,
@@ -99,7 +106,7 @@ function adaptSku(s) {
     spec_text: s.specText,
     sale_unit: s.saleUnit,
     sale_price: s.basePrice,
-    customer_price: s.customerPrice || null,
+    customer_price: s.customerPrice ?? null,
     base_price: s.basePrice,
     min_order_qty: s.minOrderQty,
     stock_qty: s.stockNum || 0,

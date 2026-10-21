@@ -30,12 +30,13 @@ const date = (value: string) => new Date(value).toLocaleString('zh-CN', { timeZo
       <div v-for="item in card.items" :key="item.id" class="result-row">
         <div>
           <template v-if="card.type === 'orders'">{{ item.orderNo }}<small>{{ item.status }}</small></template>
+          <template v-else-if="card.type === 'stock-options'">{{ item.productName }}<small>{{ item.specText }} · {{ item.skuCode }}</small><small>库存 {{ item.beforeQty }}{{ item.saleUnit }}</small></template>
           <template v-else-if="card.type === 'inventory'">{{ item.product.subtitle || item.product.name }}<small>{{ item.specText }} · 库存 {{ item.stockNum }}{{ item.saleUnit }}</small><small v-if="'suggestedQuantity' in item">{{ item.suggestedQuantity === null ? '近期无发货记录，暂不估算' : `建议补充 ${item.suggestedQuantity}${item.saleUnit}，近14天发货 ${item.recentQuantity}${item.saleUnit}` }}</small></template>
           <template v-else-if="card.type === 'leads'">{{ item.storeName || '未填写门店名' }}<small>{{ item.nextFollowUpAt ? date(item.nextFollowUpAt) : '待首次跟进' }}</small></template>
           <template v-else-if="card.type === 'customers'">{{ item.customerName }}<small>{{ item.status === 'active' ? '启用' : '停用' }}</small></template>
           <template v-else>{{ item.subtitle || item.name }}<small>{{ card.type === 'quality' ? [item.nameNeedsReview ? '缺商品名称' : '', !item.mainImageUrl ? '缺主图' : '', !item._count?.skus ? '缺规格' : ''].filter(Boolean).join('、') : item.code }}</small></template>
         </div>
-        <el-button text @click="router.push(card.type === 'orders' ? `/orders/${item.id}` : card.type === 'customers' ? `/customers/${item.id}` : card.type === 'leads' ? '/leads' : card.type === 'inventory' ? '/inventory' : `/products/${item.id}/edit`)">查看</el-button>
+        <el-button text @click="router.push(card.type === 'orders' ? `/orders/${item.id}` : card.type === 'customers' ? `/customers/${item.id}` : card.type === 'leads' ? '/leads' : ['inventory', 'stock-options'].includes(card.type) ? '/inventory' : `/products/${item.id}/edit`)">查看</el-button>
       </div>
     </template>
     <p v-if="card.items && !card.items.length" class="result-note">当前权限和筛选范围内暂无记录。</p>

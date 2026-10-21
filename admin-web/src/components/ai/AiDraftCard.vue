@@ -37,11 +37,15 @@ function switchCatalog(kind: 'brand' | 'category') {
   form.value[`${kind}Id`] = null
   form.value[`${kind}Name`] = ''
 }
+function selectInventorySku(id: number) {
+  const item = form.value.candidates?.find((x: any) => x.skuId === id)
+  if (item) { form.value.specText = item.specText; form.value.unit = item.saleUnit }
+}
 </script>
 
 <template>
   <section class="ai-draft" aria-label="业务草稿">
-    <div class="draft-heading"><strong>{{ draft.action === 'product.create' ? '商品草稿' : '个人提醒草稿' }}</strong><span>{{ completed ? '已执行' : '尚未执行' }}</span></div>
+    <div class="draft-heading"><strong>{{ draft.action === 'product.create' ? '商品草稿' : draft.action === 'inventory.adjust' ? '库存调整草稿' : '个人提醒草稿' }}</strong><span>{{ completed ? '已执行' : '尚未执行' }}</span></div>
     <div v-if="photoUrls.length" class="draft-photos"><el-image v-for="(url, index) in photoUrls" :key="url" :src="url" :alt="`包装照片${index + 1}`" :preview-src-list="photoUrls" :initial-index="index" preview-teleported fit="cover" /><span>点击照片放大核对字段</span></div>
     <p v-if="photoError" class="draft-warning">{{ photoError }}</p>
     <el-form v-if="draft.action === 'product.create'" label-position="top" :disabled="completed || busy" size="small">
@@ -68,6 +72,17 @@ function switchCatalog(kind: 'brand' | 'category') {
       </div>
       <p class="draft-note">商品名称用于客户展示，可直接修改；管理标签和编码由系统生成。创建后下架、库存为0；商品主图在编辑页上传。</p>
     </el-form>
+    <el-form v-else-if="draft.action === 'inventory.adjust'" label-position="top" :disabled="completed || busy" size="small">
+      <el-form-item label="商品名称或规格编码"><el-input v-model="form.keyword" aria-label="库存商品关键词" @input="form.skuId = null" /></el-form-item>
+      <el-form-item label="规格描述"><el-input v-model="form.specText" aria-label="库存规格描述" placeholder="多规格时填写，例如500克/袋" @input="form.skuId = null" /></el-form-item>
+      <el-form-item v-if="form.candidates?.length > 1" label="选择商品规格" required><el-select v-model="form.skuId" aria-label="选择库存商品规格" placeholder="请选择，不会自动猜选" @change="selectInventorySku"><el-option v-for="item in form.candidates" :key="item.skuId" :value="item.skuId" :label="`${item.productName} · ${item.specText} · ${item.skuCode}`" /></el-select></el-form-item>
+      <p v-if="form.truncated" class="draft-warning">匹配较多，请补充商品名称、编码或规格再保存。</p>
+      <div class="field-pair"><el-form-item label="操作方式"><el-select v-model="form.mode" aria-label="库存操作方式"><el-option label="增加库存" value="increase" /><el-option label="减少库存" value="decrease" /><el-option label="设为指定库存" value="set" /></el-select></el-form-item><el-form-item :label="form.mode === 'set' ? '目标库存' : '调整数量'"><el-input-number v-model="form.quantity" aria-label="库存调整数量" :min="form.mode === 'set' ? 0 : 1" :max="2147483647" :precision="0" /></el-form-item></div>
+      <el-form-item label="数量单位"><el-input v-model="form.unit" aria-label="库存数量单位" placeholder="必须与规格销售单位一致" /></el-form-item>
+      <el-form-item label="调整原因"><el-input v-model="form.reason" aria-label="库存调整原因" maxlength="200" /></el-form-item>
+      <div v-if="draft.payload.item" class="inventory-preview"><strong>{{ draft.payload.item.productName }}</strong><p>{{ draft.payload.item.specText }} · {{ draft.payload.item.skuCode }}</p><p>当前 {{ draft.payload.item.beforeQty }}{{ draft.payload.item.saleUnit }} → 调整后 {{ draft.payload.afterQty ?? '待补齐' }}{{ draft.payload.item.saleUnit }}</p></div>
+      <p class="draft-note">修改后请先保存，刷新库存预览。确认后生成出入库单和流水；库存变化时需重新核对，不自动换算箱、袋。</p>
+    </el-form>
     <el-form v-else label-position="top" :disabled="completed || busy" size="small">
       <el-form-item label="事项"><el-input v-model="form.title" maxlength="200" /></el-form-item>
       <el-form-item label="提醒时间（北京时间）"><input v-model="taskDate" type="datetime-local" class="task-date" /></el-form-item>
@@ -75,7 +90,7 @@ function switchCatalog(kind: 'brand' | 'category') {
     <p v-if="!completed && draft.missing?.length" class="draft-warning">待补充：{{ draft.missing.join('、') }}</p>
     <div v-if="!completed" class="draft-actions">
       <el-button size="small" :disabled="!changed || busy" @click="emit('save', draft, payload())">保存修改</el-button>
-      <el-button type="primary" size="small" :loading="busy" :disabled="changed || !allowExecute || !!draft.missing?.length" @click="emit('confirm', draft)">{{ draft.action === 'product.create' ? '检查并创建' : '确认添加提醒' }}</el-button>
+      <el-button type="primary" size="small" :loading="busy" :disabled="changed || !allowExecute || !!draft.missing?.length" @click="emit('confirm', draft)">{{ draft.action === 'product.create' ? '检查并创建' : draft.action === 'inventory.adjust' ? '检查并调整库存' : '确认添加提醒' }}</el-button>
     </div>
     <p v-if="!allowExecute && !completed" class="draft-note">需要开启业务写入，并拥有AI执行及对应业务权限。</p>
   </section>
@@ -83,6 +98,8 @@ function switchCatalog(kind: 'brand' | 'category') {
 
 <style scoped>
 .ai-draft { border: 1px solid var(--brand-border); border-radius: 6px; padding: 16px; background: white; margin-top: 12px; }
+.inventory-preview { padding: 12px; background: #f3f6f3; border-radius: 4px; line-height: 1.7; overflow-wrap: anywhere; }
+.inventory-preview p { margin: 4px 0 0; }
 .draft-heading { display: flex; gap: 12px; justify-content: space-between; margin-bottom: 14px; }
 .draft-heading span, .draft-note { font-size: 12px; color: var(--brand-text-soft); line-height: 1.7; }
 .draft-photos { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }

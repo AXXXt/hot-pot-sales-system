@@ -7,6 +7,7 @@ Component({
     spec:       { type: String, value: '' },
     price:      { type: String, value: '' },
     priceUnit:  { type: String, value: '' },
+    priceFrom:  { type: Boolean, value: false },
     statusText: { type: String, value: '' },
     statusVariant: { type: String, value: 'default' },
     subText:    { type: String, value: '' },

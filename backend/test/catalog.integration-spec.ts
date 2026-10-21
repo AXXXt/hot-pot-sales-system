@@ -161,3 +161,13 @@ it('persists ordered galleries with a consistent cover without altering product 
   await db.product.update({ where: { id: productId }, data: { images: [], mainImageUrl: images[0] } })
   expect((await get(`products/${productId}`, buyer).expect(200)).body.data.images).toEqual([images[0]])
 })
+
+it('allocates consecutive SKU codes under concurrent creation and never reuses disabled suffixes', async () => {
+  const product = await db.product.findUniqueOrThrow({ where: { id: productId } })
+  await db.productSku.create({ data: { tenantId: product.tenantId, productId, skuCode: product.code + '-09', specText: '历史停用规格', saleUnit: '袋', basePrice: '1', minOrderQty: 1, status: 'disabled' } })
+  const results = await Promise.all(Array.from({ length: 4 }, (_, i) => post(`products/${productId}/skus`, admin, { skuCode: 'CLIENT-CANNOT-OVERRIDE', specText: `${100 + i}克/袋`, saleUnit: '袋', basePrice: '10', minOrderQty: 1 }).expect(201)))
+  expect(results.map(r => r.body.data.skuCode).sort()).toEqual([10, 11, 12, 13].map(n => `${product.code}-${n}`))
+  expect(results.every(r => r.body.data.stockNum === 0)).toBe(true)
+  const automatic = await post(`products/${productId}/skus`, admin, { specText: '新规格', saleUnit: '袋', basePrice: '10', minOrderQty: 1 }).expect(201)
+  expect(automatic.body.data.skuCode).toBe(product.code + '-14')
+})

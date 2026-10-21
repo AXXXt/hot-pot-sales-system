@@ -9,7 +9,7 @@ const auth = useAuthStore()
 const loading = ref(true); const saving = ref(false); const testing = ref(false); const error = ref(''); const tab = ref('connection')
 const hasKey = ref(false); const encryptionReady = ref(false)
 const form = reactive({ enabled: false, baseUrl: '', textModel: '', visionModel: '', apiKey: '', allowWrites: false, dailyRequests: 100,
-  features: { products: true, vision: true, analytics: true, tasks: true } })
+  features: { products: true, vision: true, analytics: true, tasks: true, inventory: true } })
 const usage = ref<any[]>([]); const schedules = ref<any[]>([])
 const scheduleForm = reactive({ name: '', kind: 'daily_todos', hour: 9, enabled: true })
 const authorization = ref<any>({ roles: [], users: [], brands: [], permissions: [] })
@@ -18,7 +18,7 @@ const date = (value: string) => value ? new Date(value).toLocaleString('zh-CN', 
 
 function apply(value: any) {
   for (const key of ['enabled', 'baseUrl', 'textModel', 'visionModel', 'allowWrites', 'dailyRequests'] as const) (form as any)[key] = value[key]
-  form.features = { products: true, vision: true, analytics: true, tasks: true, ...value.features }
+  form.features = { products: true, vision: true, analytics: true, tasks: true, inventory: true, ...value.features }
   hasKey.value = value.hasKey; encryptionReady.value = value.encryptionReady; form.apiKey = ''
 }
 async function load() {
@@ -96,7 +96,7 @@ onMounted(load)
       </el-tab-pane>
       <el-tab-pane label="能力与权限" name="capabilities">
         <section class="settings-section"><h2>可用能力</h2><p>能力开关决定系统开放哪些功能，人员仍需具备对应业务权限。</p>
-          <div v-for="item in [{ key: 'products', title: '一句话建品', note: '生成并检查商品及规格草稿' }, { key: 'vision', title: '拍照建品', note: '从私有包装照片提取信息' }, { key: 'analytics', title: '经营统计', note: '查询当前人员可见范围的数据' }, { key: 'tasks', title: '个人事务', note: '整理待办、提醒和自动报告' }]" :key="item.key" class="setting-row"><div><strong>{{ item.title }}</strong><p>{{ item.note }}</p></div><el-switch v-model="(form.features as any)[item.key]" :aria-label="item.title" /></div>
+          <div v-for="item in [{ key: 'products', title: '一句话建品', note: '生成并检查商品及规格草稿' }, { key: 'vision', title: '拍照建品', note: '从私有包装照片提取信息' }, { key: 'analytics', title: '经营统计', note: '查询当前人员可见范围的数据' }, { key: 'inventory', title: '一句话调库存', note: '核对具体规格后调整数量，保留单据与流水' }, { key: 'tasks', title: '个人事务', note: '整理待办、提醒和自动报告' }]" :key="item.key" class="setting-row"><div><strong>{{ item.title }}</strong><p>{{ item.note }}</p></div><el-switch v-model="(form.features as any)[item.key]" :aria-label="item.title" /></div>
           <div class="setting-row"><div><strong>允许确认后执行业务操作</strong><p>首版支持创建下架商品和个人提醒，仍需AI执行及业务权限。</p></div><el-switch v-model="form.allowWrites" aria-label="允许业务写入" /></div>
         </section>
         <section v-if="auth.can('role:manage')" class="settings-section"><h2>人员授权</h2><p>角色分配能力，人员分配品牌范围。销售仅查询负责的客户和线索；普通人员未分配品牌时无法查看品牌业务数据。</p>
@@ -109,7 +109,7 @@ onMounted(load)
         <section class="settings-section"><h2>统计口径</h2><p>有效订单金额按下单时间统计待发货、已发货、已完成订单，排除样品。订单额不等于实收或利润。日期使用北京时间，商品数量按销售单位分别统计。</p><el-button v-if="auth.can('analytics:view') && auth.can('order:read') && auth.can('export:create')" @click="exportReport">导出本周经营统计</el-button></section>
       </el-tab-pane>
       <el-tab-pane label="知识与模板" name="knowledge">
-        <section class="settings-section"><h2>内置操作模板</h2><p>可以在悬浮助手中复制使用，助手会按权限查询或生成待确认草稿。</p><ul class="template-list"><li>新增商品：品牌、分类、商品名称、包装规格、销售单位、售价、起订量。</li><li>上传包装正面和规格标签，识别商品信息，不清楚的字段保持空白。</li><li>整理我今天的待报价、待发货和客户跟进事项。</li><li>明天下午3点提醒我跟进指定事项。</li><li>分析本周有效订单金额，列出商品排名和统计口径。</li><li>检查哪些商品缺少主图或规格。</li></ul><p>财务审批、退款、授信和角色变更通过原业务页面处理。</p></section>
+        <section class="settings-section"><h2>内置操作模板</h2><p>可以在悬浮助手中复制使用，助手会按权限查询或生成待确认草稿。</p><ul class="template-list"><li>新增商品：品牌、分类、商品名称、包装规格、销售单位、售价、起订量。</li><li>上传包装正面和规格标签，识别商品信息，不清楚的字段保持空白。</li><li>把爆汁牛筋丸500克/袋库存增加10袋；或将该规格库存设为30袋。核对草稿并确认后生成流水。</li><li>整理我今天的待报价、待发货和客户跟进事项。</li><li>明天下午3点提醒我跟进指定事项。</li><li>分析本周有效订单金额，列出商品排名和统计口径。</li><li>检查哪些商品缺少主图或规格。</li></ul><p>财务审批、退款、授信和角色变更通过原业务页面处理。</p></section>
       </el-tab-pane>
       <el-tab-pane label="自动任务" name="schedules">
         <section v-if="auth.can('task:manage_own') && auth.can('ai:use')" class="settings-section"><h2>我的自动任务</h2><p>自动生成站内报告，不自动修改商品、库存或订单。账号或权限变化时任务暂停。</p>

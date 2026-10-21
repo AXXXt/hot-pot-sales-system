@@ -2,11 +2,11 @@ import { IsString, IsInt, IsOptional, IsIn, Matches, MaxLength, Min } from 'clas
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateSkuDto {
-  @ApiProperty({ example: 'SKU-001' })
-  @IsString()
+  @ApiPropertyOptional({ deprecated: true, description: '由系统自动续编，客户端传入值不参与分配' })
+  @IsOptional() @IsString()
   @Matches(/\S/)
   @MaxLength(100)
-  skuCode: string
+  skuCode?: string
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(200)

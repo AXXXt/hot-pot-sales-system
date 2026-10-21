@@ -29,3 +29,26 @@ test('native clients use the management label as a fallback for incomplete legac
   const api = productApi({ id: 1, name: '旧管理标签', subtitle: '   ', skus: [] })
   assert.equal((await api.getProductDetail(1)).data.name, '旧管理标签')
 })
+
+
+test('multi-SKU cards show the minimum agreement price while another available SKU prevents a false sold-out badge', async () => {
+  const api = productApi({ id: 1, name: '牛筋丸', skus: [
+    { id: 12, basePrice: '19.90', customerPrice: '16', stockNum: 20, minOrderQty: 1, saleUnit: '袋', specText: '500克/袋' },
+    { id: 11, basePrice: '12.90', customerPrice: '10', stockNum: 0, minOrderQty: 1, saleUnit: '袋', specText: '200克/袋' }
+  ] })
+  const item = (await api.getProductList({})).data.items[0]
+  assert.equal(item.price, '10')
+  assert.equal(item.priceFrom, true)
+  assert.equal(item.priceUnit, '袋')
+  assert.equal(item.sold_out, false)
+  assert.notEqual(item.stockText, '售罄')
+  assert.match(item.spec, /200克.*2种规格/)
+})
+
+test('zero agreement prices remain valid and a single SKU has no starting-price label', async () => {
+  const api = productApi({ id: 1, name: '测试商品', skus: [{ id: 11, basePrice: '12.90', customerPrice: 0, stockNum: 1, minOrderQty: 1 }] })
+  const item = (await api.getProductList({})).data.items[0]
+  assert.equal(item.price, '0')
+  assert.equal(item.priceFrom, false)
+  assert.equal(item.customer_price, 0)
+})

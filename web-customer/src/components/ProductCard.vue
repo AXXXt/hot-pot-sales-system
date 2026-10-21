@@ -6,7 +6,7 @@ import { formatAmount } from "../utils/format";
 
 const props = defineProps<{ product: Product }>();
 defineEmits<{ add: [product: Product, sku: ProductSku] }>();
-const sku = computed(() => props.product.skus?.[0]);
+const sku = computed(() => [...(props.product.skus || [])].sort((a, b) => Number(a.customerPrice ?? a.basePrice) - Number(b.customerPrice ?? b.basePrice))[0]);
 const failedImage = ref(false);
 watch(
   () => props.product.mainImageUrl,
@@ -54,7 +54,7 @@ watch(
       <div class="product-bottom">
         <div v-if="sku" class="product-price">
           <small>¥</small>{{ formatAmount(sku.customerPrice ?? sku.basePrice)
-          }}<span>/ {{ sku.saleUnit || "件" }}</span>
+          }}<span>/ {{ sku.saleUnit || "件" }}</span><span v-if="product.skus.length > 1">起</span>
         </div>
         <span v-else class="muted">价格待确认</span>
         <router-link

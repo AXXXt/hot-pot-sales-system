@@ -5,6 +5,7 @@ import { UploadModule } from '../upload/upload.module'
 import { redisProvider } from '../redis.provider'
 import { AiAccessGuard } from './ai-access.guard'
 import { AiController } from './ai.controller'
+import { AiInventoryService } from './ai-inventory.service'
 import { AiService } from './ai.service'
 import { AiDataService } from './ai-data.service'
 import { AiDraftService } from './ai-draft.service'
@@ -16,6 +17,6 @@ import { AiAuthorizationService } from './ai-authorization.service'
 
 @Module({
   imports: [AuthModule, ProductModule, UploadModule], controllers: [AiController],
-  providers: [AiService, AiAccessGuard, AiDataService, AiDraftService, AiAttachmentService, AiSettingsService, AiModelService, AiScheduleService, AiAuthorizationService, redisProvider]
+  providers: [AiInventoryService, AiService, AiAccessGuard, AiDataService, AiDraftService, AiAttachmentService, AiSettingsService, AiModelService, AiScheduleService, AiAuthorizationService, redisProvider]
 })
 export class AiModule {}

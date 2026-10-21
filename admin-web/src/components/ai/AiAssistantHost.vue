@@ -162,7 +162,9 @@ async function save(draft: AiDraft, payload: any) {
 async function confirm(draft: AiDraft) {
   const catalog = draft.action === 'product.create' ? [!draft.payload.brandId && draft.payload.brandName ? `品牌“${draft.payload.brandName}”` : '', !draft.payload.categoryId && draft.payload.categoryName ? `分类“${draft.payload.categoryName}”` : ''].filter(Boolean) : []
   const note = catalog.length ? `同时新建${catalog.join('、')}，若存在同名可用项则复用。` : ''
-  try { await ElMessageBox.confirm(draft.action === 'product.create' ? `${note}将创建下架商品及所列规格，初始库存为0。确认继续？` : '将添加所列事项和北京时间提醒。确认继续？', '确认业务操作', { confirmButtonText: '确认执行', cancelButtonText: '返回检查', type: 'warning' }) }
+  const stock = draft.payload.item
+  const stockNote = stock ? `将${stock.productName}（${stock.specText}，${stock.skuCode}）库存从${stock.beforeQty}${stock.saleUnit}调整为${draft.payload.afterQty}${stock.saleUnit}，并生成出入库单和流水。确认继续？` : '请先选择明确的商品规格。'
+  try { await ElMessageBox.confirm(draft.action === 'product.create' ? `${note}将创建下架商品及所列规格，初始库存为0。确认继续？` : draft.action === 'inventory.adjust' ? stockNote : '将添加所列事项和北京时间提醒。确认继续？', '确认业务操作', { confirmButtonText: '确认执行', cancelButtonText: '返回检查', type: 'warning' }) }
   catch { return }
   draftBusy.value = true; error.value = ''
   try {
@@ -170,7 +172,7 @@ async function confirm(draft: AiDraft) {
     drafts.value[draft.id] = { ...draft, status: 'succeeded' }
     const createdCatalog = [result.result.catalog?.brand?.created ? `品牌“${result.result.catalog.brand.name}”` : '', result.result.catalog?.category?.created ? `分类“${result.result.catalog.category.name}”` : ''].filter(Boolean)
     if (result.result.scopeChanged) { conversationId.value = ''; messages.value = []; drafts.value = {} }
-    messages.value.push({ id: result.id, role: 'assistant', content: draft.action === 'product.create' ? `已创建：${result.result.name}（${result.result.code}），状态为下架，客户暂不可见。${createdCatalog.length ? `已同步创建${createdCatalog.join('、')}。` : ''}请到商品管理打开编辑页，核对资料后点击“上架商品”；库存需在库存管理中按实际数量入库。` : '个人提醒已添加，可在“我的事务”查看。' })
+    messages.value.push({ id: result.id, role: 'assistant', content: draft.action === 'product.create' ? `已创建：${result.result.name}（${result.result.code}），状态为下架，客户暂不可见。${createdCatalog.length ? `已同步创建${createdCatalog.join('、')}。` : ''}请到商品管理打开编辑页，核对资料后点击“上架商品”；库存需在库存管理中按实际数量入库。` : draft.action === 'inventory.adjust' ? `已调整：${result.result.productName}（${result.result.specText}），${result.result.beforeQty}${result.result.saleUnit} → ${result.result.afterQty}${result.result.saleUnit}，出入库单 ${result.result.adjustmentNo}。可到库存管理查看流水。` : '个人提醒已添加，可在“我的事务”查看。' })
     if (draft.action === 'product.create') {
       try { await refreshCapability(); options.value = await api.getCatalogOptions(); await loadList() }
       catch { ElMessage.warning('创建已完成，品牌和分类列表刷新失败，请刷新页面。') }
@@ -225,7 +227,7 @@ onBeforeUnmount(() => { abort?.abort(); clearImages(); stopDrag?.(); document.bo
           <p v-if="busy" class="ai-progress" role="status">{{ progress }}…</p>
         </div>
         <div v-if="error" class="ai-error" role="alert">{{ error }}</div>
-        <div class="ai-shortcuts"><el-button size="small" :disabled="busy" @click="send('today', '整理我的今日待办')">今日待办</el-button><el-button v-if="capability?.tools.includes('product_draft')" size="small" :disabled="busy" @click="productPrompt">一句话建品</el-button><el-button v-if="capability?.tools.includes('metrics_summary')" size="small" :disabled="busy" @click="send('metrics', '查看本周经营统计')">经营统计</el-button><el-button v-if="capability?.tools.includes('tasks_list')" size="small" :disabled="busy" @click="send('tasks', '查看我的事务')">我的事务<span v-if="reminderCount"> · {{ reminderCount }}到期</span></el-button></div>
+        <div class="ai-shortcuts"><el-button v-if="capability?.tools.includes('inventory_adjust_draft')" size="small" :disabled="busy" @click="input = '把【商品名称】【规格】库存增加【数量】【销售单位】'; composer?.focus()">一句话调库存</el-button><el-button size="small" :disabled="busy" @click="send('today', '整理我的今日待办')">今日待办</el-button><el-button v-if="capability?.tools.includes('product_draft')" size="small" :disabled="busy" @click="productPrompt">一句话建品</el-button><el-button v-if="capability?.tools.includes('metrics_summary')" size="small" :disabled="busy" @click="send('metrics', '查看本周经营统计')">经营统计</el-button><el-button v-if="capability?.tools.includes('tasks_list')" size="small" :disabled="busy" @click="send('tasks', '查看我的事务')">我的事务<span v-if="reminderCount"> · {{ reminderCount }}到期</span></el-button></div>
         <div class="ai-composer">
           <div v-if="images.length" class="attachment-previews"><div v-for="(image, index) in images" :key="image.id"><img :src="image.url" :alt="`待识别包装照片${index + 1}`" /><el-button text :icon="Close" :aria-label="`移除照片${index + 1}`" @click="removeImage(index)" /></div></div>
           <textarea ref="composer" v-model="input" rows="3" maxlength="4000" aria-label="向AI运营助手描述需求" placeholder="描述需求，或拖入、粘贴包装照片…" :disabled="busy" @paste="paste" @keydown.enter.exact.prevent="send()" />

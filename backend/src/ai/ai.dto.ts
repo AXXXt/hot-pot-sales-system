@@ -6,6 +6,7 @@ class FeaturesDto {
   @IsBoolean() vision: boolean
   @IsBoolean() analytics: boolean
   @IsBoolean() tasks: boolean
+  @IsOptional() @IsBoolean() inventory?: boolean
 }
 
 export class AiSettingsDto {

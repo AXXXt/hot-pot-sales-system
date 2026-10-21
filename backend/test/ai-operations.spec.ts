@@ -223,6 +223,13 @@ describe('untrusted model requests cannot authorize business writes', () => {
     expect(drafts.create).toHaveBeenCalledWith(actor, 'conversation-1', 'product.create', expect.any(Object))
     expect(drafts.confirm).not.toHaveBeenCalled()
   })
+  it('turns a one-sentence stock request into a draft without executing the adjustment', async () => {
+    const { service, actor, drafts, model } = fixture('inventory_adjust_draft', ['inventory_adjust_draft'])
+    model.complete.mockResolvedValue({ tool_calls: [{ id: 'stock-tool', function: { name: 'inventory_adjust_draft', arguments: JSON.stringify({ keyword: '爆汁牛筋丸', specText: '500克', mode: 'increase', quantity: 10, unit: '袋' }) } }] } as any)
+    await service.run(actor, 'conversation-1', { text: '把爆汁牛筋丸500克/袋库存增加10袋', kind: 'chat' })
+    expect(drafts.create).toHaveBeenCalledWith(actor, 'conversation-1', 'inventory.adjust', expect.objectContaining({ mode: 'increase', quantity: 10 }))
+    expect(drafts.confirm).not.toHaveBeenCalled()
+  })
   it('rechecks the original private photo when a user asks to fill brand and category in an existing draft', async () => {
     const { service, actor, model, attachments, drafts } = fixture('product_draft', ['product_draft'])
     jest.mocked(service.conversation).mockResolvedValue({ id: 'conversation-1', title: '', messages: [], drafts: [{ action: 'product.create', status: 'draft', payload: { attachmentIds: ['private-photo-1'] } }] } as any)
