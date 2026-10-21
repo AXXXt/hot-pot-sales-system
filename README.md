@@ -2,9 +2,9 @@
 
 微信小程序（客户下单）+ Vue 管理后台（内部运营）+ NestJS 后端 + MySQL/Redis/MinIO 的 B2B 火锅食材订货平台。
 
-当前已发布版本：**v1.2.6（2026-10-21，`ai-20261021-9`）**。在新电脑继续开发前，请先阅读[开发交接与接续提示词](dev-docs/development_handoff.md)、[本地联调环境](dev-docs/local_development.md)和[生产部署记录](dev-docs/production_deployment.md)。
+当前已发布版本：**v1.3.0（2026-10-21，`ai-20261021-10`）**。在新电脑继续开发前，请先阅读[开发交接与接续提示词](dev-docs/development_handoff.md)、[本地联调环境](dev-docs/local_development.md)和[生产部署记录](dev-docs/production_deployment.md)。
 
-仓库还包含待发布的[商品、库存与接单扩展](dev-docs/admin/operations_workflow.md)：规格专属图与复制、包装换算、AI批量库存、库存预占、补货草稿、采购清单转订单及批次保质期。新电脑须应用全部18个迁移；这些源码更新不代表线上或微信正式版已发布。
+后端、管理后台及采购站已上线[商品、库存与接单扩展](dev-docs/admin/operations_workflow.md)：规格专属图与复制、包装换算、AI批量库存、库存预占、补货草稿、采购清单转订单及批次保质期。本地及线上均为18个迁移；微信1.3.0开发包已上传，正式审核发布尚未完成。
 
 ## 技术栈
 
@@ -78,7 +78,7 @@ npm run dev
 
 运行 `node scripts/prepare-local-mini.cjs` 后，用微信开发者工具导入 `.wx-local-project`，项目名为 `weiduoxian-online-development`，默认连接线上 `https://weiduoxian.cn`。仅在明确需要本地后端联调时使用 `--local-backend`，不要擅自切换。
 
-不要修改根目录 `config.js` 的生产地址，不要上传调试生成目录。正式上传应使用只包含运行文件的独立发布目录；原项目源包曾超过微信2MB限制。当前1.2.6开发包已上传，正式审核发布待微信后台操作。
+不要修改根目录 `config.js` 的生产地址，不要上传调试生成目录。正式上传应使用只包含运行文件的独立发布目录；原项目源包曾超过微信2MB限制。当前1.3.0开发包已上传，正式审核发布待微信后台操作。
 
 ## 演示账号（开发环境）
 
