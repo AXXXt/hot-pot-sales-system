@@ -1,0 +1,8 @@
+<view class="page settings-page">
+  <text class="settings-title">账户与服务</text>
+  <button class="settings-row" data-type="terms" bindtap="openLegal"><text>用户协议</text><text>›</text></button>
+  <button class="settings-row" data-type="privacy" bindtap="openLegal"><text>隐私政策</text><text>›</text></button>
+  <button class="settings-row" bindtap="goHelp"><text>联系与帮助</text><text>›</text></button>
+  <view class="settings-row version-row"><text>当前版本</text><text>{{version}} · {{environment}}</text></view>
+  <button wx:if="{{loggedIn}}" class="logout-button" bindtap="onLogout" disabled="{{loggingOut}}" loading="{{loggingOut}}">退出登录</button>
+</view>

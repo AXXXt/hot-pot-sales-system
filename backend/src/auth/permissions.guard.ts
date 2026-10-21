@@ -31,16 +31,16 @@ export class PermissionsGuard implements CanActivate {
     const userId = Number(user.sub)
     const actor = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { userType: true }
+      select: { userType: true, tenantId: true, status: true }
     })
-    if (!actor) {
+    if (!actor || actor.status !== 'active' || actor.tenantId !== Number(user.tenantId)) {
       throw new ForbiddenException({ message: '账号不存在或已禁用', errorCode: 'AUTH_3005' })
     }
     if (actor.userType === 'super_admin') return true
 
-    const tenantId = Number(user.tenantId || 1)
+    const tenantId = actor.tenantId
     const roles = await this.prisma.userRole.findMany({
-      where: { userId, tenantId },
+      where: { userId, tenantId, role: { tenantId, status: 'active' } },
       include: {
         role: {
           include: {

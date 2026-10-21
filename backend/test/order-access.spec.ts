@@ -23,7 +23,7 @@ describe('order HTTP isolation', () => {
     userRole: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
     order: { findFirst: jest.fn(async ({ where }) => orders.find(o => o.id === where.id && o.tenantId === where.tenantId && (!where.customerId || o.customerId === where.customerId))) }
   }
-  const service = Object.fromEntries(['list', 'detail', 'cancel', 'complete', 'transition', 'getLogistics', 'quote'].map(key => [key, jest.fn().mockResolvedValue({ ok: true })]))
+  const service = Object.fromEntries(['list', 'detail', 'cancel', 'complete', 'transition', 'getLogistics', 'quote', 'overview'].map(key => [key, jest.fn().mockResolvedValue({ ok: true })]))
   const token = (id: number) => `Bearer ${jwt.sign({ sub: id, tenantId: 1 })}`
 
   beforeAll(async () => {
@@ -43,6 +43,16 @@ describe('order HTTP isolation', () => {
   afterAll(() => app.close())
 
   it('requires login', () => request(app.getHttpServer()).get('/orders').expect(401))
+  it('requires login for the overview', () => request(app.getHttpServer()).get('/orders/me/overview').expect(401))
+  it('cannot forge the customer or tenant for overview counters and purchases', async () => {
+    await request(app.getHttpServer()).get('/orders/me/overview?customerId=20&tenantId=2')
+      .set('Authorization', token(1)).expect(200)
+    expect(service.overview).toHaveBeenCalledWith({ tenantId: 1, customerId: 10 })
+  })
+  it('does not expose tenant-wide statistics through the customer overview', async () => {
+    await request(app.getHttpServer()).get('/orders/me/overview').set('Authorization', token(4)).expect(403)
+    expect(service.overview).not.toHaveBeenCalled()
+  })
   it('overrides a forged customer filter with the authenticated customer', async () => {
     await request(app.getHttpServer()).get('/orders?customerId=20').set('Authorization', token(1)).expect(200)
     expect(service.list).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 1, customerId: 10 }))

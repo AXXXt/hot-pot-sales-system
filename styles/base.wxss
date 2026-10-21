@@ -10,14 +10,14 @@
 
 .card {
   background: var(--bg-surface);
-  border: 1rpx solid var(--border-subtle);
+  border: 0;
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .section-title {
   font-size: 32rpx;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.3;
   color: var(--text-primary);
 }
@@ -64,22 +64,11 @@
   color: var(--text-inverse);
 }
 
-.brand-hero::after {
-  content: '';
-  position: absolute;
-  width: 520rpx;
-  height: 520rpx;
-  right: -240rpx;
-  top: -250rpx;
-  border: 8rpx solid rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
-}
-
 .brand-panel {
   background: var(--bg-surface);
-  border: 1rpx solid var(--border-subtle);
+  border: 0;
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .pressable {

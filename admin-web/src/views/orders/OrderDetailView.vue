@@ -223,7 +223,7 @@ onMounted(fetch)
     <el-alert v-if="error" type="error" :title="error" show-icon style="margin-bottom:16px" />
 
     <div v-if="loading" style="text-align:center;padding:60px 0">
-      <el-icon class="is-loading" :size="28"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#ead9d7" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#8d1c1c" stroke-width="3" fill="none" stroke-linecap="round"/></svg></el-icon>
+      <el-icon class="is-loading" :size="28"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#e5e8e5" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#43715b" stroke-width="3" fill="none" stroke-linecap="round"/></svg></el-icon>
     </div>
 
     <template v-if="!loading && !error && order.id">
@@ -281,7 +281,7 @@ onMounted(fetch)
         <el-timeline>
           <el-timeline-item v-for="log in order.statusLogs" :key="log.id"
             :timestamp="new Date(log.createdAt).toLocaleString('zh-CN')"
-            :color="log.toStatus === 'completed' ? '#34A853' : log.toStatus === 'cancelled' ? '#C43737' : '#8D1C1C'">
+            :color="log.toStatus === 'completed' ? '#34A853' : log.toStatus === 'cancelled' ? '#C43737' : '#43715b'">
             {{ st(log.fromStatus) }} → {{ st(log.toStatus) }}
           </el-timeline-item>
         </el-timeline>

@@ -1,45 +1,33 @@
 .checkout-page {
   min-height: 100vh;
-  padding-bottom: 174rpx;
+  padding-bottom: calc(192rpx + env(safe-area-inset-bottom));
   background: var(--brand-soft-gradient);
 }
 
 .checkout-header {
   position: relative;
   overflow: hidden;
-  min-height: 218rpx;
-  padding: 50rpx 32rpx 112rpx;
-  background: var(--brand-gradient);
-}
-
-.checkout-header::after {
-  content: '';
-  position: absolute;
-  width: 430rpx;
-  height: 430rpx;
-  right: -230rpx;
-  top: -220rpx;
-  border: 7rpx solid rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
+  padding: 32rpx 32rpx 20rpx;
+  background: #FFFFFF;
 }
 
 .checkout-title {
   position: relative;
   z-index: 1;
-  font-size: 48rpx;
-  font-weight: 800;
-  color: #FFFFFF;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .checkout-empty {
-  margin: -72rpx 32rpx 0;
+  margin: 0 32rpx;
   padding: 80rpx 32rpx;
-  border-radius: 40rpx;
+  border-radius: 8rpx;
   background: rgba(255, 255, 255, 0.96);
   color: var(--text-secondary);
   font-size: 28rpx;
   text-align: center;
-  box-shadow: var(--shadow-lg);
+  box-shadow: none;
 }
 
 .checkout-body {
@@ -48,23 +36,23 @@
   display: flex;
   flex-direction: column;
   gap: 18rpx;
-  margin-top: -72rpx;
-  padding: 0 28rpx;
+  margin-top: 0;
+  padding: 0 32rpx;
 }
 
 .checkout-card {
-  padding: 30rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.72);
-  border-radius: 34rpx;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--border-default);
+  border-radius: 8rpx;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .checkout-card__title {
   display: block;
   margin-bottom: 18rpx;
   font-size: 30rpx;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -95,7 +83,7 @@
 
 .checkout-item__name {
   font-size: 27rpx;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -117,14 +105,14 @@
   min-width: 120rpx;
   color: var(--text-primary);
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
   text-align: right;
 }
 
 .checkout-item__val--total {
   color: var(--brand-primary);
   font-size: 36rpx;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .payment-options {
@@ -138,23 +126,23 @@
   min-height: 108rpx;
   padding: 22rpx 72rpx 22rpx 24rpx;
   border: 2rpx solid var(--border-default);
-  border-radius: 24rpx;
+  border-radius: 8rpx;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 5rpx;
-  background: #FFF9F7;
+  background: #f4f6f4;
 }
 
 .payment-option.active {
   border-color: var(--brand-primary);
-  background: #FFF0ED;
+  background: #f4f6f4;
 }
 
 .payment-option__name {
   color: var(--text-primary);
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .payment-option__desc {
@@ -184,16 +172,16 @@
   gap: 18rpx;
   margin-top: 18rpx;
   padding: 20rpx;
-  border: 1rpx dashed rgba(141, 28, 28, 0.35);
-  border-radius: 22rpx;
-  background: #FFF9F7;
+  border: 1rpx dashed rgba(34, 38, 37, 0.35);
+  border-radius: 8rpx;
+  background: #f4f6f4;
 }
 
 .proof-upload__preview {
   width: 96rpx;
   height: 96rpx;
   flex: 0 0 auto;
-  border-radius: 16rpx;
+  border-radius: 8rpx;
   background: var(--bg-muted);
 }
 
@@ -210,7 +198,7 @@
 .proof-upload__status {
   color: var(--text-primary);
   font-size: 25rpx;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .proof-upload__hint {
@@ -222,11 +210,11 @@
 .proof-upload__button {
   flex: 0 0 auto;
   padding: 14rpx 18rpx;
-  border-radius: 18rpx;
-  background: #F7E9E6;
+  border-radius: 8rpx;
+  background: #f4f6f4;
   color: var(--brand-primary);
   font-size: 23rpx;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .checkout-remark {
@@ -234,8 +222,8 @@
   min-height: 130rpx;
   padding: 20rpx;
   border: 1rpx solid var(--border-subtle);
-  border-radius: 22rpx;
-  background: #FFF9F7;
+  border-radius: 8rpx;
+  background: #f4f6f4;
   color: var(--text-primary);
   font-size: 26rpx;
   line-height: 1.6;
@@ -244,16 +232,17 @@
 .checkout-bar {
   position: fixed;
   z-index: 20;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: calc(18rpx + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18rpx 20rpx 18rpx 30rpx;
-  border-radius: 34rpx;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1rpx solid var(--border-default);
+  border-radius: 8rpx;
   background: rgba(255, 255, 255, 0.97);
-  box-shadow: var(--shadow-lg);
+  box-shadow: none;
 }
 
 .checkout-bar__total {
@@ -270,21 +259,21 @@
 .checkout-bar__amount {
   color: var(--brand-primary);
   font-size: 36rpx;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .checkout-bar__btn {
   min-width: 236rpx;
   min-height: 88rpx;
-  border-radius: 26rpx;
+  border-radius: 8rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--brand-accent), var(--brand-primary));
+  background: #222625;
   color: #FFFFFF;
   font-size: 29rpx;
-  font-weight: 700;
-  box-shadow: 0 12rpx 28rpx rgba(141, 28, 28, 0.22);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .checkout-bar__btn.disabled {
@@ -294,12 +283,12 @@
 
 .checkout-split-notice {
   padding: 18rpx 22rpx;
-  border-radius: 22rpx;
-  background: #FFF0ED;
+  border-radius: 8rpx;
+  background: #f4f6f4;
   color: var(--brand-primary);
   font-size: 24rpx;
   line-height: 1.55;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .checkout-brand-card__header,
@@ -309,6 +298,12 @@
   justify-content: space-between;
   gap: 18rpx;
 }
+.checkout-item__left { min-width: 0; }
+.checkout-item__right { flex-shrink: 0; }
+.checkout-bar__total { min-width: 0; }
+.checkout-bar__amount { font-size: 32rpx; overflow-wrap: anywhere; }
+.checkout-bar__btn { margin-left: 20rpx; flex-shrink: 0; }
+.checkout-empty__action { padding: 24rpx; margin-top: 32rpx; border-radius: 8rpx; background: var(--brand-primary); color: white; }
 
 .checkout-brand-card__header .checkout-card__title {
   margin-bottom: 0;
@@ -316,11 +311,11 @@
 
 .checkout-brand-card__tag {
   padding: 6rpx 14rpx;
-  border-radius: 18rpx;
-  background: #F7E9E6;
+  border-radius: 8rpx;
+  background: #f4f6f4;
   color: var(--brand-primary);
   font-size: 21rpx;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .checkout-brand-card__subtotal {
@@ -329,5 +324,5 @@
   border-top: 1rpx solid var(--border-subtle);
   color: var(--brand-primary);
   font-size: 25rpx;
-  font-weight: 700;
+  font-weight: 600;
 }

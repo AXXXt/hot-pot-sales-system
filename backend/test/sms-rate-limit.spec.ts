@@ -22,7 +22,8 @@ describe('SmsService 限流与 429', () => {
 
   it('生产模式限流窗口保持 60 秒', async () => {
     const redis = makeRedis()
-    const svc = new SmsService(makeConfig('aliyun') as any, redis as any)
+    const svc = new SmsService(makeConfig('tencentcloud') as any, redis as any)
+    ;(svc as any).tencentClient = { send: jest.fn().mockResolvedValue({ requestId: '1', serialNo: '1' }) }
     await svc.sendCode('13800000000', '127.0.0.1')
     expect(redis.set).toHaveBeenCalledWith('sms:rate:13800000000', '1', 'EX', 60)
     expect(redis.set).toHaveBeenCalledWith('sms:rate:ip:127.0.0.1', '1', 'EX', 60)

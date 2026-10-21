@@ -37,5 +37,5 @@
 }
 
 .page-header { padding-top: 28rpx; }
-.page-header__title { color: var(--brand-deep); font-size: 36rpx; font-weight: 800; }
-.page-header__back { color: var(--brand-primary); font-weight: 700; }
+.page-header__title { color: var(--brand-deep); font-size: 36rpx; font-weight: 600; }
+.page-header__back { color: var(--brand-primary); font-weight: 600; }

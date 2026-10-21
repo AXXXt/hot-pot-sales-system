@@ -14,6 +14,15 @@ import {
 const prisma = new PrismaClient()
 
 const permissions = [
+  { code: 'ai:use', name: '使用AI运营助手', type: PermissionType.action },
+  { code: 'ai:execute', name: '确认AI业务操作', type: PermissionType.action },
+  { code: 'ai:configure', name: '配置AI助手', type: PermissionType.action },
+  { code: 'ai:usage:read', name: '查看AI用量', type: PermissionType.action },
+  { code: 'ai:audit:read', name: '查看AI审计', type: PermissionType.action },
+  { code: 'task:manage_own', name: '管理个人事务', type: PermissionType.action },
+  { code: 'analytics:view', name: '查看经营统计', type: PermissionType.action },
+  { code: 'product:price:update', name: '调整商品销售价', type: PermissionType.action },
+  { code: 'export:create', name: '导出业务报告', type: PermissionType.action },
   { code: 'dashboard:view', name: '查看工作台', type: PermissionType.menu },
   { code: 'brand:manage', name: '管理品牌', type: PermissionType.action },
   { code: 'product:read', name: '查看商品', type: PermissionType.page },

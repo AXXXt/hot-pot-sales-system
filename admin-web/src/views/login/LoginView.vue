@@ -51,11 +51,8 @@ async function handleLogin() {
   <main class="login-page">
     <section class="login-panel">
       <div class="login-intro">
-        <div class="logo">锅</div>
-        <span class="login-kicker">食品供应链</span>
-        <h1>火锅食材运营台</h1>
-        <p>统一管理商品、客户、订单与履约进度</p>
-        <div class="intro-tags"><span>采购管理</span><span>订单协同</span><span>库存预警</span></div>
+        <img class="logo" src="/brand/logo.jpg" alt="唯哆鲜" />
+        <h1>唯哆鲜运营台</h1>
       </div>
       <div class="login-form-card">
         <div class="form-heading"><h2>管理员登录</h2><p>使用已授权手机号完成身份验证</p></div>
@@ -72,177 +69,18 @@ async function handleLogin() {
 </template>
 
 <style scoped>
-.login-page {
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-  padding: 32px;
-  display: grid;
-  place-items: center;
-  background: var(--brand-soft-gradient);
-}
 
-.login-page::before,
-.login-page::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
+.login-page { min-height: 100dvh; padding: 48px 24px; display: grid; place-items: center; background: white; }
+.login-panel { width: min(420px, 100%); }
+.login-intro { padding-bottom: 24px; border-bottom: 1px solid var(--brand-border); }
+.logo { width: 128px; height: 100px; object-fit: contain; display: block; margin-bottom: 12px; }
+.login-intro h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.login-form-card { padding-top: 28px; }
+.form-heading { margin-bottom: 24px; }
+.form-heading h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+.form-heading p { margin: 0; color: var(--brand-text-soft); font-size: 14px; line-height: 1.6; }
+.code-row { display: grid; grid-template-columns: minmax(0,1fr) 120px; gap: 10px; width: 100%; }
+.submit { width: 100%; min-height: 44px; margin-top: 12px; }
+@media (max-width: 600px) { .login-page { align-items: start; padding-top: 24px; } }
 
-.login-page::before {
-  width: 520px;
-  height: 520px;
-  top: -310px;
-  right: -190px;
-  border: 7px solid rgba(255, 255, 255, .18);
-}
-
-.login-page::after {
-  width: 360px;
-  height: 360px;
-  bottom: -230px;
-  left: -160px;
-  background: rgba(102, 10, 10, .12);
-}
-
-.login-panel {
-  position: relative;
-  z-index: 1;
-  width: min(900px, 100%);
-  min-height: 520px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, .58);
-  border-radius: 30px;
-  display: grid;
-  grid-template-columns: .95fr 1.05fr;
-  background: rgba(255, 255, 255, .94);
-  box-shadow: 0 30px 80px rgba(75, 7, 7, .22);
-}
-
-.login-intro {
-  position: relative;
-  overflow: hidden;
-  padding: 58px 46px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  background: var(--brand-gradient);
-  color: #fff;
-}
-
-.login-intro::after {
-  content: '';
-  position: absolute;
-  width: 330px;
-  height: 330px;
-  right: -210px;
-  bottom: -150px;
-  border: 4px solid rgba(255, 255, 255, .1);
-  border-radius: 50%;
-}
-
-.logo {
-  width: 54px;
-  height: 54px;
-  margin-bottom: 34px;
-  border: 1px solid rgba(255, 255, 255, .3);
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, .16);
-  color: #fff;
-  font-size: 22px;
-  font-weight: 800;
-  box-shadow: 0 12px 28px rgba(49, 5, 5, .2);
-}
-
-.login-kicker {
-  margin-bottom: 12px;
-  color: rgba(255, 255, 255, .68);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 2px;
-}
-
-.login-intro h1 {
-  margin: 0 0 14px;
-  color: #fff;
-  font-size: 32px;
-  line-height: 1.25;
-}
-
-.login-intro p {
-  max-width: 300px;
-  margin: 0;
-  color: rgba(255, 255, 255, .72);
-  font-size: 14px;
-  line-height: 1.75;
-}
-
-.intro-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 34px;
-}
-
-.intro-tags span {
-  padding: 7px 11px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .1);
-  color: rgba(255, 255, 255, .86);
-  font-size: 12px;
-}
-
-.login-form-card {
-  padding: 62px 54px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.form-heading {
-  margin-bottom: 30px;
-}
-
-.form-heading h2 {
-  margin: 0 0 8px;
-  color: var(--brand-text);
-  font-size: 25px;
-}
-
-.form-heading p {
-  margin: 0;
-  color: var(--brand-text-soft);
-  font-size: 13px;
-}
-
-.code-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 124px;
-  gap: 10px;
-}
-
-.submit {
-  width: 100%;
-  min-height: 44px;
-  margin-top: 8px;
-}
-
-@media (max-width: 760px) {
-  .login-page { padding: 18px; }
-  .login-panel { max-width: 460px; grid-template-columns: 1fr; }
-  .login-intro { min-height: 220px; padding: 34px; }
-  .logo { margin-bottom: 22px; }
-  .intro-tags { margin-top: 22px; }
-  .login-form-card { padding: 38px 30px; }
-}
-
-@media (max-width: 430px) {
-  .code-row { grid-template-columns: 1fr; }
-}
 </style>

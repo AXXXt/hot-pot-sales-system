@@ -4,7 +4,7 @@
   </view>
 
   <view class="orders-sticky">
-    <segmented-control items="{{statuses}}" activeId="{{activeStatus}}" bind:change="onStatusChange" />
+    <segmented-control items="{{statuses}}" activeId="{{activeStatus}}" scrollable="{{true}}" bind:change="onStatusChange" />
   </view>
 
   <view wx:if="{{loading}}" class="orders-loading">
@@ -31,6 +31,8 @@
       bind:tap="onOrderTap"
       bind:action="onOrderAction"
     />
+    <button wx:if="{{hasMore}}" class="load-more" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">{{moreError ? '加载失败，点击重试' : '加载更多'}}</button>
+    <view wx:else class="list-end">已显示全部订单</view>
   </view>
 
   <empty-state wx:else title="暂无订单" desc="下单后可在这里查看履约状态和再次购买" actionText="去找商品" bind:action="onGoShop" />

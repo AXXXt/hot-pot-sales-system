@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "订单",
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "segmented-control": "/components/business/segmented-control/segmented-control",
     "order-card": "/components/business/order-card/order-card",

@@ -1,12 +1,14 @@
 // 后端 API 地址：同域部署时留空即可走相对路径；也可在页面里先设置 window.OFFICIAL_API_BASE
 const API_BASE = window.OFFICIAL_API_BASE || (location.hostname === 'weiduoxian.cn' || location.hostname === 'www.weiduoxian.cn' ? '/api/v1' : 'http://127.0.0.1:3000/api/v1')
 // PC 采购台地址：上线前设置 window.OFFICIAL_CLIENT_LOGIN（或在部署脚本里替换）即可全站生效
-const CLIENT_LOGIN = window.OFFICIAL_CLIENT_LOGIN || (location.hostname === 'weiduoxian.cn' || location.hostname === 'www.weiduoxian.cn' ? 'https://app.weiduoxian.cn/login' : '')
+const CLIENT_LOGIN = window.OFFICIAL_CLIENT_LOGIN || (location.hostname === 'weiduoxian.cn' || location.hostname === 'www.weiduoxian.cn' ? 'https://app.weiduoxian.cn/login' : ['127.0.0.1', 'localhost'].includes(location.hostname) ? 'http://127.0.0.1:5174/login' : '')
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== 采购台入口地址（可配置） =====
   if (CLIENT_LOGIN) {
     document.querySelectorAll('[data-client-link]').forEach((el) => el.setAttribute('href', CLIENT_LOGIN))
+    const catalogUrl = new URL('/category', CLIENT_LOGIN).href
+    document.querySelectorAll('[data-catalog-link]').forEach((el) => el.setAttribute('href', catalogUrl))
   }
 
   // ===== 移动端导航 =====
@@ -93,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!tip) {
         tip = document.createElement('p')
         tip.className = 'lead-error'
+        tip.setAttribute('role', 'alert')
         leadForm.insertBefore(tip, leadSubmit)
       }
       tip.textContent = msg
@@ -127,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.status === 429) {
           leadSubmit.disabled = false
           leadSubmit.textContent = '提交，获取合作方案'
-          showError('提交过于频繁，请稍后再试或直接拨打 18137222005')
+          showError('提交过于频繁，请稍后再试或直接拨打 13937802005')
           return
         }
         if (!res.ok) throw new Error('network')
@@ -137,9 +140,9 @@ document.addEventListener('DOMContentLoaded', () => {
         leadSubmit.disabled = false
         leadSubmit.textContent = '提交，获取合作方案'
         if (err instanceof TypeError) {
-          showError('网络异常，请稍后重试或直接拨打 18137222005')
+          showError('网络异常，请稍后重试或直接拨打 13937802005')
         } else if (err?.message === 'network') {
-          showError('提交失败，请稍后重试或直接拨打 18137222005')
+          showError('提交失败，请稍后重试或直接拨打 13937802005')
         } else {
           showError('提交失败，请稍后重试')
         }

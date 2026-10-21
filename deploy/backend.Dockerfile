@@ -20,6 +20,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
 COPY deploy/bootstrap.cjs ./bootstrap.cjs
+COPY deploy/platform-api.cjs ./platform-api.cjs
 ENV NODE_ENV=production
 USER node
 CMD ["node", "dist/src/main.js"]

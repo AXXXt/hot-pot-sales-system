@@ -169,11 +169,11 @@ onMounted(load)
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(286px, 1fr)); gap: 16px; }
 .customer-card { position: relative; padding: 22px; display: flex; flex-direction: column; gap: 13px; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
 .customer-card:hover { transform: translateY(-3px); }
-.card-avatar { width: 48px; height: 48px; display: grid; place-items: center; font-size: 18px; font-weight: 800; }
+.card-avatar { width: 48px; height: 48px; display: grid; place-items: center; font-size: 18px; font-weight: 600; }
 .card-body { flex: 1; }
-.card-name { margin-bottom: 9px; color: var(--brand-text); font-size: 16px; font-weight: 750; }
+.card-name { margin-bottom: 9px; color: var(--brand-text); font-size: 16px; font-weight: 600; }
 .card-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: var(--brand-text-soft); font-size: 13px; }
-.card-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #f3e8e6; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e8e5; }
 .card-level { display: flex; align-items: center; gap: 4px; color: var(--brand-text-soft); font-size: 12px; }
 .card-actions { display: flex; gap: 8px; padding-top: 4px; }
 .empty { padding: 70px; color: var(--brand-muted); text-align: center; }

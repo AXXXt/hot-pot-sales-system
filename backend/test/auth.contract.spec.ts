@@ -74,6 +74,7 @@ describe('auth HTTP contract', () => {
   })
 
   it('POST /api/v1/auth/send-code returns wrapped response', async () => {
+    mockAuthService.sendCode.mockClear()
     const res = await request(app.getHttpServer())
       .post('/api/v1/auth/send-code')
       .send({ phone: '13800000000' })
@@ -81,6 +82,23 @@ describe('auth HTTP contract', () => {
     expect(res.body.code).toBe(0)
     expect(res.body.data).toEqual({ sent: true })
     expect(res.body.requestId).toEqual(expect.any(String))
+    expect(mockAuthService.sendCode).toHaveBeenCalledWith('13800000000', expect.any(String), undefined)
+  })
+
+  it('passes the registration template purpose to the SMS service', async () => {
+    mockAuthService.sendCode.mockClear()
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/send-code')
+      .send({ phone: '13800000000', purpose: 'register' })
+      .expect(201)
+    expect(mockAuthService.sendCode).toHaveBeenCalledWith('13800000000', expect.any(String), 'register')
+  })
+
+  it('rejects an unknown SMS purpose', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/send-code')
+      .send({ phone: '13800000000', purpose: 'marketing' })
+      .expect(400)
   })
 
   it('POST /api/v1/auth/login returns accessToken and user', async () => {

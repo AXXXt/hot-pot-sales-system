@@ -4,12 +4,12 @@
     <!-- Header -->
     <view class="cart-sheet-header">
       <text class="cart-sheet-title">购物车</text>
-      <view class="cart-sheet-close" bindtap="onClose">✕</view>
+      <view class="cart-sheet-close" role="button" aria-label="关闭购物车" bindtap="onClose">×</view>
     </view>
 
     <!-- Empty -->
     <view wx:if="{{isEmpty}}" class="cart-sheet-empty">
-      <text class="cart-sheet-empty__icon">🛒</text>
+      <image class="cart-sheet-empty__icon" src="/assets/brand/cart.png" mode="aspectFit" aria-hidden="true" />
       <text class="cart-sheet-empty__text">购物车是空的</text>
       <view class="cart-sheet-empty__btn" bindtap="onGoShop">去逛逛</view>
     </view>

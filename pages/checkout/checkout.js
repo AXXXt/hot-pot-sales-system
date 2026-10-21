@@ -64,8 +64,6 @@ Page({
     const skuIds = allItems.map(item => Number(item.skuId)).filter(Boolean)
     if (!skuIds.length) {
       this.renderCart()
-      wx.showToast({ title: '购物车为空', icon: 'none' })
-      setTimeout(() => wx.navigateBack(), 1500)
       return false
     }
 
@@ -98,6 +96,10 @@ Page({
 
   onRemarkInput(e) {
     this.setData({ remark: e.detail.value })
+  },
+
+  onGoShop() {
+    wx.switchTab({ url: '/pages/category/category' })
   },
 
   async createBrandOrder(group, customerId) {

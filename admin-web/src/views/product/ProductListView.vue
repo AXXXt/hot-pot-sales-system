@@ -167,7 +167,7 @@ onMounted(init)
         <el-table :data="items" @selection-change="handleSelectionChange">
           <el-table-column type="selection" width="48" />
           <el-table-column prop="code" label="商品编码" width="180" />
-          <el-table-column prop="name" label="商品名称" min-width="200" />
+          <el-table-column prop="name" label="商品名称" min-width="230"><template #default="{ row }"><div>{{ row.displayName || row.name }} <el-tag v-if="row.nameNeedsReview" size="small" type="warning">名称待补齐</el-tag></div><small v-if="row.managementLabel" class="management-label">管理标签：{{ row.managementLabel }}</small></template></el-table-column>
           <el-table-column prop="category.name" label="分类" />
           <el-table-column prop="brand.name" label="品牌" />
           <el-table-column prop="status" label="状态" width="90"><template #default="{ row }"><el-tag :type="row.status === 'active' ? 'success' : 'info'">{{ row.status === 'active' ? '已上架' : '已下架' }}</el-tag></template></el-table-column>
@@ -181,6 +181,7 @@ onMounted(init)
 
 <style scoped>
 .page-heading { justify-content: space-between; }
+.management-label { display: block; margin-top: 5px; color: var(--brand-text-soft); }
 .batch-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--brand-text-soft); font-size: 13px; }
 .el-pagination { justify-content: flex-end; margin-top: 16px; }
 </style>

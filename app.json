@@ -9,14 +9,16 @@
     "pages/order-detail/order-detail",
     "pages/profile/profile",
     "pages/profile-detail/profile-detail",
+    "pages/account-settings/account-settings",
+    "pages/help/help",
     "pages/login/login",
     "pages/legal/legal"
   ],
   "window": {
-    "navigationBarTextStyle": "white",
-    "navigationBarTitleText": "火锅食材平台",
-    "navigationBarBackgroundColor": "#8D1C1C",
-    "backgroundColor": "#F8EFED",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "唯哆鲜",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#FFFFFF",
     "backgroundTextStyle": "light"
   },
   "style": "v2",
@@ -24,8 +26,8 @@
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
   "tabBar": {
-    "color": "#9CABC2",
-    "selectedColor": "#8D1C1C",
+    "color": "#737975",
+    "selectedColor": "#C4461B",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "custom": false,

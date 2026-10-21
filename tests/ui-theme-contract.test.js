@@ -9,15 +9,27 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-test('小程序定义 Pixso 食品品牌设计令牌', () => {
+test('所有小程序页面和共享组件不再使用旧版渐变与酒红配色', () => {
+  function files(directory) {
+    return fs.readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap(entry => {
+      const file = `${directory}/${entry.name}`
+      return entry.isDirectory() ? files(file) : [file]
+    })
+  }
+  for (const file of [...files('pages'), ...files('components')].filter(file => file.endsWith('.wxss'))) {
+    assert.doesNotMatch(read(file), /(?:linear|radial)-gradient\(|#(?:8d1c1c|660a0a|d99a9a|ead9d7)\b/i, file)
+  }
+})
+
+test('小程序定义统一的中性底色和品牌强调色', () => {
   const tokens = read('styles/tokens.wxss')
 
-  assert.match(tokens, /--brand-primary:\s*#8D1C1C/i)
-  assert.match(tokens, /--brand-deep:\s*#660A0A/i)
-  assert.match(tokens, /--brand-accent:\s*#C43737/i)
-  assert.match(tokens, /--brand-surface-pink:\s*#D99A9A/i)
-  assert.match(tokens, /--brand-surface-warm:\s*#E6BF91/i)
-  assert.match(tokens, /--brand-muted:\s*#9CABC2/i)
+  assert.match(tokens, /--brand-primary:\s*#222625/i)
+  assert.match(tokens, /--brand-accent:\s*#C4461B/i)
+  assert.match(tokens, /--brand-secondary:\s*#43715B/i)
+  assert.match(tokens, /--bg-canvas:\s*#FFFFFF/i)
+  assert.match(tokens, /--radius-md:\s*8rpx/i)
+  assert.doesNotMatch(tokens, /gradient\(/i)
 })
 
 test('小程序保留四个中文 TabBar 路径', () => {

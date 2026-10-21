@@ -14,7 +14,7 @@ export class AuthController {
   @Post('send-code')
   @ApiOperation({ summary: '发送登录验证码' })
   async sendCode(@Body() dto: SendCodeDto, @Ip() ip: string) {
-    return this.auth.sendCode(dto.phone, ip)
+    return this.auth.sendCode(dto.phone, ip, dto.purpose)
   }
 
   @Post('check-status')

@@ -241,20 +241,20 @@ onMounted(load)
 .finance-fields :deep(.el-checkbox__label) { white-space: normal; line-height: 1.5; }
 .bottom-actions .el-button + .el-button { margin-left: 0; }
 @media (max-width: 600px) { .title-row, .top-actions { flex-wrap: wrap; } .page-title { overflow-wrap: anywhere; } }
-.block { margin-bottom: 16px; border-radius: 16px; }
+.block { margin-bottom: 16px; border-radius: 4px; }
 .status-panel { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
 .status-panel div { display: flex; flex-direction: column; gap: 6px; }
 .status-panel small { color: var(--muted); }
 .steps { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-top: 20px; }
 .step { text-align: center; color: var(--muted); }
-.step i { width: 32px; height: 32px; margin-bottom: 8px; display: grid; place-items: center; border-radius: 50%; background: #f0eae6; font-style: normal; }
+.step i { width: 32px; height: 32px; margin-bottom: 8px; display: grid; place-items: center; border-radius: 50%; background: #f4f6f4; font-style: normal; }
 .step.active { color: var(--brand); font-weight: 600; }
 .step.active i { color: white; background: var(--brand); }
 .detail-grid { display: grid; grid-template-columns: 1fr 330px; gap: 16px; align-items: start; }
 .item-row { display: grid; grid-template-columns: 1fr 160px 110px; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); }
 .item-row:last-child { border-bottom: 0; }
 .item-row p { margin: 4px 0 0; }
-.summary { position: sticky; top: 96px; border-radius: 16px; }
+.summary { position: sticky; top: 96px; border-radius: 4px; }
 .summary h3 { margin: 20px 0 12px; }
 .summary h3:first-child { margin-top: 0; }
 .row { display: flex; justify-content: space-between; margin-bottom: 12px; }

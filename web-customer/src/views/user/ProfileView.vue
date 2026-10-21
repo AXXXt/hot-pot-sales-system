@@ -47,9 +47,9 @@ async function signOut() {
 
 <style scoped>
 .profile-grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; align-items: start; }
-.card { border-radius: 16px; }
+.card { border-radius: 4px; }
 .user-head { display: flex; gap: 16px; align-items: center; margin-bottom: 22px; }
-.avatar { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; color: white; background: var(--brand-gradient); font-size: 24px; font-weight: 700; }
+.avatar { width: 58px; height: 58px; border-radius: 4px; display: grid; place-items: center; color: white; background: var(--brand-gradient); font-size: 24px; font-weight: 600; }
 .user-head p { margin: 4px 0 0; }
 .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .quick .el-button { width: 100%; }

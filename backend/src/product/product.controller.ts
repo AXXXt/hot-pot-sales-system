@@ -7,6 +7,7 @@ import { CreateCategoryDto, UpdateCategoryDto } from './dto/create-category.dto'
 import { JwtAuthGuard, OptionalJwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
+import { ProductMutationGuard } from './product-mutation.guard'
 import { ValidateCartDto } from './dto/validate-cart.dto'
 
 @ApiTags('products')
@@ -38,16 +39,20 @@ export class ProductController {
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10,
     @Req() req?: any
   ) {
+    if (page < 1 || pageSize < 1 || pageSize > 500) {
+      throw new BadRequestException('page 必须大于0，pageSize 必须在1到500之间')
+    }
     const categoryIdNum = categoryId && categoryId !== 'all' ? parseInt(categoryId, 10) : undefined
     const includeDisabledBool = includeDisabled === 'true'
     const brandIdNum = brandId && brandId !== 'all' ? parseInt(brandId, 10) : undefined
-    if (brandId && brandId !== 'all' && Number.isNaN(brandIdNum)) throw new BadRequestException('brandId 必须是数字')
+    if (brandId && brandId !== 'all' && (!/^\d+$/.test(brandId) || !Number.isSafeInteger(brandIdNum) || brandIdNum! < 1)) throw new BadRequestException('brandId 必须是正整数')
+    if (categoryId && categoryId !== 'all' && (!/^\d+$/.test(categoryId) || !Number.isSafeInteger(categoryIdNum) || categoryIdNum! < 1)) throw new BadRequestException('categoryId 必须是正整数')
     const inStockBool = inStock === 'true' ? true : inStock === 'false' ? false : undefined
     return this.product.list({ brandId: brandIdNum, categoryId: categoryIdNum, keyword, feed, sortBy, inStock: inStockBool, includeDisabled: includeDisabledBool, page, pageSize }, req?.user?.sub)
   }
 
   @Post('products')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建商品' })
   @RequirePermissions('product:create')
@@ -56,7 +61,7 @@ export class ProductController {
   }
 
   @Post('products/cart-validation')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量校验购物车商品' })
   async validateCart(@Body() dto: ValidateCartDto, @Req() req: any) {
@@ -71,7 +76,7 @@ export class ProductController {
   }
 
   @Patch('products/batch-status')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量更新商品上下架状态' })
   @RequirePermissions('product:update')
@@ -80,7 +85,7 @@ export class ProductController {
   }
 
   @Patch('products/batch-archive')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '批量安全删除商品' })
   @RequirePermissions('product:update')
@@ -89,7 +94,7 @@ export class ProductController {
   }
 
   @Patch('products/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新商品' })
   @RequirePermissions('product:update')
@@ -98,7 +103,7 @@ export class ProductController {
   }
 
   @Patch('products/:id/status')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '商品上下架' })
   @RequirePermissions('product:update')
@@ -107,7 +112,7 @@ export class ProductController {
   }
 
   @Delete('products/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '安全删除商品' })
   @RequirePermissions('product:update')
@@ -123,7 +128,7 @@ export class ProductController {
   }
 
   @Post('products/:id/skus')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建SKU' })
   @RequirePermissions('product:update')
@@ -132,7 +137,7 @@ export class ProductController {
   }
 
   @Patch('skus/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新SKU' })
   @RequirePermissions('product:update')
@@ -141,7 +146,7 @@ export class ProductController {
   }
 
   @Patch('skus/:id/status')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'SKU启用/禁用' })
   @RequirePermissions('product:update')
@@ -157,7 +162,7 @@ export class ProductController {
   }
 
   @Get('admin/product-categories')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '商品分类管理列表' })
   @RequirePermissions('product:read')
@@ -166,7 +171,7 @@ export class ProductController {
   }
 
   @Post('product-categories')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建分类' })
   @RequirePermissions('product:update')
@@ -175,7 +180,7 @@ export class ProductController {
   }
 
   @Patch('product-categories/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新分类' })
   @RequirePermissions('product:update')
@@ -184,7 +189,7 @@ export class ProductController {
   }
 
   @Delete('product-categories/:id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '安全删除分类' })
   @RequirePermissions('product:update')
@@ -193,7 +198,7 @@ export class ProductController {
   }
 
   @Patch('admin/product-categories/:id/restore')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ProductMutationGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '恢复分类' })
   @RequirePermissions('product:update')
@@ -202,8 +207,9 @@ export class ProductController {
   }
 
   @Get('brands')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: '品牌列表' })
-  async brands() {
-    return this.product.brands()
+  async brands(@Req() req: any) {
+    return this.product.brands(req.user?.sub)
   }
 }

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma.service'
 import { CreateOrderDto, AdjustPriceDto, CreateRefundDto } from './dto/order.dto'
 import { customAlphabet } from 'nanoid'
 import { ProductVisibilityService } from '../product/product-visibility.service'
+import { productDisplayName } from '../product/product-presentation'
 import { AuditService } from '../audit/audit.service'
 import { WxService } from '../notify/wx.service'
 import { LogisticsService } from '../logistics/logistics.service'
@@ -41,7 +42,8 @@ export class OrderService {
   async list(query: { status?: string; customerId?: number; tenantId?: number; page: number; pageSize: number }) {
     const { status, customerId, page, pageSize } = query
     const where: any = { tenantId: query.tenantId || 1 }
-    if (status && status !== 'all') where.status = status
+    if (status === 'pending') where.status = { notIn: ['completed', 'cancelled'] }
+    else if (status && status !== 'all') where.status = status
     if (customerId) where.customerId = customerId
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -97,6 +99,41 @@ export class OrderService {
     }
   }
 
+  async overview(scope: { tenantId: number; customerId: number }) {
+    if (!scope.tenantId || !scope.customerId) throw new ForbiddenException('当前账号未关联客户')
+    const where = { tenantId: scope.tenantId, customerId: scope.customerId }
+    const [groups, recentOrders] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['status'], where, _count: { _all: true } }),
+      this.prisma.order.findMany({
+        where: { ...where, status: 'completed' },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 2,
+        select: {
+          id: true, orderNo: true, createdAt: true, updatedAt: true,
+          items: {
+            orderBy: { id: 'asc' },
+            select: {
+              productName: true, skuSpecText: true, quantity: true, saleUnit: true,
+              sku: { select: { product: { select: { mainImageUrl: true } } } }
+            }
+          }
+        }
+      })
+    ])
+    const counts: Record<string, number> = {}
+    groups.forEach(group => { counts[group.status] = group._count._all })
+    return {
+      counts,
+      recentOrders: recentOrders.map(order => ({
+        id: order.id, orderNo: order.orderNo, createdAt: order.createdAt,
+        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        productName: order.items[0]?.productName || '',
+        spec: order.items[0]?.skuSpecText || '',
+        image: order.items[0]?.sku?.product?.mainImageUrl || '',
+        skuCount: order.items.length
+      }))
+    }
+  }
+
   async getLogistics(id: number) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -139,7 +176,7 @@ export class OrderService {
         status: 'active',
         product: { is: { ...productWhere, tenantId: customer.tenantId } }
       },
-      include: { product: { select: { id: true, name: true, brandId: true } } }
+      include: { product: { select: { id: true, name: true, subtitle: true, brandId: true } } }
     })
     if (skus.length !== skuIds.length) {
       throw new BadRequestException({
@@ -180,7 +217,7 @@ export class OrderService {
       const unitPrice = agreementPrice ?? sku.basePrice
       const amt = new Prisma.Decimal(unitPrice).mul(item.quantity)
       total = total.add(amt)
-      return { tenantId: customer.tenantId, productId: sku.productId, skuId: sku.id, productName: sku.product.name, skuName: sku.name, skuSpecText: sku.specText, saleUnit: sku.saleUnit, quantity: item.quantity, unitPrice: unitPrice.toString(), amount: amt.toString(), priceSource: agreementPrice !== undefined ? 'agreement' : 'base' }
+      return { tenantId: customer.tenantId, productId: sku.productId, skuId: sku.id, productName: productDisplayName(sku.product), skuName: sku.name, skuSpecText: sku.specText, saleUnit: sku.saleUnit, quantity: item.quantity, unitPrice: unitPrice.toString(), amount: amt.toString(), priceSource: agreementPrice !== undefined ? 'agreement' : 'base' }
     })
 
     const orderNo = 'OD' + no()

@@ -1,3 +1,4 @@
+// 商品分类：筛选、分页与进货单入口。
 const { getProductList, getProductCategories } = require('../../services/api/product')
 const store = require('../../store/index')
 const cart = require('../../store/modules/cart')
@@ -5,6 +6,10 @@ const cart = require('../../store/modules/cart')
 Page({
   data: {
     loading: true,
+    loadingMore: false,
+    loadMoreError: false,
+    page: 0,
+    hasMore: false,
     keyword: '',
     activeCategoryId: 'all',
     activeSort: 'default',
@@ -32,6 +37,13 @@ Page({
     const skipRefresh = this._skipNextShowRefresh
     this._skipNextShowRefresh = false
     const pending = store.brand.state.pendingCategoryId
+    if (typeof store.brand.state.pendingKeyword === 'string') {
+      this.setData({ keyword: store.brand.state.pendingKeyword, activeCategoryId: pending || 'all' })
+      delete store.brand.state.pendingKeyword
+      store.brand.state.pendingCategoryId = ''
+      this.loadProducts()
+      return
+    }
     if (pending && pending !== this.data.activeCategoryId) {
       this.setData({
         activeCategoryId: pending,
@@ -58,16 +70,24 @@ Page({
           ...cats.map((c) => ({ id: String(c.id), label: c.name }))
         ]
       })
+      if (!this.data.categories.some(item => item.id === this.data.activeCategoryId)) {
+        this.setData({ activeCategoryId: 'all' })
+        this.loadProducts()
+      }
     } catch {
       // keep defaults
     }
   },
 
-  loadProducts() {
-    this.setData({ loading: true, error: false })
+  loadProducts(loadMore = false) {
+    const append = loadMore === true
+    if (append && (this.data.loading || this.data.loadingMore || !this.data.hasMore)) return
+    const requestId = this._requestId = (this._requestId || 0) + 1
+    const page = append ? this.data.page + 1 : 1
+    this.setData({ loading: !append, loadingMore: append, error: false, loadMoreError: false })
     const categoryId = this.data.activeCategoryId
     const params = {
-      page: 1,
+      page,
       pageSize: 50
     }
     if (categoryId && categoryId !== 'all') {
@@ -84,18 +104,35 @@ Page({
       params.inStock = 'true'
     }
 
-    getProductList(params)
+    return getProductList(params)
       .then((res) => {
+        if (requestId !== this._requestId) return
         const result = (res && res.code === 0 && res.data) ? res.data : { items: [], total: 0 }
-        this.setData({ products: result.items || [], loading: false })
+        const products = append ? this.data.products.concat(result.items || []) : result.items || []
+        this.setData({
+          products, page, loading: false, loadingMore: false,
+          hasMore: products.length < Number(result.total || 0)
+        })
       })
       .catch(() => {
-        this.setData({ loading: false, error: true })
+        if (requestId !== this._requestId) return
+        this.setData({ loading: false, loadingMore: false, error: !append, loadMoreError: append })
       })
   },
 
+  onReachBottom() { return this.loadProducts(true) },
+
+  loadMore() { return this.loadProducts(true) },
+
+  onUnload() { this._requestId = (this._requestId || 0) + 1 },
+
   onSearch(event) {
-    this.setData({ keyword: event.detail })
+    this.setData({ keyword: typeof event.detail === 'string' ? event.detail : '' })
+    this.loadProducts()
+  },
+
+  resetFilters() {
+    this.setData({ keyword: '', activeCategoryId: 'all', activeSort: 'default' })
     this.loadProducts()
   },
 
@@ -126,6 +163,10 @@ Page({
     const productId = e?.currentTarget?.dataset?.productId || e?.detail?.productId
     const product = this.data.products.find(item => Number(item.id) === Number(productId))
     if (!product) return
+    if (product.skus && product.skus.length > 1) {
+      this.onProductTap(e)
+      return
+    }
     if (!store.auth.state.token) {
       wx.navigateTo({
         url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/category/category')

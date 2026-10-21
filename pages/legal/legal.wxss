@@ -5,4 +5,4 @@
 .legal-section { margin-top: 36rpx; }
 .legal-heading { display: block; font-size: 30rpx; font-weight: 600; }
 .legal-paragraph { display: block; margin-top: 20rpx; font-size: 28rpx; line-height: 1.9; overflow-wrap: anywhere; }
-.legal-contact { margin-top: 40rpx; color: #8d1c1c; font-size: 28rpx; }
+.legal-contact { margin-top: 40rpx; color: #222625; font-size: 28rpx; }

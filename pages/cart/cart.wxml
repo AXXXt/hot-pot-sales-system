@@ -5,7 +5,7 @@
   </view>
 
   <view wx:if="{{isEmpty}}" class="cart-empty">
-    <view class="cart-empty__icon">🛒</view>
+    <image class="cart-empty__icon" src="/assets/brand/cart.png" mode="aspectFit" aria-hidden="true" />
     <text class="cart-empty__title">购物车是空的</text>
     <text class="cart-empty__desc">浏览商品后可以在这里查看已选商品并进入下单流程</text>
     <view class="cart-empty__btn" bindtap="onGoShop">去逛逛</view>

@@ -6,6 +6,8 @@ import { Fold, Expand, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { useAppStore } from '../stores/app'
 import { getLeadStats } from '../api/lead'
+import AiAssistantHost from '../components/ai/AiAssistantHost.vue'
+import PlatformVersionNotice from '../components/platform/PlatformVersionNotice.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,6 +27,7 @@ const localMenus = [
   { code: 'role:manage', name: '用户与角色', path: '/users', icon: 'Avatar' },
 ]
 const bottomMenus = [
+  { code: 'ai:configure', name: 'AI 助手配置', path: '/ai-settings', icon: 'ChatDotRound' },
   { code: 'audit:read', name: '审计日志', path: '/audit-logs', icon: 'Clock' },
   { code: 'role:manage', name: '系统配置', path: '/system', icon: 'Setting' },
 ]
@@ -95,8 +98,9 @@ function handleMenuSelect() {
 
 <template>
   <el-container class="shell">
+    <button v-if="!app.sidebarCollapsed" class="sidebar-backdrop" aria-label="关闭导航" @click="app.toggleSidebar" />
     <el-aside :width="app.sidebarCollapsed ? '64px' : '220px'" class="sidebar" :class="{ 'sidebar--hidden': app.sidebarCollapsed }">
-      <div class="brand"><span class="brand-mark">锅</span><strong v-if="!app.sidebarCollapsed">火锅食材运营台</strong></div>
+      <div class="brand"><img class="brand-mark" src="/brand/logo.jpg" alt="唯哆鲜" /><strong v-if="!app.sidebarCollapsed">唯哆鲜运营台</strong></div>
       <el-menu router :collapse="app.sidebarCollapsed" :default-active="route.path" class="nav" @select="handleMenuSelect">
         <el-menu-item v-for="item in menus" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
@@ -107,6 +111,7 @@ function handleMenuSelect() {
         </el-menu-item>
       </el-menu>
       <div style="flex:1" />
+      <a class="platform-menu-link" href="/platform-updates" target="_blank" rel="noopener"><el-icon><Refresh /></el-icon><span v-if="!app.sidebarCollapsed">版本与更新</span></a>
       <el-menu router :collapse="app.sidebarCollapsed" :default-active="route.path" class="nav-bottom" @select="handleMenuSelect">
         <el-menu-item v-for="item in bottom" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
@@ -121,6 +126,7 @@ function handleMenuSelect() {
           <el-breadcrumb-item v-for="item in app.breadcrumbs" :key="item.path">{{ item.title }}</el-breadcrumb-item>
         </el-breadcrumb>
         <div class="header-spacer" />
+        <PlatformVersionNotice v-if="profileReady" />
         <span class="user-name">{{ auth.profile?.user.name }}</span>
         <el-button text :icon="SwitchButton" @click="handleLogout">退出</el-button>
       </el-header>
@@ -129,169 +135,39 @@ function handleMenuSelect() {
         <router-view v-else />
       </el-main>
     </el-container>
+    <AiAssistantHost v-if="profileReady" />
   </el-container>
 </template>
 
 <style scoped>
-.shell {
-  min-height: 100vh;
-  background: transparent;
-}
 
-.sidebar {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--brand-gradient);
-  box-shadow: 12px 0 34px rgba(75, 7, 7, .16);
-  transition: width .2s ease, transform .2s ease;
-}
-
-.sidebar::after {
-  content: '';
-  position: absolute;
-  width: 280px;
-  height: 280px;
-  right: -190px;
-  top: -150px;
-  border: 3px solid rgba(255, 255, 255, .1);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.brand {
-  position: relative;
-  z-index: 1;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  color: #fff;
-  white-space: nowrap;
-}
-
-.brand strong {
-  font-size: 15px;
-  letter-spacing: .2px;
-}
-
-.lead-badge :deep(.el-badge__content) {
-  border: none;
-}
-
-.brand-mark {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, .28);
-  border-radius: 13px;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, .16);
-  color: #fff;
-  font-size: 17px;
-  font-weight: 800;
-  box-shadow: 0 8px 18px rgba(49, 5, 5, .18);
-}
-
-.nav,
-.nav-bottom {
-  position: relative;
-  z-index: 1;
-  border: 0;
-  background: transparent;
-}
-
-.nav-bottom {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, .1);
-}
-
-.nav :deep(.el-menu-item),
-.nav-bottom :deep(.el-menu-item) {
-  height: 48px;
-  margin: 4px 10px;
-  border-radius: 14px;
-  color: rgba(255, 255, 255, .72);
-  font-weight: 600;
-}
-
-.nav :deep(.el-menu-item:hover),
-.nav :deep(.el-menu-item.is-active),
-.nav-bottom :deep(.el-menu-item:hover),
-.nav-bottom :deep(.el-menu-item.is-active) {
-  background: rgba(255, 255, 255, .14);
-  color: #fff;
-}
-
-.nav :deep(.el-menu-item.is-active),
-.nav-bottom :deep(.el-menu-item.is-active) {
-  box-shadow: inset 3px 0 0 rgba(255, 255, 255, .9);
-}
-
-.header {
-  height: 68px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid rgba(141, 28, 28, .08);
-  background: rgba(255, 255, 255, .84);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 8px 24px rgba(102, 10, 10, .05);
-}
-
-.header-spacer {
-  flex: 1;
-}
-
-.user-name {
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: #fff0ed;
-  color: var(--brand-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.main {
-  min-width: 0;
-  padding: 26px;
-}
-
-.main > :deep(*) {
-  margin-right: auto;
-  margin-left: auto;
-}
-
-.loading-state {
-  min-height: 260px;
-  border: 1px solid var(--brand-border);
-  border-radius: var(--brand-radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, .88);
-  color: var(--brand-text-soft);
-  box-shadow: var(--brand-shadow-sm);
-}
-
+.shell { min-height: 100vh; background: white; }
+.shell > :deep(.el-container) { min-width: 0; }
+.sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: #f4f6f4; border-right: 1px solid var(--brand-border); overflow-x: hidden; }
+.brand { height: 84px; display: flex; align-items: center; gap: 10px; padding: 0 12px; white-space: nowrap; flex-shrink: 0; }
+.brand strong { font-size: 14px; font-weight: 600; }
+.brand-mark { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
+.nav, .nav-bottom { border: 0; background: transparent; }
+.nav-bottom { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--brand-border); }
+.nav :deep(.el-menu-item), .nav-bottom :deep(.el-menu-item) { height: 44px; margin: 4px 8px; border-radius: 4px; color: var(--brand-text-soft); }
+.nav :deep(.el-menu-item:hover), .nav-bottom :deep(.el-menu-item:hover) { background: #e9eeea; color: var(--brand-text); }
+.nav :deep(.el-menu-item.is-active), .nav-bottom :deep(.el-menu-item.is-active) { background: #e5ede7; color: #315640; box-shadow: inset 2px 0 #43715b; font-weight: 600; }
+.lead-badge :deep(.el-badge__content) { border: none; }
+.header { height: 64px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--brand-border); background: white; }
+.header-spacer { flex: 1; }
+.platform-menu-link { display: flex; align-items: center; gap: 12px; min-height: 44px; margin: 4px 8px; padding: 0 20px; border-radius: 4px; text-decoration: none; color: var(--brand-text-soft); font-size: 14px; }.platform-menu-link:hover { background: #e9eeea; color: #315640; }
+.user-name { font-size: 13px; color: var(--brand-text-soft); }
+.main { min-width: 0; padding: 28px; }
+.main > :deep(*) { margin-right: auto; margin-left: auto; }
+.loading-state { min-height: 260px; display: grid; place-items: center; color: var(--brand-text-soft); }
+.sidebar-backdrop { display: none; }
 @media (max-width: 640px) {
-  .shell > :deep(.el-container) { min-width: 0; }
-  .sidebar {
-    position: fixed;
-    z-index: 1000;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 232px !important;
-  }
+  .sidebar { position: fixed; z-index: 1000; top: 0; bottom: 0; left: 0; width: 232px !important; height: 100dvh; }
   .sidebar--hidden { transform: translateX(-100%); }
-  .header { padding: 0 8px; gap: 6px; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; border: 0; background: rgba(34,38,37,.35); z-index: 999; }
+  .header { padding: 0 12px; gap: 6px; }
   .header :deep(.el-breadcrumb) { display: none; }
-  .user-name { display: none; }
-  .main { padding: 14px; }
+  .main { padding: 20px 14px; }
 }
+
 </style>

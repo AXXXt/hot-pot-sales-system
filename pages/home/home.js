@@ -1,12 +1,8 @@
+// 采购首页：真实客户账期、商品推荐与进货单入口。
 const store = require('../../store/index')
-const { getProductList } = require('../../services/api/product')
+const { getProductList, getProductCategories } = require('../../services/api/product')
 const { getProfile } = require('../../services/api/auth')
 const cart = require('../../store/modules/cart')
-
-const LEVEL_MAP = {
-  'chain': '大型连锁', 'factory': '工厂直配', 'individual': '个体商户',
-  'strategic': '战略合作', 'new': '新用户', 'senior': '资深客户',
-}
 
 function normProduct(p) {
   if (!p) return p
@@ -38,6 +34,9 @@ Page({
     ],
     products: [],
     cartCount: 0,
+    cartTotal: '0.00',
+    keyword: '',
+    categories: [],
     error: false
   },
 
@@ -45,10 +44,11 @@ Page({
     this._skipNextShowRefresh = true
     this.refreshProfile()
     this.loadHomeData()
+    this.loadCategories()
   },
 
   onShow() {
-    this.setData({ cartCount: cart.getCount() })
+    this.refreshCart()
     this.refreshProfile()
     if (this._skipNextShowRefresh) {
       this._skipNextShowRefresh = false
@@ -80,7 +80,7 @@ Page({
       this.setData({
         userInfo: {
           isLogin: true,
-          levelName: LEVEL_MAP[cust.customerType] || cust.customerType || '已认证',
+          levelName: cust.customerLevelName || '暂未设置等级',
           companyName: cust.customerName || data.tenant?.name || '--',
           region,
           creditTotal: creditTotal.toLocaleString(),
@@ -99,6 +99,8 @@ Page({
   },
 
   async loadFeedProducts() {
+    const requestId = (this._feedRequestId || 0) + 1
+    this._feedRequestId = requestId
     this.setData({ loading: true, error: false })
     try {
       const activeFeed = this.data.activeFeed
@@ -110,11 +112,13 @@ Page({
       const data = (response && response.code === 0)
         ? response.data
         : { items: [], total: 0 }
+      if (requestId !== this._feedRequestId) return
       this.setData({
         loading: false,
         products: (data.items || []).map(normProduct)
       })
     } catch {
+      if (requestId !== this._feedRequestId) return
       this.setData({ loading: false, error: true, products: [] })
     }
   },
@@ -126,7 +130,34 @@ Page({
     this.loadFeedProducts()
   },
 
-  goCategory() {
+  async loadCategories() {
+    try {
+      const res = await getProductCategories()
+      this.setData({ categories: (res.data || []).slice(0, 3) })
+    } catch { this.setData({ categories: [] }) }
+  },
+
+  refreshCart() {
+    const total = cart.getCheckoutItems().reduce((sum, item) => {
+      const price = Number(String(item.snapshot?.price || '').replace(/[¥￥,]/g, ''))
+      return sum + (Number.isFinite(price) ? price * item.quantity : 0)
+    }, 0)
+    this.setData({ cartCount: cart.getCount(), cartTotal: total.toFixed(2) })
+  },
+
+  onSearchInput(e) { this.setData({ keyword: e.detail.value }) },
+
+  goSearch() {
+    store.brand.state.pendingKeyword = this.data.keyword.trim()
+    store.brand.state.pendingCategoryId = 'all'
+    wx.switchTab({ url: '/pages/category/category' })
+  },
+
+  goProfile() { wx.switchTab({ url: '/pages/profile/profile' }) },
+
+  goCategory(e) {
+    store.brand.state.pendingKeyword = ''
+    store.brand.state.pendingCategoryId = String(e?.currentTarget?.dataset?.id || 'all')
     wx.switchTab({ url: '/pages/category/category' })
   },
 
@@ -142,6 +173,10 @@ Page({
     const productId = e?.currentTarget?.dataset?.productId || e?.detail?.productId
     const product = this.data.products.find(item => Number(item.id) === Number(productId))
     if (!product) return
+    if (product.skus && product.skus.length > 1) {
+      this.goProductDetail(e)
+      return
+    }
     if (!store.auth.state.token) {
       wx.navigateTo({
         url: '/pages/login/login?redirect=' + encodeURIComponent('/pages/home/home')
@@ -166,7 +201,7 @@ Page({
         priceUnit: product.priceUnit || ''
       }
     })
-    this.setData({ cartCount: cart.getCount() })
+    this.refreshCart()
     wx.showToast({ title: '已加入购物车', icon: 'success' })
   },
 

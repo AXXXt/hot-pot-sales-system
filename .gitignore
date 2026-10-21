@@ -5,12 +5,17 @@ coverage/
 test-results/
 playwright-report/
 build/
+dist-platform/
+.vite/
+*.tsbuildinfo
 
 # ---- 环境变量（保留 .env.example） ----
 .env
 .env.local
 .env.*.local
+.env.*
 !.env.example
+!.env.*.example
 
 # ---- 日志与临时文件 ----
 *.log
@@ -18,9 +23,14 @@ build/
 .backend-dev.pid
 .wx-auto-*
 .wx-open-*
+.wx-local-project/
+.wx-local-runtime/
 .codex-home-hot.png
 .codex-simulator.png
 npm-debug.log*
+project.private.config.json
+tmp/
+output/
 
 # ---- 工具 / 自动化运行时目录 ----
 .agents/
@@ -35,6 +45,15 @@ Thumbs.db
 # ---- 数据库备份产物 ----
 backup/
 deploy/.work/
+deploy/**/__pycache__/
+
+# Private keys and machine credentials never belong in source control.
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
 
 # Identity documents are local-only, never source assets.
 output/pdf/
+output/design-verification/

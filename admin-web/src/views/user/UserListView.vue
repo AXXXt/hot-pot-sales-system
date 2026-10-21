@@ -49,7 +49,7 @@ async function doSendCode() {
   if (!/^1\d{10}$/.test(form.phone)) { ElMessage.warning('请输入有效手机号'); return }
   sending.value = true
   try {
-    await sendCode(form.phone)
+    await sendCode(form.phone, 'register')
     ElMessage.success('验证码已发送')
     seconds.value = 60
     const timer = window.setInterval(() => { seconds.value -= 1; if (seconds.value <= 0) window.clearInterval(timer) }, 1000)

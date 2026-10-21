@@ -1,46 +1,47 @@
 page,
 .page {
-  --brand-primary: #8D1C1C;
-  --brand-deep: #660A0A;
-  --brand-accent: #C43737;
-  --brand-secondary: #9CABC2;
-  --brand-muted: #9CABC2;
-  --brand-surface-pink: #D99A9A;
-  --brand-surface-warm: #E6BF91;
-  --brand-orange: #FF9F0A;
-  --brand-gradient: linear-gradient(145deg, #660A0A 0%, #9B2020 52%, #C43737 100%);
-  --brand-soft-gradient: linear-gradient(145deg, #E6BF91 0%, #D99A9A 48%, #C9C2CF 100%);
+  --brand-primary: #222625;
+  --brand-deep: #151916;
+  --brand-accent: #C4461B;
+  --brand-secondary: #43715B;
+  --brand-muted: #666E68;
+  --brand-surface-pink: #F4F6F4;
+  --brand-surface-warm: #F4F6F4;
+  --brand-orange: #C4461B;
+  --brand-gradient: #222625;
+  --brand-soft-gradient: #FFFFFF;
 
-  --bg-canvas: linear-gradient(180deg, #F4D7D2 0%, #F8EFED 38%, #F4F0F2 100%);
-  --bg-canvas-solid: #F8EFED;
+  --bg-canvas: #FFFFFF;
+  --bg-canvas-solid: #FFFFFF;
   --bg-surface: #FFFFFF;
   --bg-surface-strong: #FFFFFF;
-  --bg-subtle: rgba(141, 28, 28, 0.07);
+  --bg-subtle: #F4F6F4;
+  --bg-muted: #F4F6F4;
   --bg-elevated: #FFFFFF;
-  --bg-overlay: rgba(49, 10, 10, 0.42);
+  --bg-overlay: rgba(34, 38, 37, 0.42);
 
-  --text-primary: #333333;
-  --text-secondary: #6F7D91;
-  --text-tertiary: #9CABC2;
-  --text-disabled: #CDD2DE;
+  --text-primary: #222625;
+  --text-secondary: #666E68;
+  --text-tertiary: #666E68;
+  --text-disabled: #A1AAA3;
   --text-inverse: #FFFFFF;
 
-  --border-subtle: rgba(141, 28, 28, 0.08);
-  --border-default: #EAD9D7;
-  --border-strong: #D7B8B5;
+  --border-subtle: #E5E8E5;
+  --border-default: #E5E8E5;
+  --border-strong: #A8B6AC;
 
-  --status-success: #34C759;
-  --status-warning: #F59E0B;
-  --status-danger: #FF3B30;
-  --status-info: #6F7D91;
+  --status-success: #43715B;
+  --status-warning: #926313;
+  --status-danger: #B73730;
+  --status-info: #666E68;
 
   --font-family-base: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 
-  --radius-sm: 12rpx;
-  --radius-md: 20rpx;
-  --radius-lg: 28rpx;
-  --radius-xl: 40rpx;
+  --radius-sm: 8rpx;
+  --radius-md: 8rpx;
+  --radius-lg: 8rpx;
+  --radius-xl: 8rpx;
   --radius-full: 9999rpx;
 
   --space-1: 4rpx;
@@ -53,14 +54,14 @@ page,
   --space-10: 40rpx;
   --space-12: 48rpx;
 
-  --shadow-sm: 0 6rpx 18rpx rgba(102, 10, 10, 0.06);
-  --shadow-md: 0 14rpx 34rpx rgba(102, 10, 10, 0.10);
-  --shadow-lg: 0 24rpx 60rpx rgba(102, 10, 10, 0.14);
-  --shadow-glass: 0 16rpx 40rpx rgba(102, 10, 10, 0.10);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 16rpx 48rpx rgba(34, 38, 37, 0.12);
+  --shadow-glass: none;
 
   --glass-bg: rgba(255,255,255,0.86);
   --glass-bg-strong: rgba(255,255,255,0.94);
-  --glass-border: rgba(141, 28, 28, 0.10);
+  --glass-border: #E5E8E5;
   --glass-backdrop: blur(24px);
 
   --motion-fast: 140ms;

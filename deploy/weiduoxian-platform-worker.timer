@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover interrupted platform release requests
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+Unit=weiduoxian-platform-worker.service
+
+[Install]
+WantedBy=timers.target

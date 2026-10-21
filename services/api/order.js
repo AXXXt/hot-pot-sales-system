@@ -4,7 +4,8 @@ function getOrderList(params) {
   return request({
     url: '/api/v1/orders',
     method: 'GET',
-    data: params
+    data: params,
+    showLoading: false
   })
 }
 
@@ -52,7 +53,13 @@ function completeOrder(id) {
   })
 }
 
+// 获取当前客户的全量状态统计和最近已完成订单，返回 API 响应。
+function getOrderOverview() {
+  return request({ url: '/api/v1/orders/me/overview', showLoading: false })
+}
+
 module.exports = {
+  getOrderOverview,
   getOrderList,
   getOrderDetail,
   createOrder,

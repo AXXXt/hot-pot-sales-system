@@ -1,4 +1,4 @@
-import { ArrayNotEmpty, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator'
+import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateProductDto {
@@ -20,8 +20,8 @@ export class CreateProductDto {
   @IsOptional() @IsString()
   name?: string
 
-  @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({ description: '真实商品名称，沿用原副标题字段；管理标签由系统生成', maxLength: 255 })
+  @IsOptional() @IsString() @Matches(/\S/, { message: '请输入商品名称' }) @MaxLength(255)
   subtitle?: string
 
   @ApiPropertyOptional()
@@ -33,7 +33,7 @@ export class CreateProductDto {
   mainImageUrl?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsArray()
+  @IsOptional() @IsArray() @ArrayMaxSize(9) @IsString({ each: true }) @MaxLength(500, { each: true })
   images?: string[]
 
   @ApiPropertyOptional()
@@ -78,8 +78,8 @@ export class UpdateProductDto {
   @IsOptional() @IsString()
   name?: string
 
-  @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({ description: '真实商品名称，修改后不改变管理标签和编码', maxLength: 255 })
+  @IsOptional() @IsString() @Matches(/\S/, { message: '请输入商品名称' }) @MaxLength(255)
   subtitle?: string
 
   @ApiPropertyOptional()
@@ -91,7 +91,7 @@ export class UpdateProductDto {
   mainImageUrl?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsArray()
+  @IsOptional() @IsArray() @ArrayMaxSize(9) @IsString({ each: true }) @MaxLength(500, { each: true })
   images?: string[]
 
   @ApiPropertyOptional()

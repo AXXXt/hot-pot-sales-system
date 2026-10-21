@@ -124,13 +124,13 @@ onMounted(refreshCart)
 
 <style scoped>
 .checkout-layout { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
-.group-card { margin-bottom: 14px; border-radius: 16px; }
+.group-card { margin-bottom: 14px; border-radius: 4px; }
 .group-card :deep(.el-card__header) { display: flex; justify-content: space-between; }
 .order-item { display: grid; grid-template-columns: 1fr 80px 110px; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .order-item:last-child { border-bottom: 0; }
 .order-item p { margin: 4px 0 0; }
 h3 { margin-top: 0; }
-.submit-card { position: sticky; top: 96px; border-radius: 16px; }
+.submit-card { position: sticky; top: 96px; border-radius: 4px; }
 .row { display: flex; justify-content: space-between; margin-bottom: 12px; }
 .row.total { padding-top: 12px; border-top: 1px solid var(--line); }
 .submit-card .el-button { width: 100%; margin: 12px 0 0; }

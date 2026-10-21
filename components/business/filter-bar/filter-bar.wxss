@@ -10,7 +10,7 @@
   display: inline-flex;
   padding: 12rpx 20rpx;
   margin-right: 16rpx;
-  border-radius: 9999rpx;
+  border-radius: 8rpx;
   background: var(--bg-subtle);
   color: var(--text-secondary);
   font-size: 24rpx;

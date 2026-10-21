@@ -10,4 +10,5 @@
 !backend/nest-cli.json
 !deploy/
 !deploy/bootstrap.cjs
+!deploy/platform-api.cjs
 !deploy/backend.Dockerfile

@@ -5,6 +5,7 @@
 
   <view wx:if="{{isEmpty}}" class="checkout-empty">
     <text>购物车为空，无法下单</text>
+    <view class="checkout-empty__action" bindtap="onGoShop">去选购食材</view>
   </view>
 
   <view wx:else class="checkout-body">

@@ -14,7 +14,7 @@ async function checkWidth(page: Page) {
 test('legal documents are readable without logging in', async ({ page }, testInfo) => {
   await page.goto('/legal/privacy')
   await expect(page.getByRole('heading', { name: '隐私政策', exact: true })).toBeVisible()
-  await expect(page.getByText('河南唯多鲜食品有限公司', { exact: false }).first()).toBeVisible()
+  await expect(page.getByText('河南唯哆鲜食品有限公司', { exact: false }).first()).toBeVisible()
   await checkWidth(page)
   await page.screenshot({ path: testInfo.outputPath('privacy.png'), fullPage: true })
   await page.goto('/legal/terms')

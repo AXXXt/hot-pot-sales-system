@@ -1,6 +1,4 @@
 <view class="search-bar">
-  <view class="search-bar__icon" aria-hidden="true">
-    <view class="search-bar__icon-handle"></view>
-  </view>
+  <image class="search-bar__image" src="/assets/brand/search.png" mode="aspectFit" aria-hidden="true" />
   <input class="search-bar__input" placeholder="{{placeholder}}" value="{{value}}" bindinput="onInput" confirm-type="search" />
 </view>

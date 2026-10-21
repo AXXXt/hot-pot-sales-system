@@ -22,5 +22,5 @@
   color: var(--text-secondary);
 }
 
-.section-title__title { font-size: 34rpx; font-weight: 800; color: var(--brand-deep); }
+.section-title__title { font-size: 34rpx; font-weight: 600; color: var(--brand-deep); }
 .section-title__subtitle { color: var(--text-tertiary); }

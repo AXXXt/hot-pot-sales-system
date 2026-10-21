@@ -41,6 +41,14 @@ test('cart accepts products from the same brand', () => {
   assert.equal(cart.state.cartItems.length, 2)
 })
 
+test('repeat purchase merges numeric IDs into a persisted string-ID cart', () => {
+  const cart = loadCart([{ productId: '17', skuId: '21', quantity: 2, snapshot: {} }])
+  cart.addItem({ productId: 17, skuId: 21, quantity: 1, snapshot: { price: '9' } })
+  assert.equal(cart.state.cartItems.length, 1)
+  assert.equal(cart.state.cartItems[0].quantity, 3)
+  assert.equal(cart.state.cartItems[0].snapshot.price, '9')
+})
+
 test('cart accepts different brands and groups them for checkout', () => {
   const cart = loadCart()
   cart.addItem({

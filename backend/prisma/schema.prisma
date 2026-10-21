@@ -779,3 +779,152 @@ model LeadFollowUp {
   @@index([leadId, createdAt])
   @@map("lead_follow_ups")
 }
+
+// AI conversations and actions are always scoped by the authenticated tenant and owner.
+model AiConfig {
+  tenantId       Int      @id @map("tenant_id")
+  enabled        Boolean  @default(false)
+  baseUrl        String   @default("") @map("base_url") @db.VarChar(500)
+  textModel      String   @default("") @map("text_model") @db.VarChar(100)
+  visionModel    String   @default("") @map("vision_model") @db.VarChar(100)
+  encryptedKey   String?  @map("encrypted_key") @db.Text
+  allowWrites    Boolean  @default(false) @map("allow_writes")
+  dailyRequests  Int      @default(100) @map("daily_requests")
+  features       Json
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_configs")
+}
+
+model AiConversation {
+  id          String          @id @default(uuid()) @db.VarChar(36)
+  tenantId    Int             @map("tenant_id")
+  ownerId     Int             @map("owner_id")
+  title       String          @db.VarChar(100)
+  fingerprint String          @db.VarChar(64)
+  archived    Boolean         @default(false)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  messages    AiMessage[]
+  drafts      AiActionDraft[]
+
+  @@unique([tenantId, ownerId, id])
+  @@index([tenantId, ownerId, updatedAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(uuid()) @db.VarChar(36)
+  tenantId       Int            @map("tenant_id")
+  ownerId        Int            @map("owner_id")
+  conversationId String         @map("conversation_id") @db.VarChar(36)
+  role           String         @db.VarChar(20)
+  content        String         @db.MediumText
+  cards          Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  conversation   AiConversation @relation(fields: [tenantId, ownerId, conversationId], references: [tenantId, ownerId, id], onDelete: Restrict)
+
+  @@index([tenantId, ownerId, conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+model AiAttachment {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  tenantId    Int      @map("tenant_id")
+  ownerId     Int      @map("owner_id")
+  objectKey   String   @map("object_key") @db.VarChar(500)
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  fileSize    Int      @map("file_size")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, ownerId, expiresAt])
+  @@map("ai_attachments")
+}
+
+model AiActionDraft {
+  id             String            @id @default(uuid()) @db.VarChar(36)
+  tenantId       Int               @map("tenant_id")
+  ownerId        Int               @map("owner_id")
+  conversationId String            @map("conversation_id") @db.VarChar(36)
+  action         String            @db.VarChar(50)
+  payload        Json
+  fingerprint    String            @db.VarChar(64)
+  version        Int               @default(1)
+  digest         String            @db.VarChar(64)
+  status         String            @default("draft") @db.VarChar(32)
+  expiresAt      DateTime          @map("expires_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  conversation   AiConversation    @relation(fields: [tenantId, ownerId, conversationId], references: [tenantId, ownerId, id], onDelete: Restrict)
+  execution      AiActionExecution?
+
+  @@unique([tenantId, ownerId, id])
+  @@index([tenantId, ownerId, status])
+  @@map("ai_action_drafts")
+}
+
+model AiActionExecution {
+  id          String        @id @default(uuid()) @db.VarChar(36)
+  tenantId    Int           @map("tenant_id")
+  ownerId     Int           @map("owner_id")
+  draftId     String        @unique @map("draft_id") @db.VarChar(36)
+  action      String        @db.VarChar(50)
+  result      Json
+  createdAt   DateTime      @default(now()) @map("created_at")
+  draft       AiActionDraft @relation(fields: [tenantId, ownerId, draftId], references: [tenantId, ownerId, id], onDelete: Restrict)
+
+  @@unique([tenantId, ownerId, draftId])
+  @@index([tenantId, ownerId, createdAt])
+  @@map("ai_action_executions")
+}
+
+model AiUsageRecord {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  tenantId     Int      @map("tenant_id")
+  ownerId      Int      @map("owner_id")
+  model        String   @db.VarChar(100)
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  images       Int      @default(0)
+  status       String   @default("reserved") @db.VarChar(32)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, ownerId, createdAt])
+  @@map("ai_usage_records")
+}
+
+model OpsTask {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  tenantId        Int      @map("tenant_id")
+  ownerId         Int      @map("owner_id")
+  title           String   @db.VarChar(200)
+  dueAt           DateTime @map("due_at")
+  status          String   @default("pending") @db.VarChar(32)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, ownerId, status, dueAt])
+  @@map("ops_tasks")
+}
+
+model AiSchedule {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  tenantId    Int      @map("tenant_id")
+  ownerId     Int      @map("owner_id")
+  name        String   @db.VarChar(100)
+  kind        String   @db.VarChar(32)
+  hour        Int      @default(9)
+  weekday     Int?      @map("weekday")
+  enabled     Boolean  @default(true)
+  fingerprint String   @db.VarChar(64)
+  nextRunAt   DateTime @map("next_run_at")
+  lastRunAt   DateTime? @map("last_run_at")
+  lastResult  Json?    @map("last_result")
+  error       String?  @db.VarChar(200)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([enabled, nextRunAt])
+  @@index([tenantId, ownerId])
+  @@map("ai_schedules")
+}

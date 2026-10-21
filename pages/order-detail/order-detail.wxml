@@ -5,6 +5,7 @@
 
   <view wx:elif="{{error}}" class="od-error">
     <text>{{error}}</text>
+    <view wx:if="{{orderId}}" class="od-btn" bindtap="onRetry">重试</view>
   </view>
 
   <view wx:else class="od-body">

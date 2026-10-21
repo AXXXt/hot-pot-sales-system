@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for confirmed platform release requests
+
+[Path]
+PathExistsGlob=/opt/weiduoxian/platform/queue/*.request.json
+Unit=weiduoxian-platform-worker.service
+
+[Install]
+WantedBy=multi-user.target

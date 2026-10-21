@@ -16,7 +16,6 @@ Component({
       this.triggerEvent('tap')
     },
     onActionTap(e) {
-      e.stopPropagation()
       this.triggerEvent('action', { id: e.currentTarget.dataset.id })
     }
   }

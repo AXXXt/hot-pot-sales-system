@@ -30,7 +30,7 @@ export const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  document.title = `${to.meta.title || '唯多鲜采购'} - 唯多鲜火锅食材`
+  document.title = `${to.meta.title || '唯哆鲜采购'} - 唯哆鲜火锅食材`
   if (to.meta.public) return true
   if (!getAccessToken()) return { path: '/login', query: { redirect: to.fullPath } }
 

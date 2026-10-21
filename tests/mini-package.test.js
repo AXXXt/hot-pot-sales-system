@@ -31,7 +31,7 @@ test('mini package excludes web apps, backend, backups, development files and pr
     'official-site/index.html', 'backend/.env', 'deploy/.work/backups/data.tar.gz',
     'backup/database.sql', 'dev-docs/production_deployment.md', '.git/config',
     '.env.production', 'codex_sdk.pem', 'server.key', 'cert.pfx', 'backup.sql',
-    'backend-dev.log', '.wx-auto-input.txt', 'skills-lock.json', 'start-dev.cmd']) {
+    'backend-dev.log', '.wx-auto-input.txt', 'skills-lock.json', 'start-dev.cmd', 'output/pdf/private-document.pdf', 'tmp/imageedit/checkbox_detail.png']) {
     assert.equal(ignored(file), true, `Unexpected package input: ${file}`)
   }
   const folders = new Set(['assets', 'components', 'constants', 'pages', 'services', 'store', 'styles', 'utils'])

@@ -1,8 +1,4 @@
 <view class="page auth-page">
-  <view class="auth-bg">
-    <view class="auth-bg__orb auth-bg__orb--1"></view>
-    <view class="auth-bg__orb auth-bg__orb--2"></view>
-  </view>
 
   <!-- Done -->
   <view wx:if="{{step === 'done'}}" class="auth-done">
@@ -15,7 +11,7 @@
   <view wx:elif="{{step === 'pending'}}" class="auth-pending">
     <view class="auth-pending__card">
       <view class="auth-pending__ring">
-        <text class="auth-pending__icon">{{approved ? '通过' : '⏳'}}</text>
+        <text class="auth-pending__icon">{{approved ? '通过' : '待审'}}</text>
       </view>
       <text class="auth-pending__title">{{approved ? '审核已通过' : '审核中'}}</text>
       <text class="auth-pending__desc" wx:if="{{!approved}}">您的注册信息已提交，管理员审核通过后即可使用</text>
@@ -40,6 +36,7 @@
   <!-- 手机号登录 -->
   <view wx:elif="{{step === 'login'}}" class="auth-form">
     <view class="auth-form__card">
+      <image style="width:180rpx;height:140rpx;margin-bottom:24rpx" src="/assets/brand/logo.jpg" mode="aspectFit" aria-label="唯哆鲜"></image>
       <text class="auth-form__title">手机号登录</text>
       <text class="auth-form__subtitle">输入手机号获取验证码即可登录</text>
 
@@ -62,7 +59,7 @@
       <view class="auth-form__agree">
         <checkbox-group bindchange="onAgreeChange">
           <label class="auth-form__agree-row">
-            <checkbox value="agree" checked="{{agree}}" color="#8D1C1C" />
+            <checkbox value="agree" checked="{{agree}}" color="#43715B" />
             <text class="auth-form__agree-text">同意</text>
           </label>
         </checkbox-group>
@@ -80,6 +77,7 @@
   <!-- Registration -->
   <view wx:else class="auth-form">
     <view class="auth-form__card">
+      <image style="width:180rpx;height:140rpx;margin-bottom:24rpx" src="/assets/brand/logo.jpg" mode="aspectFit" aria-label="唯哆鲜"></image>
       <text class="auth-form__title">注册申请</text>
       <text class="auth-form__subtitle">填写信息提交审核，通过后即可使用</text>
 
@@ -130,7 +128,7 @@
       <view class="auth-form__agree">
         <checkbox-group bindchange="onAgreeChange">
           <label class="auth-form__agree-row">
-            <checkbox value="agree" checked="{{agree}}" color="#8D1C1C" />
+            <checkbox value="agree" checked="{{agree}}" color="#43715B" />
             <text class="auth-form__agree-text">同意</text>
           </label>
         </checkbox-group>

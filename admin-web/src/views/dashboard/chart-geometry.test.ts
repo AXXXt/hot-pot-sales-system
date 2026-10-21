@@ -34,7 +34,7 @@ describe('dashboard chart geometry', () => {
     expect(point.plotY).toBeCloseTo(24, 1)
   })
 
-  it('keeps the order donut compact and aligned to warm brand colors', () => {
+  it('keeps the order donut compact and aligned to the shared palette', () => {
     const segments = buildDonutSegments([
       { name: '待发货', value: 1, color: '#409EFF' },
       { name: '已发货', value: 1, color: '#67C23A' },
@@ -43,8 +43,8 @@ describe('dashboard chart geometry', () => {
 
     expect(DONUT_VIEW_BOX).toBe('0 0 172 172')
     expect(segments).toHaveLength(2)
-    expect(segments[0]).toMatchObject({ centerX: 86, centerY: 86, radius: 58, color: '#8d1c1c', percentage: '50%' })
-    expect(segments[1].color).toBe('#b86a51')
+    expect(segments[0]).toMatchObject({ centerX: 86, centerY: 86, radius: 58, color: '#43715b', percentage: '50%' })
+    expect(segments[1].color).toBe('#709b82')
     expect(segments.map((segment) => `${segment.dashArray} ${segment.dashOffset}`).join(' ')).not.toMatch(/NaN|Infinity/)
   })
 })

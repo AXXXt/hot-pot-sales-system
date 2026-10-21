@@ -1,0 +1,16 @@
+<view class="page help-page">
+  <text class="help-title">客户服务</text>
+  <view wx:if="{{loading}}" class="help-note">正在加载联系方式…</view>
+  <view wx:elif="{{error}}"><text class="help-note">{{error}}</text><button class="help-link" bindtap="loadSupport">重试</button></view>
+  <view wx:elif="{{phone}}" class="support">
+    <text class="support-phone">{{phone}}</text><text wx:if="{{hours}}" class="help-note">{{hours}}</text>
+    <view class="support-actions"><button class="call-button" bindtap="callSupport">拨打电话</button><button class="help-link" bindtap="copyPhone">复制号码</button></view>
+  </view>
+  <view wx:else class="help-note">暂未提供客服电话，采购与配送事项请联系与您对接的工作人员。</view>
+  <text class="help-title faq-title">常见问题</text>
+  <view wx:for="{{questions}}" wx:key="title" class="question">
+    <button class="question-title" data-index="{{index}}" bindtap="toggleQuestion" aria-expanded="{{expanded === index}}"><text>{{item.title}}</text><text>{{expanded === index ? '−' : '+'}}</text></button>
+    <text wx:if="{{expanded === index}}" class="answer">{{item.answer}}</text>
+  </view>
+  <button class="feedback-button" open-type="feedback">意见反馈</button>
+</view>

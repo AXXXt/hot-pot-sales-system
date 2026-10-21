@@ -1,0 +1,10 @@
+<view class="brand-navigation" style="height:{{height}}px"><view class="brand-navigation__row" style="top:{{top}}px"><button size="mini"
+      wx:if="{{back}}"
+      class="brand-navigation__back"
+      bindtap="goBack"
+      aria-label="返回"
+    ><image src="/assets/brand/back.png"></image></button><view class="brand-navigation__logo"><image
+        src="/assets/brand/logo.jpg"
+        mode="aspectFit"
+        aria-label="唯哆鲜"
+      ></image></view></view></view>

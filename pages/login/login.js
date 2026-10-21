@@ -78,7 +78,10 @@ Page({
       wx.showToast({ title: '请输入有效手机号', icon: 'none' }); return
     }
     this.setData({ sendingCode: true })
-    sendLoginCode({ phone: this.data.phone })
+    sendLoginCode({
+      phone: this.data.phone,
+      purpose: this.data.step === 'register' ? 'register' : 'login'
+    })
       .then(() => { this.startCountdown(60); wx.showToast({ title: '验证码已发送', icon: 'success' }) })
       .catch(err => wx.showToast({ title: err?.message || '发送失败', icon: 'none' }))
       .finally(() => this.setData({ sendingCode: false }))

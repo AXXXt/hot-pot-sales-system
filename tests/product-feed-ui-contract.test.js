@@ -49,9 +49,10 @@ test('mini program components use compatible property defaults and local assets'
   assert.match(categoryLogic, /scrollIntoViewId:\s*''/)
   assert.match(productRow, /productId:\s*\{\s*type:\s*Number,\s*value:\s*0\s*\}/)
   assert.doesNotMatch(productRow, /type:\s*\[String,\s*Number\]/)
-  assert.match(productRowTemplate, />\/\{\{priceUnit\}\}<\/text>/)
+  assert.match(productRowTemplate, />\s*\/\{\{priceUnit\}\}\s*<\/text\s*>/)
   assert.doesNotMatch(searchBar, /\/assets\/icons\/search\.png/)
-  assert.match(searchBar, /<view class="search-bar__icon"/)
+  assert.match(searchBar, /src="\/assets\/brand\/search\.png"/)
+  assert.ok(fs.existsSync(path.join(root, 'assets/brand/search.png')))
 })
 
 test('小程序未显式选择品牌时展示全部可见品牌商品', () => {

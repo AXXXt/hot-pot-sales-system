@@ -1,7 +1,8 @@
-const { getOrderList, getOrderDetail } = require('../../services/api/order')
-const { validateCart } = require('../../services/api/product')
+// 订单列表支持采购中心筛选跳转、分页以及按当前价格再次采购。
+const { getOrderList } = require('../../services/api/order')
 const auth = require('../../store/modules/auth')
-const cart = require('../../store/modules/cart')
+const { consumeStatus } = require('../../utils/order-navigation')
+const { repeatOrder, showRepeatResult } = require('../../services/repeat-order')
 
 const STATUS_MAP = {
   draft: { text: '草稿', variant: 'info' },
@@ -9,240 +10,84 @@ const STATUS_MAP = {
   pending_confirm: { text: '待确认', variant: 'warning' },
   pending_finance: { text: '待审核', variant: 'warning' },
   pending_shipment: { text: '待发货', variant: 'primary' },
-  shipped: { text: '已发货', variant: 'primary' },
+  shipped: { text: '待收货', variant: 'primary' },
   completed: { text: '已完成', variant: 'success' },
   cancelled: { text: '已取消', variant: 'info' }
 }
+const PAGE_SIZE = 20
 
 Page({
   data: {
-    loading: true,
-    activeStatus: 'all',
+    loading: true, loadingMore: false, activeStatus: 'all',
     statuses: [
-      { id: 'all', label: '全部' },
-      { id: 'pending', label: '进行中' },
-      { id: 'completed', label: '已完成' },
+      { id: 'all', label: '全部' }, { id: 'pending', label: '进行中' },
+      { id: 'pending_confirm', label: '待确认' }, { id: 'pending_shipment', label: '待发货' },
+      { id: 'shipped', label: '待收货' }, { id: 'completed', label: '已完成' },
       { id: 'cancelled', label: '已取消' }
     ],
-    orders: [],
-    error: '',
-    repeatBuying: false
+    orders: [], error: '', moreError: '', page: 0, hasMore: false, repeatBuying: false
   },
-
   onShow() {
+    const status = consumeStatus()
+    if (status) this.setData({ activeStatus: status })
+    this.loadOrders()
+  },
+  onUnload() { this.requestId = (this.requestId || 0) + 1 },
+  onPullDownRefresh() { this.loadOrders().finally(() => wx.stopPullDownRefresh()) },
+  onReachBottom() { this.loadMore() },
+  loadOrders() { return this.fetchOrders(false) },
+  loadMore() {
+    if (this.data.loading || this.data.loadingMore || !this.data.hasMore) return
+    return this.fetchOrders(true)
+  },
+  async fetchOrders(append) {
+    const requestId = this.requestId = (this.requestId || 0) + 1
     if (!auth.state.token) {
-      this.setData({ loading: false, error: '请先登录' })
+      this.setData({ loading: false, loadingMore: false, orders: [], error: '请先登录' })
       return
     }
-    this.loadOrders()
-  },
-
-  onPullDownRefresh() {
-    this.loadOrders().finally(() => wx.stopPullDownRefresh())
-  },
-
-  async loadOrders() {
-    this.setData({ loading: true, error: '' })
-
+    const page = append ? this.data.page + 1 : 1
+    this.setData(append ? { loadingMore: true, moreError: '' } : {
+      loading: true, loadingMore: false, error: '', moreError: '', orders: []
+    })
     try {
-      const params = { page: 1, pageSize: 50 }
-
-      if (this.data.activeStatus === 'pending') {
-        // Show all non-terminal statuses
-      } else if (this.data.activeStatus !== 'all') {
-        params.status = this.data.activeStatus
-      }
-
-      const res = await getOrderList(params)
-      const data = res?.data || {}
-      const items = (data.items || []).map(order => ({
-        id: order.id,
-        orderNo: order.orderNo,
-        timeText: this.formatTime(order.createdAt),
-        statusText: STATUS_MAP[order.status]?.text || order.status,
-        statusVariant: STATUS_MAP[order.status]?.variant || 'info',
-        status: order.status,
-        summaryText: this.formatSummary(order),
-        amountText: '¥' + Number(order.payableAmount || order.totalAmount || 0).toFixed(2),
-        actions: this.getActions(order)
-      }))
-
-      // Filter pending statuses on client side
-      let filtered = items
-      if (this.data.activeStatus === 'pending') {
-        filtered = items.filter(o =>
-          !['completed', 'cancelled'].includes(o.status)
-        )
-      }
-
-      this.setData({ orders: filtered, loading: false })
-
-    } catch (err) {
-      this.setData({
-        loading: false,
-        error: err?.message || '加载失败'
+      const response = await getOrderList({ page, pageSize: PAGE_SIZE, status: this.data.activeStatus })
+      if (requestId !== this.requestId || !auth.state.token) return
+      const data = response?.data || {}
+      const next = (data.items || []).map(order => this.mapOrder(order))
+      const orders = append ? this.data.orders.concat(next) : next
+      this.setData({ orders, page, hasMore: orders.length < Number(data.total || 0) })
+    } catch (error) {
+      if (requestId === this.requestId) this.setData({
+        [append ? 'moreError' : 'error']: error?.message || '加载失败'
       })
+    } finally {
+      if (requestId === this.requestId) this.setData({ loading: false, loadingMore: false })
     }
   },
-
-  formatTime(dateStr) {
-    if (!dateStr) return ''
-    const d = new Date(dateStr)
-    const pad = n => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  mapOrder(order) {
+    return {
+      id: order.id, orderNo: order.orderNo, timeText: String(order.createdAt).slice(0, 10),
+      statusText: STATUS_MAP[order.status]?.text || order.status,
+      statusVariant: STATUS_MAP[order.status]?.variant || 'info', status: order.status,
+      summaryText: `${(order.productNames || []).join('、')} 共 ${order.itemCount || 0} 件`,
+      amountText: '¥' + Number(order.payableAmount ?? order.totalAmount ?? 0).toFixed(2),
+      actions: order.status === 'completed' ? [{ id: 'repeat', label: '再次采购' }] : []
+    }
   },
-
-  formatSummary(order) {
-    const items = order.items || []
-    const fallbackCount = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-    const count = Number.isFinite(Number(order.itemCount))
-      ? Number(order.itemCount)
-      : fallbackCount
-    const names = Array.isArray(order.productNames)
-      ? order.productNames.filter(Boolean).slice(0, 2)
-      : items.slice(0, 2).map(item => item.productName || item.skuName).filter(Boolean)
-    let text = `共 ${count} 件`
-    if (names.length) text = names.join('、') + ' ' + text
-    return text
-  },
-
-  getActions(order) {
-    const s = order.status
-    if (s === 'completed') return [{ id: 'repeat', label: '再次购买' }]
-    if (s === 'cancelled') return []
-    return []
-  },
-
   onStatusChange(e) {
-    const activeStatus = e.detail?.activeId || e.detail
-    this.setData({ activeStatus })
+    this.setData({ activeStatus: e.detail?.activeId || e.detail })
     this.loadOrders()
   },
-
   onOrderTap(e) {
-    const id = e.currentTarget.dataset.id
-    if (id) {
-      wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${id}` })
-    }
+    wx.navigateTo({ url: `/pages/order-detail/order-detail?id=${e.currentTarget.dataset.id}` })
   },
-
   async onOrderAction(e) {
     if (e.detail?.id !== 'repeat' || this.data.repeatBuying) return
-    const orderId = Number(e.currentTarget.dataset.id)
-    if (!orderId) return
-
     this.setData({ repeatBuying: true })
-    wx.showLoading({ title: '正在加入', mask: true })
-    try {
-      const detailRes = await getOrderDetail(orderId)
-      const order = detailRes?.data || detailRes
-      const orderItems = Array.isArray(order?.items) ? order.items : []
-      if (!orderItems.length) throw new Error('订单中没有可再次购买的商品')
-
-      const skuIds = [...new Set(orderItems.map(item => Number(item.skuId)).filter(Boolean))]
-      const validationRes = await validateCart(skuIds)
-      const validation = validationRes?.data || validationRes || {}
-      const brandId = Number(order.brandId || validation.items?.[0]?.brandId || 0)
-
-      if (this.hasDifferentCartBrand(brandId)) {
-        wx.hideLoading()
-        const confirmed = await this.confirmReplaceCart()
-        if (!confirmed) return
-        cart.setCartItems([])
-        wx.showLoading({ title: '正在加入', mask: true })
-      }
-
-      const result = this.buildRepeatItems(orderItems, validation)
-      if (!result.items.length) {
-        throw new Error('商品已下架、售罄或库存不足')
-      }
-      for (const item of result.items) {
-        const addResult = cart.addItem(item)
-        if (!addResult.added) throw new Error('购物车中存在其他品牌商品')
-      }
-
-      wx.hideLoading()
-      if (result.skipped || result.adjusted) {
-        wx.showModal({
-          title: '已加入购物车',
-          content: `已加入 ${result.items.length} 个商品规格；${result.skipped} 个不可购买，${result.adjusted} 个按当前库存调整数量。`,
-          showCancel: false
-        })
-      } else {
-        wx.showToast({ title: '已加入购物车', icon: 'success' })
-      }
-    } catch (err) {
-      wx.hideLoading()
-      wx.showToast({ title: err?.message || '再次购买失败', icon: 'none', duration: 2500 })
-    } finally {
-      this.setData({ repeatBuying: false })
-    }
+    try { showRepeatResult(await repeatOrder(e.currentTarget.dataset.id)) }
+    catch (error) { wx.showToast({ title: error?.message || '再次采购失败', icon: 'none' }) }
+    finally { this.setData({ repeatBuying: false }) }
   },
-
-  hasDifferentCartBrand(brandId) {
-    if (!brandId) return false
-    return cart.state.cartItems.some(item => {
-      const currentBrandId = Number(item.brandId || item.snapshot?.brandId || 0)
-      return currentBrandId && currentBrandId !== brandId
-    })
-  },
-
-  confirmReplaceCart() {
-    return new Promise((resolve) => {
-      wx.showModal({
-        title: '购物车已有其他品牌',
-        content: '一个订单只能包含同一品牌商品。是否清空购物车并加入本订单商品？',
-        confirmText: '清空并加入',
-        success: (res) => resolve(Boolean(res.confirm)),
-        fail: () => resolve(false)
-      })
-    })
-  },
-
-  buildRepeatItems(orderItems, validation) {
-    const validationMap = new Map((validation.items || []).map(item => [Number(item.skuId), item]))
-    let skipped = (validation.invalidSkuIds || []).length
-    let adjusted = 0
-    const items = []
-
-    for (const orderItem of orderItems) {
-      const sku = validationMap.get(Number(orderItem.skuId))
-      if (!sku || sku.available === false) {
-        if (sku) skipped += 1
-        continue
-      }
-      const existing = cart.state.cartItems.find(item => Number(item.skuId) === Number(orderItem.skuId))
-      const existingQuantity = Number(existing?.quantity || 0)
-      const minOrderQty = Number(sku.minOrderQty || 1)
-      const stockNum = Number(sku.stockNum || 0)
-      const requestedQuantity = Math.max(Number(orderItem.quantity || 0), minOrderQty)
-      const quantity = Math.min(requestedQuantity, Math.max(stockNum - existingQuantity, 0))
-      if (quantity <= 0 || (existingQuantity === 0 && quantity < minOrderQty)) {
-        skipped += 1
-        continue
-      }
-      if (quantity < requestedQuantity) adjusted += 1
-      items.push({
-        productId: Number(sku.productId || orderItem.productId),
-        skuId: Number(sku.skuId),
-        brandId: Number(sku.brandId || 0),
-        quantity,
-        snapshot: {
-          brandId: Number(sku.brandId || 0),
-          name: sku.name || orderItem.productName || '商品',
-          spec: sku.spec || orderItem.skuSpecText || '',
-          price: sku.price || orderItem.unitPrice || 0,
-          priceUnit: sku.unit || orderItem.saleUnit || '',
-          stockNum,
-          minOrderQty
-        }
-      })
-    }
-
-    return { items, skipped, adjusted }
-  },
-
-  onGoShop() {
-    wx.switchTab({ url: '/pages/home/home' })
-  }
+  onGoShop() { wx.switchTab({ url: '/pages/home/home' }) }
 })

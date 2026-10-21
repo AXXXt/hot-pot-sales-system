@@ -22,8 +22,8 @@ export class AuthService {
     @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null>; del: (key: string) => Promise<number> }
   ) {}
 
-  async sendCode(phone: string, ip: string) {
-    await this.sms.sendCode(phone, ip)
+  async sendCode(phone: string, ip: string, purpose?: 'login' | 'register') {
+    await this.sms.sendCode(phone, ip, purpose)
     return { sent: true }
   }
 
@@ -221,7 +221,7 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { tenant: true, customer: true,
+      include: { tenant: true, customer: { include: { level: true } },
         userRoles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
         brandAccess: { include: { brand: true } }
       }
@@ -247,14 +247,19 @@ export class AuthService {
       creditUsed: user.customer.creditUsed,
       creditRemaining: Math.max(0, creditLimit - creditUsed).toFixed(2),
       creditDays: user.customer.creditDays,
-      customerLevelId: user.customer.customerLevelId
+      customerLevelId: user.customer.customerLevelId,
+      customerLevelName: user.customer.level?.status === 'active' ? user.customer.level.name : null
     } : null
 
     return {
       user: { id: user.id, name: user.name, phone: user.phone, userType: user.userType, status: user.status },
       customer: customerProfile,
       tenant: { id: user.tenant.id, name: user.tenant.name, code: user.tenant.code },
-      brands, roles, permissions, menus
+      brands, roles, permissions, menus,
+      support: {
+        phone: this.config.get<string>('SUPPORT_PHONE', ''),
+        hours: this.config.get<string>('SUPPORT_HOURS', '')
+      }
     }
   }
 }

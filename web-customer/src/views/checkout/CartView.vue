@@ -18,7 +18,7 @@ const groupedItems = computed(() => {
     const key = String(item.brandId || item.brandName || '待确认品牌')
     groups.set(key, [...(groups.get(key) || []), item])
   })
-  return [...groups.entries()].map(([brand, items]) => ({ brand, items }))
+  return [...groups.entries()].map(([key, items]) => ({ key, brand: items[0].brandName || `品牌 ${key}`, items }))
 })
 
 async function refreshCart(showMessage = true) {
@@ -57,7 +57,7 @@ onMounted(() => refreshCart(false))
     <el-alert v-if="cart.hasUnavailable" title="部分商品已下架、售罄或不可见，请移除后再结算" type="warning" show-icon :closable="false" class="notice" />
     <div v-if="cart.items.length" class="cart-layout">
       <div class="cart-main" v-loading="validating">
-        <el-card v-for="group in groupedItems" :key="group.brand" shadow="never" class="brand-group">
+        <el-card v-for="group in groupedItems" :key="group.key" shadow="never" class="brand-group">
           <template #header><strong>{{ group.brand }}</strong><span class="muted">按品牌创建订单</span></template>
           <div v-for="item in group.items" :key="item.skuId" class="cart-item">
             <div class="item-info">
@@ -88,13 +88,13 @@ onMounted(() => refreshCart(false))
 <style scoped>
 .notice { margin-bottom: 18px; }
 .cart-layout { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
-.brand-group { margin-bottom: 14px; border-radius: 16px; }
+.brand-group { margin-bottom: 14px; border-radius: 4px; }
 .brand-group :deep(.el-card__header) { display: flex; justify-content: space-between; align-items: center; }
 .cart-item { display: grid; grid-template-columns: 1fr 150px 100px auto; gap: 18px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .cart-item:last-child { border-bottom: 0; }
 .item-info p { margin: 4px 0; }
-.item-amount { font-weight: 700; color: var(--brand); }
-.cart-summary { position: sticky; top: 96px; border-radius: 16px; }
+.item-amount { font-weight: 600; color: var(--brand); }
+.cart-summary { position: sticky; top: 96px; border-radius: 4px; }
 .cart-summary h3 { margin-top: 0; }
 .summary-row { display: flex; justify-content: space-between; margin-bottom: 14px; }
 .summary-row.total { padding-top: 14px; border-top: 1px solid var(--line); }

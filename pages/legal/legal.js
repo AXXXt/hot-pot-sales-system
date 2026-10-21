@@ -1,5 +1,5 @@
 // 展示无需登录即可阅读的协议与隐私政策。
-const legal = require('../../constants/legal.json')
+const legal = require('../../constants/legal')
 
 Page({
   data: { title: '', intro: '', sections: [], notice: legal.notice, version: legal.version },

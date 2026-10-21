@@ -1,23 +1,10 @@
-<view class="pr" bindtap="onTap">
-  <view class="pr__img-wrap">
-    <image class="pr__img {{image ? '' : 'pr__img--empty'}}" src="{{image || ''}}" mode="aspectFill" binderror="onImageError"></image>
-    <view wx:if="{{!imageLoaded && !image}}" class="pr__img-placeholder">
-      <text class="pr__img-placeholder-icon">P</text>
-    </view>
-  </view>
-  <view class="pr__body">
-    <view class="pr__top">
-      <text class="pr__name">{{name}}</text>
-      <view class="pr__badge pr__badge--{{statusVariant || 'default'}}" wx:if="{{statusText}}">{{statusText}}</view>
-    </view>
-    <text class="pr__spec" wx:if="{{brandText || spec}}">{{brandText}}{{brandText && spec ? ' · ' : ''}}{{spec}}</text>
-    <view class="pr__bottom">
-      <view class="pr__price-row">
-        <text class="pr__price">{{price}}</text>
-        <text class="pr__unit" wx:if="{{priceUnit}}">/{{priceUnit}}</text>
-      </view>
-      <text class="pr__sub" wx:if="{{subText}}">{{subText}}</text>
-    </view>
-  </view>
-  <view class="pr__add" bindtap="onActionTap">+</view>
-</view>
+<view class="pr" bindtap="onTap"><view class="pr__img-wrap"><image
+      wx:if="{{image && !imageFailed}}"
+      class="pr__img"
+      src="{{image}}"
+      mode="aspectFill"
+      binderror="onImageError"
+    ></image><view wx:else class="pr__img-placeholder"><text class="pr__img-placeholder-icon">暂无图片</text></view></view><view class="pr__body"><view class="pr__top"><text class="pr__name">{{name}}</text><text
+        class="pr__badge pr__badge--{{statusVariant || 'default'}}"
+        wx:if="{{statusText}}"
+      >{{statusText}}</text></view><text class="pr__spec" wx:if="{{brandText || spec}}">{{brandText}}{{brandText && spec ? ' · ' : ''}}{{spec}}</text><view class="pr__bottom"><view class="pr__price-row"><text wx:if="{{price}}" class="pr__currency">¥</text><text class="pr__price">{{price || '待报价'}}</text><text class="pr__unit" wx:if="{{priceUnit}}">/{{priceUnit}}</text></view><button size="mini" class="pr__add" catchtap="onActionTap" aria-label="选择{{name}}">+</button></view><text class="pr__sub" wx:if="{{subText}}">{{subText}}</text></view></view>

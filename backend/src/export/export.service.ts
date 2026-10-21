@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { Workbook } from 'exceljs'
 import { PrismaService } from '../prisma.service'
+import { productDisplayName } from '../product/product-presentation'
 
 const ORDER_STATUS_TEXT: Record<string, string> = {
   draft: '草稿',
@@ -117,7 +118,7 @@ export class ExportService {
     const skus = await this.prisma.productSku.findMany({
       where: { status: 'active', product: { status: 'active' } },
       include: {
-        product: { select: { id: true, name: true, code: true, brand: { select: { name: true } } } }
+        product: { select: { id: true, name: true, subtitle: true, code: true, brand: { select: { name: true } } } }
       },
       orderBy: [{ product: { brandId: 'asc' } }, { skuCode: 'asc' }]
     })
@@ -138,7 +139,7 @@ export class ExportService {
       sheet.addRow({
         brand: sku.product.brand?.name || '',
         productCode: sku.product.code,
-        productName: sku.product.name,
+        productName: productDisplayName(sku.product),
         skuCode: sku.skuCode,
         specText: sku.specText,
         saleUnit: sku.saleUnit,

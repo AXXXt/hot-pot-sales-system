@@ -17,6 +17,7 @@ async function bootstrap() {
   app.use(helmet())
   app.use(requestIdMiddleware)
   app.use(pinoHttp({
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
     genReqId: (req: any) => req.headers?.['x-request-id'] || (req as any).id,
     autoLogging: {
       ignore: (req: any) => req.url === '/health' || req.url === '/health/ready'
@@ -50,7 +51,7 @@ async function bootstrap() {
 
   app.enableShutdownHooks()
   const port = config.get<number>('PORT', 3000)
-  await app.listen(port)
+  await app.listen(port, config.get<string>('HOST', '0.0.0.0'))
 }
 
 bootstrap()

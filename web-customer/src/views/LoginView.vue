@@ -55,22 +55,19 @@ onUnmounted(() => window.clearInterval(timer))
   <main class="login-page">
     <section class="login-panel">
       <aside>
-        <div class="logo">锅</div>
-        <small>B2B FOOD SUPPLY</small>
-        <h1>火锅食材<br />PC 采购工作台</h1>
-        <p>大批量进货、协议价透明、订单进度可追踪，支持一键复购。</p>
-        <div class="feature-tags"><span>同城配送</span><span>整箱批发</span><span>账期协同</span></div>
+        <img class="logo" src="/brand/logo.jpg" alt="唯哆鲜" />
+        <h1>唯哆鲜采购台</h1>
       </aside>
       <div class="form-area">
         <h2>客户登录</h2>
         <p class="muted">使用已审核通过的采购账号手机号登录</p>
         <el-form ref="formRef" :model="form" :rules="rules" size="large" label-position="top" @submit.prevent="handleLogin">
           <el-form-item label="手机号" prop="phone">
-            <el-input v-model="form.phone" maxlength="11" placeholder="请输入手机号" />
+            <el-input v-model="form.phone" type="tel" autocomplete="tel" maxlength="11" placeholder="请输入手机号" />
           </el-form-item>
           <el-form-item label="短信验证码" prop="code">
             <div class="code-row">
-              <el-input v-model="form.code" maxlength="6" placeholder="请输入验证码" />
+              <el-input v-model="form.code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="请输入验证码" />
               <el-button :disabled="seconds > 0" :loading="sending" @click="handleSendCode">
                 {{ seconds ? `${seconds}秒` : '获取验证码' }}
               </el-button>
@@ -78,7 +75,7 @@ onUnmounted(() => window.clearInterval(timer))
           </el-form-item>
           <div class="agreement"><el-checkbox v-model="agree">我已阅读并同意</el-checkbox><router-link to="/legal/terms" target="_blank">用户协议</router-link><span>和</span><router-link to="/legal/privacy" target="_blank">隐私政策</router-link></div>
           <el-button native-type="submit" type="primary" size="large" class="login-submit" :loading="auth.loading">登录采购台</el-button>
-          <p class="login-tip">未开通账号？请联系合作热线 18137222005</p>
+          <p class="login-tip">未开通账号？请联系合作热线 13937802005</p>
         </el-form>
       </div>
     </section>
@@ -86,22 +83,22 @@ onUnmounted(() => window.clearInterval(timer))
 </template>
 
 <style scoped>
-.login-page { min-height: 100vh; display: grid; place-items: center; padding: 30px; background: radial-gradient(circle at top right, #ffd6cb, transparent 36%), linear-gradient(135deg,#f8efed,#f2ded8); }
-.login-panel { width: min(880px,100%); min-height: 500px; display: grid; grid-template-columns: .9fr 1.1fr; overflow: hidden; border-radius: 26px; background: white; box-shadow: 0 24px 70px rgba(91,16,16,.18); }
-aside { color: white; padding: 52px 42px; background: var(--brand-gradient); }
-.logo { width: 52px; height: 52px; margin-bottom: 36px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.22); border-radius: 16px; font-size: 22px; font-weight: 800; }
-small { opacity: .68; letter-spacing: 2px; font-size: 12px; }
-h1 { margin: 10px 0 16px; font-size: 32px; line-height: 1.25; }
-p { line-height: 1.8; }
-aside p { color: rgba(255,255,255,.72); }
-.feature-tags { margin-top: 40px; display: flex; gap: 8px; flex-wrap: wrap; }
-.feature-tags span { padding: 6px 10px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(255,255,255,.12); font-size: 12px; }
-.form-area { padding: 54px 56px; }
-h2 { margin: 0 0 6px; color: var(--brand); font-size: 26px; }
-.code-row { display: grid; grid-template-columns: 1fr 120px; gap: 10px; width: 100%; }
-.login-submit { width: 100%; margin-top: 4px; }
-.login-tip { margin: 18px 0 0; color: var(--muted); font-size: 13px; }
+
+.login-page { min-height: 100dvh; padding: 48px 24px; display: grid; place-items: center; background: white; }
+.login-panel { width: min(420px, 100%); }
+aside { padding: 0 0 24px; border-bottom: 1px solid var(--line); }
+.logo { width: 128px; height: 100px; object-fit: contain; display: block; margin-bottom: 12px; }
+h1 { margin: 0; font-size: 24px; line-height: 1.4; font-weight: 600; }
+.form-area { padding-top: 28px; }
+h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+p { line-height: 1.6; }
+.form-area > p { margin-bottom: 24px; }
+.code-row { display: grid; grid-template-columns: minmax(0,1fr) 120px; gap: 10px; width: 100%; }
+.login-submit { width: 100%; margin-top: 12px; }
+.login-tip { margin: 20px 0 0; color: var(--muted); font-size: 13px; }
 .agreement { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; margin-bottom: 12px; }
+.agreement a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
 .agreement .el-checkbox { margin-right: 0; }
-@media (max-width: 760px) { .login-panel { grid-template-columns: 1fr; } aside { display: none; } .form-area { padding: 40px 26px; } }
+@media (max-width: 600px) { .login-page { align-items: start; padding-top: 24px; } }
+
 </style>

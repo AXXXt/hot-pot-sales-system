@@ -14,12 +14,14 @@ const auth = useAuthStore()
 const cart = useCartStore()
 const orders = ref<OrderListItem[]>([])
 const loading = ref(false)
+const error = ref('')
 const total = ref(0)
 const query = reactive({ page: 1, pageSize: 10, status: 'all' })
 const repeatingOrderId = ref<number>()
 
 async function load() {
   loading.value = true
+  error.value = ''
   try {
     const params: Record<string, unknown> = {
       customerId: auth.customer?.id,
@@ -30,6 +32,8 @@ async function load() {
     const response = await getOrders(params)
     orders.value = response.data.items
     total.value = response.data.total
+  } catch {
+    error.value = '订单加载失败，请重试'
   } finally {
     loading.value = false
   }
@@ -67,6 +71,7 @@ onMounted(load)
         <el-radio-button value="completed">已完成</el-radio-button>
       </el-radio-group>
     </el-card>
+    <el-alert v-if="error" :title="error" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
     <div v-loading="loading" class="orders">
       <el-card v-for="order in orders" :key="order.id" shadow="hover" class="order-card">
         <div class="head">
@@ -86,21 +91,25 @@ onMounted(load)
         </div>
       </el-card>
     </div>
-    <el-empty v-if="!loading && !orders.length" description="还没有订单，去开启第一次采购吧" />
+    <el-empty v-if="!loading && !error && !orders.length" description="暂无订单" />
     <div class="pagination"><el-pagination v-model:current-page="query.page" :total="total" :page-size="query.pageSize" layout="total, prev, pager, next" @current-change="load" /></div>
   </div>
 </template>
 
 <style scoped>
 .title-row { display: flex; justify-content: space-between; align-items: center; }
-.toolbar { margin: 16px 0; border-radius: 14px; overflow-x: auto; }
+.toolbar { margin: 16px 0; border-radius: 4px; overflow-x: auto; }
 .orders { min-height: 220px; display: grid; gap: 14px; }
-.order-card { border-radius: 16px; }
+.order-card { border-radius: 4px; }
 .head { display: flex; justify-content: space-between; align-items: center; }
 .body { display: flex; justify-content: space-between; gap: 20px; padding: 16px 0; }
 .body p { margin: 0; font-weight: 600; }
 .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
 .actions { display: flex; gap: 10px; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 20px; }
+.toolbar :deep(.el-card__body) { padding: 0 0 16px; }
+.toolbar :deep(.el-radio-group) { display: flex; flex-wrap: nowrap; width: max-content; max-width: none; }
+.toolbar :deep(.el-radio-button__inner) { border: 0; border-bottom: 2px solid transparent; background: transparent; border-radius: 0; padding: 14px 18px; }
+.toolbar :deep(.el-radio-button.is-active .el-radio-button__inner) { background: transparent; color: var(--green); border-bottom-color: var(--green); }
 @media (max-width: 720px) { .head, .foot { flex-direction: column; align-items: flex-start; gap: 10px; } .body { flex-direction: column; gap: 6px; } }
 </style>

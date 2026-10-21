@@ -47,6 +47,7 @@ test('mini draft remains retryable after a request fails', async () => {
 test('legal documents are bundled, reachable and explicitly marked as drafts', () => {
   const app = require('../app.json')
   const legal = require('../constants/legal.json')
+  assert.deepEqual(require('../constants/legal'), legal)
   assert.ok(app.pages.includes('pages/legal/legal'))
   assert.match(legal.version, /draft/)
   assert.ok(legal.documents.terms.sections.length > 0)

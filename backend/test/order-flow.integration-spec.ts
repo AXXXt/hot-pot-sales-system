@@ -117,6 +117,22 @@ async function quoted() {
   return id
 }
 
+test('new orders snapshot the real name and subsequent renames preserve historical order items', async () => {
+  const sku = await db.productSku.findUniqueOrThrow({ where: { id: skuId }, include: { product: true } })
+  try {
+    await db.product.update({ where: { id: sku.productId }, data: { subtitle: '爆汁牛筋丸' } })
+    const first = await post('orders', customerToken, { customerId, items: [{ skuId, quantity: 1 }] }).expect(201)
+    expect(first.body.data.items[0].productName).toBe('爆汁牛筋丸')
+    await db.product.update({ where: { id: sku.productId }, data: { subtitle: '手打牛筋丸' } })
+    const second = await post('orders', customerToken, { customerId, items: [{ skuId, quantity: 1 }] }).expect(201)
+    expect(second.body.data.items[0].productName).toBe('手打牛筋丸')
+    expect((await get(`orders/${first.body.data.id}`, customerToken).expect(200)).body.data.items[0].productName).toBe('爆汁牛筋丸')
+    expect((await db.product.findUniqueOrThrow({ where: { id: sku.productId } })).name).toBe(sku.product.name)
+  } finally {
+    await db.product.update({ where: { id: sku.productId }, data: { subtitle: sku.product.subtitle } })
+  }
+})
+
 test('HTTP: create, quote, credit approval, stock deduction, shipping and receipt', async () => {
   const id = await quoted()
   await post(`orders/${id}/submit-finance`, customerToken, { creditRequested: true }).expect(201)

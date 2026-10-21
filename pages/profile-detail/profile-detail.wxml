@@ -1,6 +1,6 @@
 <view class="page profile-detail-page">
   <view wx:if="{{loading}}" class="profile-detail-state">加载中…</view>
-  <view wx:elif="{{error}}" class="profile-detail-state profile-detail-state--error">{{error}}</view>
+  <view wx:elif="{{error}}" class="profile-detail-state profile-detail-state--error"><text>{{error}}</text><button class="detail-button" bindtap="retry">{{error === '请先登录' ? '去登录' : '重试'}}</button></view>
   <view wx:else>
     <view wx:if="{{type === 'company'}}" class="profile-detail-card">
       <text class="profile-detail-card__title">企业资料</text>
@@ -11,30 +11,42 @@
     </view>
 
     <view wx:elif="{{type === 'address'}}" class="profile-detail-card">
-      <text class="profile-detail-card__title">收货地址</text>
+      <text class="profile-detail-card__title">收货信息</text>
       <view wx:for="{{addressRows}}" wx:key="label" class="profile-detail-row">
         <text class="profile-detail-row__label">{{item.label}}</text>
         <text class="profile-detail-row__value">{{item.value}}</text>
       </view>
-      <view class="profile-detail-action" bindtap="copyAddress">复制详细地址</view>
+      <button class="detail-button" bindtap="copyAddress" disabled="{{!addressText}}">复制完整收货信息</button>
+      <button class="detail-link" bindtap="goHelp">联系修改收货信息 ›</button>
+    </view>
+
+    <view wx:elif="{{type === 'credit'}}" class="profile-detail-card">
+      <text class="profile-detail-card__title">账期账户</text>
+      <block wx:if="{{creditEnabled}}">
+        <view wx:for="{{creditRows}}" wx:key="label" class="profile-detail-row"><text class="profile-detail-row__label">{{item.label}}</text><text class="profile-detail-row__value">{{item.value}}</text></view>
+        <text class="detail-note">额度单位：元。已用额度不代表逾期欠款，具体还款安排以双方约定为准。</text>
+      </block>
+      <view wx:else class="profile-detail-empty">暂未开通账期</view>
+      <button class="detail-link" bindtap="goHelp">账期咨询 ›</button>
     </view>
 
     <view wx:elif="{{type === 'prices'}}" class="profile-detail-card">
       <text class="profile-detail-card__title">协议价格</text>
-      <view wx:if="{{priceItems.length}}">
-        <view wx:for="{{priceItems}}" wx:key="index" class="price-rule">
+      <view class="price-search"><input value="{{keyword}}" bindinput="onSearch" placeholder="搜索商品、规格" maxlength="80" confirm-type="search" /><button wx:if="{{keyword}}" bindtap="clearSearch" aria-label="清空搜索">×</button></view>
+      <view wx:if="{{filteredPrices.length}}">
+        <button wx:for="{{filteredPrices}}" wx:key="id" class="price-rule" data-id="{{item.productId}}" data-sku="{{item.skuId}}" bindtap="openProduct">
           <view class="price-rule__main">
             <text class="price-rule__name">{{item.productName}}</text>
             <text wx:if="{{item.skuName || item.specText}}" class="price-rule__spec">{{item.skuName}} {{item.specText}}</text>
+            <text class="price-rule__spec">{{item.validity}}</text>
           </view>
           <view class="price-rule__amount">
             <text class="price-rule__price">¥{{item.price}}</text>
-            <text class="price-rule__base">基础价 ¥{{item.basePrice}}</text>
             <text wx:if="{{item.saleUnit}}" class="price-rule__unit">/{{item.saleUnit}}</text>
           </view>
-        </view>
+        </button>
       </view>
-      <view wx:else class="profile-detail-empty">暂无生效中的协议价格</view>
+      <view wx:else class="profile-detail-empty">{{keyword ? '未找到匹配的商品或规格' : '暂无生效中的协议价格'}}</view>
     </view>
   </view>
 </view>

@@ -1,6 +1,8 @@
 {
   "navigationBarTitleText": "首页",
+  "navigationStyle": "custom",
   "usingComponents": {
+    "brand-navigation": "/components/layout/brand-navigation/brand-navigation",
     "segmented-control": "/components/business/segmented-control/segmented-control",
     "product-row": "/components/business/product-row/product-row",
     "skeleton": "/components/feedback/loading-skeleton/loading-skeleton",

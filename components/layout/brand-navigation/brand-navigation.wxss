@@ -1,0 +1,41 @@
+.brand-navigation {
+  position: relative;
+  background: #fff;
+}
+.brand-navigation__row {
+  position: absolute;
+  left: 0;
+  right: 190rpx;
+  height: 54px;
+  display: flex;
+  align-items: center;
+}
+.brand-navigation__logo {
+  width: 190rpx;
+  height: 104rpx;
+  overflow: hidden;
+}
+.brand-navigation__logo image {
+  width: 190rpx;
+  height: 190rpx;
+  transform: translateY(-42rpx);
+}
+.brand-navigation__back {
+  flex-shrink: 0;
+  width: 70rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border-radius: 0;
+}
+.brand-navigation__back::after {
+  border: 0;
+}
+.brand-navigation__back image {
+  width: 32rpx;
+  height: 32rpx;
+}

@@ -23,6 +23,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'users', name: 'users', component: () => import('../views/user/UserListView.vue'), meta: { title: '用户管理', permission: 'role:manage' } },
       { path: 'audit-logs', name: 'audit-logs', component: () => import('../views/audit/AuditLogView.vue'), meta: { title: '审计日志', permission: 'audit:read', description: '查询后台关键操作记录' } },
       { path: 'system', name: 'system', component: () => import('../views/system/SystemView.vue'), meta: { title: '系统配置', permission: 'role:manage', description: '维护系统键值配置' } },
+      { path: 'ai-settings', name: 'ai-settings', component: () => import('../views/ai/AiSettingsView.vue'), meta: { title: 'AI 助手配置', permission: 'ai:configure', description: '模型连接、业务能力、自动任务与使用记录' } },
       { path: 'forbidden', name: 'forbidden', component: () => import('../views/system/ForbiddenView.vue'), meta: { title: '无权限' } }
     ]
   },

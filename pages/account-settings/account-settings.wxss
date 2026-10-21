@@ -1,0 +1,7 @@
+.settings-page { padding: 32rpx; }
+.settings-page button { width: 100%; font-weight: 400; }
+.settings-title { display: block; font-size: 32rpx; font-weight: 600; margin-bottom: 28rpx; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 24rpx; min-height: 108rpx; padding: 16rpx 0; margin: 0; background: transparent; border-bottom: 1rpx solid var(--border-default); border-radius: 0; font-size: 28rpx; color: var(--text-primary); line-height: 1.5; text-align: left; }
+.settings-row::after, .logout-button::after { border: 0; }
+.version-row text:last-child { text-align: right; color: var(--text-secondary); font-size: 25rpx; word-break: break-all; }
+.logout-button { margin-top: 72rpx; background: var(--bg-subtle); color: var(--status-danger); font-size: 28rpx; border-radius: 8rpx; }

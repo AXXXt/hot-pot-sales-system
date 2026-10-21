@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 
 const FACTORY_SCOPE: Prisma.ProductWhereInput = {
+  tenantId: 1,
   status: 'active',
   isFactoryProduct: true
 }
@@ -14,7 +15,7 @@ export class ProductVisibilityService {
   async whereForCustomer(customerId: number): Promise<Prisma.ProductWhereInput> {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true, productVisibilityMode: true }
+      select: { id: true, tenantId: true, productVisibilityMode: true }
     })
     if (!customer) {
       throw new NotFoundException({
@@ -32,32 +33,44 @@ export class ProductVisibilityService {
       where: { id: userId },
       select: {
         userType: true,
+        tenantId: true,
+        brandAccess: { select: { brandId: true } },
         customer: {
-          select: { id: true, productVisibilityMode: true }
+          select: { id: true, tenantId: true, productVisibilityMode: true }
         }
       }
     })
 
-    if (!actor) return { ...FACTORY_SCOPE }
-    if (actor.userType !== 'customer_user') return {}
-    if (!actor.customer) return { ...FACTORY_SCOPE }
+    if (!actor) return { id: { in: [] } }
+    if (actor.userType !== 'customer_user') {
+      return {
+        tenantId: actor.tenantId,
+        ...(actor.userType === 'super_admin' ? {} : {
+          brandId: { in: actor.brandAccess.map(item => item.brandId) }
+        })
+      }
+    }
+    if (!actor.customer || actor.customer.tenantId !== actor.tenantId) {
+      return { tenantId: actor.tenantId, status: 'active', id: { in: [] } }
+    }
 
     return this.scopeForCustomer(actor.customer)
   }
 
   private scopeForCustomer(
-    customer: { id: number; productVisibilityMode: string }
+    customer: { id: number; tenantId: number; productVisibilityMode: string }
   ): Prisma.ProductWhereInput {
     if (customer.productVisibilityMode === 'all') {
-      return { status: 'active' }
+      return { tenantId: customer.tenantId, status: 'active' }
     }
     if (customer.productVisibilityMode === 'custom') {
       return {
+        tenantId: customer.tenantId,
         status: 'active',
         visibleToCustomers: { some: { customerId: customer.id } }
       }
     }
-    return { ...FACTORY_SCOPE }
+    return { ...FACTORY_SCOPE, tenantId: customer.tenantId }
   }
 
   async assertVisible(productId: number, userId?: number): Promise<void> {

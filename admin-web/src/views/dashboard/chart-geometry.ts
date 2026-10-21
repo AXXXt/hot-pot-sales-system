@@ -47,13 +47,13 @@ const STATUS_COLORS: Record<string, string> = {
   待报价: '#d99a53',
   待确认: '#a16207',
   待财务审核: '#c7594f',
-  待发货: '#8d1c1c',
-  已发货: '#b86a51',
+  待发货: '#43715b',
+  已发货: '#709b82',
   已完成: '#6f8f5f',
   已取消: '#9ca3af'
 }
 
-const STATUS_FALLBACK_COLORS = ['#8d1c1c', '#c7594f', '#d99a53', '#b86a51', '#6f8f5f', '#8f7a70']
+const STATUS_FALLBACK_COLORS = ['#43715b', '#c7594f', '#d99a53', '#709b82', '#6f8f5f', '#8f7a70']
 
 function toFiniteNumber(value: unknown): number {
   const amount = Number(value)

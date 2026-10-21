@@ -4,7 +4,7 @@
   </view>
 
   <view class="category-topbar">
-    <search-bar placeholder="搜索商品名称、规格或品牌" bind:input="onSearch" />
+    <search-bar value="{{keyword}}" placeholder="搜索商品名称、规格或品牌" bind:input="onSearch" />
     <view class="category-toolbar">
       <scroll-view class="category-toolbar__scroll" scroll-x="true" enable-flex="true" scroll-with-animation="true" show-scrollbar="false">
         <view class="category-toolbar__track">
@@ -24,11 +24,14 @@
       <skeleton />
     </view>
 
+    <empty-state wx:elif="{{error}}" title="商品加载失败" desc="请检查网络连接后重试。" actionText="重试" bind:action="loadProducts" />
     <view wx:elif="{{products.length}}">
       <product-row wx:for="{{products}}" wx:key="id" productId="{{item.id}}" name="{{item.name}}" brandText="{{item.brandText}}" spec="{{item.spec}}" price="{{item.price}}" priceUnit="{{item.priceUnit}}" statusText="{{item.stockText}}" statusVariant="{{item.statusVariant}}" subText="{{item.subText}}" image="{{item.image}}" bind:tap="onProductTap" bind:add="onProductAdd" />
+      <view wx:if="{{loadingMore}}" class="pagination-status">正在加载更多…</view>
+      <button wx:elif="{{hasMore}}" size="mini" bindtap="loadMore">{{loadMoreError ? '加载失败，点击重试' : '加载更多'}}</button>
     </view>
 
-    <empty-state wx:else title="没有找到商品" desc="请调整筛选条件或搜索关键词。" actionText="重新搜索" bind:action="onSearch" />
+    <empty-state wx:else title="没有找到商品" desc="请调整筛选条件或搜索关键词。" actionText="清除筛选" bind:action="resetFilters" />
   </view>
   <view wx:if="{{cartCount > 0}}" class="floating-cart-entry" bindtap="goCart">
     <text class="floating-cart-entry__label">购物车</text>

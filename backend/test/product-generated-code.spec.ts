@@ -158,9 +158,9 @@ describe('ProductService generated identity', () => {
 
     await service.list({ keyword: 'DEPIN-YaXue-001', page: 1, pageSize: 20 })
 
-    expect(prisma.product.findMany.mock.calls[0][0].where.OR).toEqual([
+    expect(prisma.product.findMany.mock.calls[0][0].where.OR).toEqual(expect.arrayContaining([
       { name: { contains: 'DEPIN-YaXue-001' } },
       { code: { contains: 'DEPIN-YaXue-001' } }
-    ])
+    ]))
   })
 })

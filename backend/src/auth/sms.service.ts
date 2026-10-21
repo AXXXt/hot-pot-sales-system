@@ -1,8 +1,15 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { randomInt } from 'crypto'
 import { REDIS } from '../redis.provider'
 import { Inject } from '@nestjs/common'
 import { EXPERIENCE_SMS_CODE, experienceSmsSettings } from './sms-experience.config'
+import {
+  SmsPurpose,
+  TencentSmsClient,
+  TencentSmsError,
+  tencentSmsSettings
+} from './tencent-sms.client'
 
 const RATE_LIMIT_PREFIX = 'sms:rate:'
 const CODE_PREFIX = 'sms:code:'
@@ -19,6 +26,7 @@ export class SmsService {
   private readonly logger = new Logger(SmsService.name)
   private readonly memoryStore = new Map<string, { value: string; expiresAt: number }>()
   private redisDown = false
+  private tencentClient?: TencentSmsClient
 
   constructor(
     private readonly config: ConfigService,
@@ -27,6 +35,26 @@ export class SmsService {
 
   private isExperience() {
     return this.config.get<string>('SMS_PROVIDER') === 'experience'
+  }
+
+  private isTencent() {
+    return this.config.get<string>('SMS_PROVIDER') === 'tencentcloud'
+  }
+
+  private requiresSharedStore() {
+    return this.isExperience() || this.isTencent()
+  }
+
+  private getTencentClient() {
+    if (!this.tencentClient) {
+      const settings = tencentSmsSettings(this.config)
+      if (!settings.secretId || !settings.secretKey || !settings.sdkAppId ||
+          !settings.signName || !settings.loginTemplateId || !settings.registerTemplateId) {
+        throw this.unavailable()
+      }
+      this.tencentClient = new TencentSmsClient(settings)
+    }
+    return this.tencentClient
   }
 
   private assertExperienceAccess(phone: string) {
@@ -58,7 +86,7 @@ export class SmsService {
     try {
       return await this.redis.get(key)
     } catch {
-      if (this.isExperience()) throw this.unavailable()
+      if (this.requiresSharedStore()) throw this.unavailable()
       this.redisDown = true
       this.logger.warn('Redis unavailable, falling back to in-memory store')
       return this.redisGet(key)
@@ -73,7 +101,7 @@ export class SmsService {
     try {
       await this.redis.set(key, value, 'EX', ttl)
     } catch {
-      if (this.isExperience()) throw this.unavailable()
+      if (this.requiresSharedStore()) throw this.unavailable()
       this.redisDown = true
       this.logger.warn('Redis unavailable, falling back to in-memory store')
       this.memoryStore.set(key, { value, expiresAt: Date.now() + ttl * 1000 })
@@ -83,16 +111,17 @@ export class SmsService {
   private async redisDel(key: string): Promise<void> {
     if (this.redisDown) { this.memoryStore.delete(key); return }
     try { await this.redis.del(key) } catch {
-      if (this.isExperience()) throw this.unavailable()
+      if (this.requiresSharedStore()) throw this.unavailable()
       this.memoryStore.delete(key)
     }
   }
 
-  async sendCode(phone: string, ip: string): Promise<void> {
+  async sendCode(phone: string, ip: string, purpose: SmsPurpose = 'login'): Promise<void> {
     const provider = this.config.get<string>('SMS_PROVIDER', 'development')
     if (provider === 'disabled') {
       throw new HttpException({ message: '短信登录暂未开放，请联系工作人员', errorCode: 'SMS_DISABLED' }, HttpStatus.SERVICE_UNAVAILABLE)
     }
+    if (!['development', 'experience', 'tencentcloud'].includes(provider)) throw this.unavailable()
     if (this.isExperience()) this.assertExperienceAccess(phone)
     const isDev = provider === 'development'
     const rateKey = `${RATE_LIMIT_PREFIX}${phone}`
@@ -121,8 +150,21 @@ export class SmsService {
       code = this.config.get<string>('SMS_DEV_CODE', '123456')
       this.logger.warn(`[DEV_SMS] phone=${phone} code=${code}`)
     } else {
-      code = String(Math.floor(100000 + Math.random() * 900000))
-      this.logger.log(`[SMS] code sent to ${phone}`)
+      code = String(randomInt(100000, 1000000))
+    }
+
+    if (this.isTencent()) {
+      try {
+        await this.getTencentClient().send(phone, code, purpose)
+        this.logger.log(`Tencent SMS sent for ${purpose}`)
+      } catch (error) {
+        const providerError = error instanceof TencentSmsError ? error.code : 'PROVIDER_ERROR'
+        this.logger.error(`Tencent SMS send failed: ${providerError}`)
+        throw new HttpException(
+          { message: '验证码发送失败，请稍后重试', errorCode: 'SMS_PROVIDER_ERROR' },
+          HttpStatus.BAD_GATEWAY
+        )
+      }
     }
 
     const codeKey = this.codeKey(phone)

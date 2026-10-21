@@ -1,5 +1,12 @@
-<view class="quantity-stepper">
-  <text class="quantity-stepper__btn" bindtap="decrement">−</text>
-  <text class="quantity-stepper__value">{{value}}</text>
-  <text class="quantity-stepper__btn" bindtap="increment">+</text>
-</view>
+<view class="quantity-stepper"><button size="mini"
+    class="quantity-stepper__btn"
+    bindtap="decrement"
+    disabled="{{disabled || value <= min}}"
+    aria-label="减少数量"
+  >−</button><text class="quantity-stepper__value">{{value}}</text><button size="mini"
+    class="quantity-stepper__btn"
+    id="quantity-increment"
+    bindtap="increment"
+    disabled="{{disabled || value >= max}}"
+    aria-label="增加数量"
+  >+</button></view>

@@ -11,7 +11,7 @@ const permissions = [
 async function main() {
   const existing = await prisma.tenant.findUnique({ where: { id: 1 } })
   if (existing && existing.code !== 'weiduoxian') throw new Error('Tenant 1 is already occupied; refusing to overwrite it')
-  await prisma.tenant.upsert({ where: { id: 1 }, update: {}, create: { id: 1, code: 'weiduoxian', name: '河南唯多鲜食品有限公司' } })
+  await prisma.tenant.upsert({ where: { id: 1 }, update: {}, create: { id: 1, code: 'weiduoxian', name: '河南唯哆鲜食品有限公司' } })
   const role = await prisma.role.upsert({ where: { tenantId_code: { tenantId: 1, code: 'super_admin' } }, update: {}, create: { tenantId: 1, code: 'super_admin', name: '超级管理员' } })
   for (const [code, name, type] of permissions) {
     const permission = await prisma.permission.upsert({ where: { code }, update: {}, create: { code, name, type } })

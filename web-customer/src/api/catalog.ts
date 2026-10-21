@@ -16,7 +16,11 @@ export interface Product {
   id: number
   name: string
   subtitle?: string
+  displayName?: string
+  managementLabel?: string
+  nameNeedsReview?: boolean
   mainImageUrl?: string
+  images?: string[]
   baseSpec?: string
   deliveryText?: string
   description?: string
@@ -70,11 +74,21 @@ export interface PagedProducts {
 }
 
 export function getProducts(params: Record<string, unknown>) {
-  return http.get<PagedProducts>('/products', { params })
+  return http.get<PagedProducts>('/products', { params }).then(response => {
+    response.data.items = response.data.items.map(presentProduct)
+    return response
+  })
 }
 
 export function getProduct(id: number) {
-  return http.get<Product>(`/products/${id}`)
+  return http.get<Product>(`/products/${id}`).then(response => {
+    response.data = presentProduct(response.data)
+    return response
+  })
+}
+
+function presentProduct(product: Product): Product {
+  return { ...product, name: product.displayName?.trim() || product.subtitle?.trim() || product.name }
 }
 
 export function getCategories() {

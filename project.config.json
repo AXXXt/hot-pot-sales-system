@@ -30,6 +30,8 @@
       { "value": "web-customer", "type": "folder" },
       { "value": "official-site", "type": "folder" },
       { "value": "tests", "type": "folder" },
+      { "value": "output", "type": "folder" },
+      { "value": "tmp", "type": "folder" },
       { "value": "scripts", "type": "folder" },
       { "value": "backup", "type": "folder" },
       { "value": ".github", "type": "folder" },

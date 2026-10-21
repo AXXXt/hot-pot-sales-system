@@ -132,7 +132,7 @@ describe('ProductService category lifecycle', () => {
     prisma.productCategory.findMany.mockResolvedValue([{ id: 8, name: '鸭血', status: 'active' }])
     const service = createService(prisma)
 
-    await expect(service.categories(1)).resolves.toEqual([
+    await expect(service.categories()).resolves.toEqual([
       expect.objectContaining({ id: 8, codeSegment: 'YaXue' })
     ])
     expect(prisma.productCategory.findMany.mock.calls[0][0].where.status).toBe('active')

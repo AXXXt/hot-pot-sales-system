@@ -44,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function can(permission?: string) {
-    return !permission || permissionCodes.value.has(permission)
+    return !permission || profile.value?.user.userType === 'super_admin' || permissionCodes.value.has(permission)
   }
 
   return { profile, loading, accessToken, isAuthenticated, permissionCodes, signIn, loadProfile, signOut, reset, can }

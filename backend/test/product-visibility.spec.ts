@@ -21,35 +21,38 @@ describe('ProductVisibilityService', () => {
     const service = new ProductVisibilityService({} as any)
 
     await expect(service.whereForUser()).resolves.toEqual({
+      tenantId: 1,
       status: 'active',
       isFactoryProduct: true
     })
   })
 
-  it('does not restrict internal users even when they have a customer association', async () => {
+  it('scopes administrators to their tenant even when they have a customer association', async () => {
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           userType: 'super_admin',
+          tenantId: 9,
           customer: { id: 10, productVisibilityMode: 'factory' }
         })
       }
     }
     const service = new ProductVisibilityService(prisma as any)
 
-    await expect(service.whereForUser(1)).resolves.toEqual({})
+    await expect(service.whereForUser(1)).resolves.toEqual({ tenantId: 9 })
   })
 
   it.each([
-    ['factory', { status: 'active', isFactoryProduct: true }],
-    ['all', { status: 'active' }],
-    ['custom', { status: 'active', visibleToCustomers: { some: { customerId: 44 } } }]
+    ['factory', { tenantId: 9, status: 'active', isFactoryProduct: true }],
+    ['all', { tenantId: 9, status: 'active' }],
+    ['custom', { tenantId: 9, status: 'active', visibleToCustomers: { some: { customerId: 44 } } }]
   ])('builds the %s customer filter', async (mode, expected) => {
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           userType: 'customer_user',
-          customer: { id: 44, productVisibilityMode: mode }
+          tenantId: 9,
+          customer: { id: 44, tenantId: 9, productVisibilityMode: mode }
         })
       }
     }
@@ -58,15 +61,14 @@ describe('ProductVisibilityService', () => {
     await expect(service.whereForUser(2)).resolves.toEqual(expected)
   })
 
-  it('falls back to factory visibility for missing users and unbound customers', async () => {
+  it('denies catalog access for a missing authenticated user', async () => {
     const prisma = {
       user: { findUnique: jest.fn().mockResolvedValue(null) }
     }
     const service = new ProductVisibilityService(prisma as any)
 
     await expect(service.whereForUser(999)).resolves.toEqual({
-      status: 'active',
-      isFactoryProduct: true
+      id: { in: [] }
     })
   })
 
@@ -79,9 +81,25 @@ describe('ProductVisibilityService', () => {
 
     await expect(service.assertVisible(7, 999)).rejects.toBeInstanceOf(NotFoundException)
     expect(prisma.product.findFirst).toHaveBeenCalledWith({
-      where: { id: 7, status: 'active', isFactoryProduct: true },
+      where: { id: { in: [] } },
       select: { id: true }
     })
+  })
+
+  it('restricts staff reads to their assigned brands', async () => {
+    const service = new ProductVisibilityService({ user: { findUnique: jest.fn().mockResolvedValue({
+      tenantId: 9, userType: 'sales', brandAccess: [{ brandId: 4 }]
+    }) } } as any)
+    await expect(service.whereForUser(3)).resolves.toEqual({ tenantId: 9, brandId: { in: [4] } })
+  })
+
+  it('denies cross-tenant and missing customer associations', async () => {
+    const findUnique = jest.fn().mockResolvedValue({ tenantId: 9, userType: 'customer_user',
+      customer: { id: 1, tenantId: 10, productVisibilityMode: 'all' } })
+    const service = new ProductVisibilityService({ user: { findUnique } } as any)
+    await expect(service.whereForUser(3)).resolves.toEqual({ tenantId: 9, status: 'active', id: { in: [] } })
+    findUnique.mockResolvedValue({ tenantId: 9, userType: 'customer_user', customer: null })
+    await expect(service.whereForUser(3)).resolves.toEqual({ tenantId: 9, status: 'active', id: { in: [] } })
   })
 })
 
@@ -208,7 +226,7 @@ describe('ProductService visibility integration', () => {
 
   it('returns all active categories even when some currently have no visible products', async () => {
     const findMany = jest.fn().mockResolvedValue([])
-    const prisma = { productCategory: { findMany } }
+    const prisma = { productCategory: { findMany }, user: { findUnique: jest.fn().mockResolvedValue({ tenantId: 9 }) } }
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({ status: 'active', isFactoryProduct: true })
     }
@@ -218,14 +236,14 @@ describe('ProductService visibility integration', () => {
 
     expect(visibility.whereForUser).not.toHaveBeenCalled()
     expect(findMany).toHaveBeenCalledWith({
-      where: { status: 'active' },
+      where: { tenantId: 9, status: 'active' },
       orderBy: { sortOrder: 'asc' }
     })
   })
 
   it('returns all active categories to unrestricted internal users', async () => {
     const findMany = jest.fn().mockResolvedValue([])
-    const prisma = { productCategory: { findMany } }
+    const prisma = { productCategory: { findMany }, user: { findUnique: jest.fn().mockResolvedValue({ tenantId: 9 }) } }
     const visibility = {
       whereForUser: jest.fn().mockResolvedValue({})
     }
@@ -234,7 +252,7 @@ describe('ProductService visibility integration', () => {
     await service.categories(1)
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { status: 'active' },
+      where: { tenantId: 9, status: 'active' },
       orderBy: { sortOrder: 'asc' }
     })
   })

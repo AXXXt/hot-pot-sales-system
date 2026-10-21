@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Post, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req, ForbiddenException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { OrderService } from './order.service'
 import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, CreateRefundDto, QuoteOrderDto } from './dto/order.dto'
@@ -29,6 +29,13 @@ export class OrderController {
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10
   ) {
     return this.service.list({ status, customerId: req.orderScope.customerId ?? (customerId ? parseInt(customerId, 10) : undefined), tenantId: req.orderScope.tenantId, page, pageSize })
+  }
+
+  @Get('orders/me/overview')
+  @ApiOperation({ summary: '当前客户采购概览' })
+  async overview(@Req() req: any) {
+    if (!req.orderScope.customerId) throw new ForbiddenException('当前账号未关联客户')
+    return this.service.overview(req.orderScope)
   }
 
   @Get('orders/:id')

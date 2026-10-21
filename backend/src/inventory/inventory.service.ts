@@ -3,6 +3,7 @@ import { AuditAction } from '@prisma/client'
 import { customAlphabet } from 'nanoid'
 import { PrismaService } from '../prisma.service'
 import { AuditService } from '../audit/audit.service'
+import { productDisplayName } from '../product/product-presentation'
 import {
   CompleteStocktakeDto,
   CreateAdjustmentDto,
@@ -37,6 +38,7 @@ const SKU_INCLUDE = {
     select: {
       id: true,
       name: true,
+      subtitle: true,
       code: true,
       status: true,
       brand: { select: { id: true, name: true, code: true } },
@@ -77,6 +79,7 @@ export class InventoryService {
       where.OR = [
         { skuCode: { contains: keyword } },
         { product: { name: { contains: keyword } } },
+        { product: { subtitle: { contains: keyword } } },
         { product: { code: { contains: keyword } } }
       ]
     }
@@ -106,7 +109,7 @@ export class InventoryService {
         minOrderQty: sku.minOrderQty,
         status: sku.status,
         productId: sku.productId,
-        productName: sku.product?.name,
+        productName: sku.product ? productDisplayName(sku.product) : undefined,
         productCode: sku.product?.code,
         brandId: sku.product?.brand?.id,
         brandName: sku.product?.brand?.name,
@@ -144,7 +147,7 @@ export class InventoryService {
               skuCode: true,
               specText: true,
               saleUnit: true,
-              product: { select: { id: true, name: true, code: true } }
+              product: { select: { id: true, name: true, subtitle: true, code: true } }
             }
           },
           operator: { select: { id: true, name: true } }
@@ -159,7 +162,7 @@ export class InventoryService {
     return {
       items: items.map((m: any) => ({
         ...m,
-        productName: m.sku?.product?.name,
+        productName: m.sku?.product ? productDisplayName(m.sku.product) : undefined,
         productCode: m.sku?.product?.code,
         skuCode: m.sku?.skuCode,
         specText: m.sku?.specText,

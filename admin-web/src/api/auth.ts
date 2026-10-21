@@ -1,7 +1,7 @@
 import http from './request'
 
 export interface UserProfile {
-  user: { id: number; name: string; phone: string; status: string }
+  user: { id: number; name: string; phone: string; status: string; userType?: string }
   customer: Record<string, unknown> | null
   tenant: { id: number; name: string; code: string }
   brands: Array<{ id: number; name: string; code: string }>
@@ -10,8 +10,8 @@ export interface UserProfile {
   menus: Array<{ code: string; name: string; path: string | null }>
 }
 
-export function sendCode(phone: string) {
-  return http.post('/auth/send-code', { phone })
+export function sendCode(phone: string, purpose: 'login' | 'register' = 'login') {
+  return http.post('/auth/send-code', { phone, purpose })
 }
 
 export function login(phone: string, code: string) {

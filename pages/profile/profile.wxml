@@ -1,49 +1,64 @@
-<view class="page profile-page">
-  <view class="profile-header">
-    <text class="profile-title">我的</text>
+<view class="page account-page">
+  <view class="identity-tools">
+    <image class="brand-mark" src="/assets/brand/logo.jpg" mode="aspectFit" />
+    <button class="text-button" bindtap="goSettings">账户设置 ›</button>
   </view>
-
-  <view wx:if="{{!isLoggedIn}}" class="profile-login-card">
-    <text class="profile-login-card__title">欢迎使用</text>
-    <text class="profile-login-card__desc">登录即可查看企业资料、协议价格和历史订单</text>
-    <view class="profile-login-card__btn" bindtap="goLogin">手机号登录</view>
-    <view class="profile-login-card__btn profile-login-card__btn--secondary" bindtap="goRegister">手机号注册</view>
+  <view wx:if="{{!isLoggedIn}}" class="guest">
+    <text class="store-name">欢迎来到唯哆鲜</text>
+    <text class="muted">登录后查看门店订单与专属价格</text>
+    <button class="primary-action" bindtap="goLogin">登录</button>
+    <button class="text-button" bindtap="goRegister">注册门店</button>
   </view>
-
-  <view wx:else class="profile-content">
-    <view class="profile-card">
-      <text class="profile-card__label">企业信息</text>
-      <view class="profile-card__row">
-        <text class="profile-card__key">门店名称</text>
-        <text class="profile-card__val">{{storeName}}</text>
-      </view>
-      <view class="profile-card__row">
-        <text class="profile-card__key">用户等级</text>
-        <text class="profile-card__val profile-card__val--level">{{levelName}}</text>
-      </view>
-      <view class="profile-card__row profile-card__row--last">
-        <text class="profile-card__key">所在城市</text>
-        <text class="profile-card__val">{{city}}</text>
+  <view wx:elif="{{!hasProfile}}" class="state">
+    <text>{{error || '正在加载门店资料…'}}</text>
+    <button wx:if="{{error}}" class="text-button" bindtap="refreshProfile">重新加载</button>
+  </view>
+  <block wx:else>
+    <view class="identity">
+      <text class="store-name">{{storeName}}</text>
+      <text class="identity-contact">{{contactName}} · {{phone}}</text>
+      <view class="identity-bottom">
+        <text class="identity-status">{{statusText}}<text class="level"> · {{levelName}}</text></text>
+        <button class="text-button" data-type="company" bindtap="onProtectedTap">企业资料 ›</button>
       </view>
     </view>
-
-    <view class="profile-menu">
-      <view class="profile-menu__item" data-type="company" bindtap="onProtectedTap">
-        <text>企业资料</text>
-        <text class="profile-menu__arrow">></text>
+    <block wx:if="{{hasCustomer}}">
+      <view class="account-section">
+        <view class="section-heading"><text>我的订单</text><button class="text-button" bindtap="goOrders">全部订单 ›</button></view>
+        <view wx:if="{{overviewLoading}}" class="inline-state">正在加载订单…</view>
+        <view wx:elif="{{overviewError}}" class="inline-state"><text>{{overviewError}}</text><button class="text-button" bindtap="retryOverview">重试</button></view>
+        <view wx:else class="order-grid">
+          <button wx:for="{{orderEntries}}" wx:key="status" class="order-entry" data-status="{{item.status}}" bindtap="goOrders">
+            <text class="order-count {{item.count ? 'has-count' : ''}}">{{item.count}}</text><text>{{item.label}}</text>
+          </button>
+        </view>
       </view>
-      <view class="profile-menu__item" data-type="address" bindtap="onProtectedTap">
-        <text>收货地址</text>
-        <text class="profile-menu__arrow">></text>
+      <view wx:if="{{creditEnabled}}" class="account-section credit-section">
+        <view class="section-heading"><text>账期账户</text><button class="text-button" data-type="credit" bindtap="onProtectedTap">查看详情 ›</button></view>
+        <view class="credit-caption"><text>可用额度（元）</text><button class="text-button" bindtap="toggleAmounts" aria-label="{{hideAmounts ? '显示金额' : '隐藏金额'}}">{{hideAmounts ? '显示金额' : '隐藏金额'}}</button></view>
+        <text class="credit-amount">{{hideAmounts ? '••••' : creditRemaining}}</text>
+        <view class="credit-meta"><text>总额度 {{hideAmounts ? '••••' : creditLimit}}</text><text>已用 {{hideAmounts ? '••••' : creditUsed}}</text><text>账期 {{creditDays}}</text></view>
       </view>
-      <view class="profile-menu__item" data-type="prices" bindtap="onProtectedTap">
-        <text>协议价格</text>
-        <text class="profile-menu__arrow">></text>
+      <view class="account-section">
+        <view class="section-heading"><text>最近采购</text><button class="text-button" data-status="completed" bindtap="goOrders">采购记录 ›</button></view>
+        <view wx:if="{{overviewLoading}}" class="inline-state">正在加载采购记录…</view>
+        <view wx:elif="{{overviewError}}" class="inline-state">采购记录暂不可用</view>
+        <view wx:elif="{{!recentOrders.length}}" class="inline-state"><text>暂无已完成的采购</text><button class="text-button" bindtap="goShop">去选品 ›</button></view>
+        <view wx:for="{{recentOrders}}" wx:key="id" class="recent-order">
+          <view class="recent-main" data-id="{{item.id}}" bindtap="openOrder">
+            <image wx:if="{{item.image && !item.imageFailed}}" class="recent-image" src="{{item.image}}" mode="aspectFill" data-index="{{index}}" binderror="onImageError" />
+            <view wx:else class="recent-image image-placeholder"><image src="/assets/brand/orders.png" mode="aspectFit" /></view>
+            <view class="recent-info"><text class="recent-name">{{item.productName}}{{item.skuCount > 1 ? ' 等' : ''}}</text><text class="muted">{{item.spec}} · {{item.skuCount}} 个规格</text><text class="muted">{{item.date}}</text></view>
+          </view>
+          <button class="repeat-button" data-id="{{item.id}}" bindtap="onRepeat" disabled="{{repeatBuying}}">再次采购</button>
+        </view>
       </view>
-      <view class="profile-menu__item profile-menu__item--last" bindtap="onLogout">
-        <text class="profile-menu__logout">退出登录</text>
-        <text class="profile-menu__arrow">></text>
+      <view class="account-section service-section">
+        <view class="section-heading"><text>采购服务</text></view>
+        <button class="service-row" data-type="prices" bindtap="onProtectedTap"><text>协议价格</text><text class="chevron">›</text></button>
+        <button class="service-row" data-type="address" bindtap="onProtectedTap"><text>收货信息</text><text class="chevron">›</text></button>
       </view>
-    </view>
-  </view>
+    </block>
+  </block>
+  <button class="service-row" bindtap="goHelp"><text>联系与帮助</text><text class="chevron">›</text></button>
 </view>

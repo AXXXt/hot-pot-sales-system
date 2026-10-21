@@ -19,8 +19,8 @@ export interface ClientProfile {
   brands: Array<{ id: number; name: string; code: string; logoUrl?: string }>
 }
 
-export function sendCode(phone: string) {
-  return http.post('/auth/send-code', { phone })
+export function sendCode(phone: string, purpose: 'login' | 'register' = 'login') {
+  return http.post('/auth/send-code', { phone, purpose })
 }
 
 export function login(phone: string, code: string) {

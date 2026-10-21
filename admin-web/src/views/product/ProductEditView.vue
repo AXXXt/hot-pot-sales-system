@@ -1,27 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { UploadRawFile, UploadRequestOptions } from 'element-plus'
-import { createProduct, createSku, getBrands, getCategories, getProductDetail, updateProduct, updateSku, updateSkuStatus, uploadProductImage } from '../../api/product'
+import { createProduct, createSku, getBrands, getCategories, getProductDetail, updateProduct, updateProductStatus, updateSku, updateSkuStatus, uploadProductImage } from '../../api/product'
 import { validateProductImageFile } from '../../utils/product-image'
 
 const route = useRoute()
 const router = useRouter()
-const id = Number(route.params.id)
-const isNew = !id
-const loading = ref(!isNew)
+const id = computed(() => Number(route.params.id))
+const isNew = computed(() => !id.value)
+const loading = ref(!isNew.value)
 const saving = ref(false)
+const skuSaving = ref(false)
+const statusSaving = ref(false)
+const productStatus = ref('')
 const uploadingImage = ref(false)
+const imageInput = ref<HTMLInputElement>()
+const uploadProgress = ref('')
 const brands = ref<any[]>([])
 const categories = ref<any[]>([])
 const skus = ref<any[]>([])
 const skuVisible = ref(false)
 const originalBrandId = ref<number | null>(null)
 const originalCategoryId = ref<number | null>(null)
+const nameError = ref('')
 
-const form = reactive<any>({ name: '', subtitle: '', productCode: '', brandId: null, categoryId: null, description: '', specification: '', imageUrl: '', isFactoryProduct: false, supportSample: false, isRecommended: false, isNew: false, isHot: false })
-const sku = reactive<any>({ id: null, skuCode: '', specName: '', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
+const form = reactive<any>({ name: '', subtitle: '', productCode: '', brandId: null, categoryId: null, description: '', specification: '', images: [] as string[], isFactoryProduct: false, supportSample: false, isRecommended: false, isNew: false, isHot: false })
+const sku = reactive<any>({ id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 const selectedBrand = computed(() => brands.value.find((item) => item.id === form.brandId))
@@ -32,28 +37,30 @@ const generatedName = computed(() => selectedBrand.value && selectedCategory.val
 const generatedCodePreview = computed(() => selectedBrand.value && selectedCategory.value
   ? `${selectedBrand.value.code}-${selectedCategory.value.codeSegment}-***`
   : '')
-const identityChanged = computed(() => !isNew && (
+const identityChanged = computed(() => !isNew.value && (
   form.brandId !== originalBrandId.value || form.categoryId !== originalCategoryId.value
 ))
-const displayedName = computed(() => isNew || identityChanged.value ? generatedName.value : form.name || generatedName.value)
-const displayedCode = computed(() => isNew || identityChanged.value ? generatedCodePreview.value : form.productCode || generatedCodePreview.value)
+const displayedName = computed(() => isNew.value || identityChanged.value ? generatedName.value : form.name || generatedName.value)
+const displayedCode = computed(() => isNew.value || identityChanged.value ? generatedCodePreview.value : form.productCode || generatedCodePreview.value)
 
 async function init() {
+  loading.value = true
   try {
     const [brandResponse, categoryResponse]: any[] = await Promise.all([getBrands(), getCategories()])
     brands.value = dataOf(brandResponse).items || dataOf(brandResponse) || []
     categories.value = dataOf(categoryResponse).items || dataOf(categoryResponse) || []
-    if (id) {
-      const r: any = await getProductDetail(id)
+    if (id.value) {
+      const r: any = await getProductDetail(id.value)
       const x = dataOf(r)
-      form.name = x.name || ''
+      productStatus.value = x.status
+      form.name = x.managementLabel || x.name || ''
       form.subtitle = x.subtitle || ''
       form.productCode = x.code || ''
       form.brandId = x.brandId || x.brand?.id
       form.categoryId = x.categoryId || x.category?.id
       form.description = x.description || ''
       form.specification = x.baseSpec || ''
-      form.imageUrl = x.mainImageUrl || ''
+      form.images = Array.isArray(x.images) && x.images.length ? [...x.images] : x.mainImageUrl ? [x.mainImageUrl] : []
       form.isFactoryProduct = x.isFactoryProduct ?? false
       form.supportSample = x.supportSample ?? false
       form.isRecommended = x.isRecommended ?? false
@@ -67,6 +74,7 @@ async function init() {
 }
 
 async function saveProduct() {
+  if (saving.value) return
   if (uploadingImage.value) {
     ElMessage.warning('商品图片正在上传，请稍候')
     return
@@ -75,6 +83,9 @@ async function saveProduct() {
     ElMessage.warning('请选择品牌和分类')
     return
   }
+  const productName = form.subtitle.trim()
+  nameError.value = !productName ? '请填写真实商品名称' : Array.from(productName).length > 255 ? '商品名称不能超过255个字' : ''
+  if (nameError.value) return
 
   if (identityChanged.value) {
     try {
@@ -92,8 +103,8 @@ async function saveProduct() {
   try {
     const body: any = {
       brandId: form.brandId, categoryId: form.categoryId,
-      subtitle: form.subtitle,
-      baseSpec: form.specification, mainImageUrl: form.imageUrl,
+      subtitle: productName,
+      baseSpec: form.specification, mainImageUrl: form.images[0] || '', images: [...form.images],
       description: form.description,
       isFactoryProduct: form.isFactoryProduct,
       supportSample: form.supportSample,
@@ -102,72 +113,103 @@ async function saveProduct() {
       isHot: form.isHot
     }
     let response: any
-    if (isNew) {
+    if (isNew.value) {
       response = await createProduct(body)
     } else {
-      response = await updateProduct(id, body)
+      response = await updateProduct(id.value, body)
     }
     const product = dataOf(response)
-    form.name = product.name || generatedName.value
+    form.name = product.managementLabel || form.name || generatedName.value
+    form.subtitle = product.subtitle || productName
     form.productCode = product.code || form.productCode
     form.brandId = product.brandId || product.brand?.id || form.brandId
     form.categoryId = product.categoryId || product.category?.id || form.categoryId
     originalBrandId.value = form.brandId
     originalCategoryId.value = form.categoryId
     ElMessage.success(`商品保存成功，正式编码：${form.productCode}`)
-    if (isNew) await router.push('/products')
+    if (isNew.value) await router.push(`/products/${product.id}/edit`)
   } catch (e: any) { ElMessage.warning(e.message || '保存失败') }
   finally { saving.value = false }
 }
 
-function beforeImageUpload(file: UploadRawFile) {
-  const message = validateProductImageFile(file)
-  if (message) {
-    ElMessage.warning(message)
-    return false
+async function handleImageSelection(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  if (!files.length || uploadingImage.value) return
+  if (form.images.length + files.length > 9) {
+    ElMessage.warning(`每个商品最多9张图片，还可添加${9 - form.images.length}张`)
+    return
   }
-  return true
-}
-
-async function handleImageUpload(options: UploadRequestOptions) {
-  const previousUrl = form.imageUrl
+  const invalid = files.map(file => ({ file, message: validateProductImageFile(file) })).find(item => item.message)
+  if (invalid) { ElMessage.warning(`${invalid.file.name}：${invalid.message}`); return }
   uploadingImage.value = true
+  let succeeded = 0
   try {
-    const response: any = await uploadProductImage(options.file)
-    const data = dataOf(response)
-    if (typeof data.url !== 'string' || !data.url) {
-      throw new Error('上传响应缺少图片地址')
+    // 按选择顺序上传，单张失败不覆盖其他成功图片。
+    for (const [index, file] of files.entries()) {
+      uploadProgress.value = `正在上传 ${index + 1} / ${files.length}`
+      try {
+        const data = dataOf(await uploadProductImage(file))
+        if (typeof data.url !== 'string' || !data.url) throw new Error('上传响应缺少图片地址')
+        if (!form.images.includes(data.url)) form.images.push(data.url)
+        succeeded++
+      } catch (error: any) { ElMessage.warning(`${file.name}：${error.message || '上传失败，请重新添加'}`) }
     }
-    form.imageUrl = data.url
-    ElMessage.success('商品图片上传成功')
-    return data
-  } catch (error: any) {
-    form.imageUrl = previousUrl
-    ElMessage.warning(error.message || '商品图片上传失败')
-    throw error
-  } finally {
-    uploadingImage.value = false
-  }
+    if (succeeded) ElMessage.success(`已上传${succeeded}张图片，保存商品后生效`)
+  } finally { uploadingImage.value = false; uploadProgress.value = '' }
 }
 
-function removeImage() {
-  form.imageUrl = ''
+function moveImage(index: number, target: number) {
+  if (uploadingImage.value || target < 0 || target >= form.images.length) return
+  const [image] = form.images.splice(index, 1)
+  form.images.splice(target, 0, image)
+}
+
+function removeImage(index: number) {
+  if (!uploadingImage.value) form.images.splice(index, 1)
 }
 
 function editSku(x?: any) {
-  Object.assign(sku, x ? { ...x, salePrice: Number(x.basePrice || x.salePrice || 0) } : { id: null, skuCode: '', specName: '', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
+  Object.assign(sku, x ? { ...x, specName: x.specText || '', saleUnit: x.saleUnit || '件', salePrice: Number(x.basePrice ?? 0) } : { id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
   skuVisible.value = true
 }
 
 async function saveSku() {
+  if (skuSaving.value) return
+  if (!sku.specName.trim() || !sku.saleUnit.trim() || (!sku.id && !sku.skuCode.trim())) {
+    ElMessage.warning('请填写规格编码、规格名和销售单位')
+    return
+  }
+  skuSaving.value = true
   try {
-    const body: any = { specText: sku.specName, saleUnit: '件', basePrice: String(sku.salePrice), minOrderQty: sku.minOrderQty, stockNum: sku.stockNum }
+    const body: any = { specText: sku.specName.trim(), saleUnit: sku.saleUnit.trim(), basePrice: String(sku.salePrice), minOrderQty: sku.minOrderQty }
     if (sku.id) { await updateSku(sku.id, body) }
-    else { body.skuCode = sku.skuCode; body.name = sku.specName; await createSku(id, body) }
+    else { body.skuCode = sku.skuCode.trim(); body.name = sku.specName.trim(); await createSku(id.value, body) }
     ElMessage.success('商品规格已保存')
     skuVisible.value = false
     await init()
   } catch (e: any) { ElMessage.warning(e.message || '商品规格保存失败') }
+  finally { skuSaving.value = false }
+}
+
+async function toggleProductStatus() {
+  if (statusSaving.value) return
+  const status = productStatus.value === 'active' ? 'disabled' : 'active'
+  try {
+    await ElMessageBox.confirm(status === 'active'
+      ? '上架后将按客户可见范围展示；零库存规格仍不可下单。确认上架？'
+      : '下架后客户将无法查看和购买该商品。确认下架？', '商品上下架', {
+        type: 'warning', confirmButtonText: status === 'active' ? '确认上架' : '确认下架',
+        cancelButtonText: '取消'
+      })
+    statusSaving.value = true
+    await updateProductStatus(id.value, status)
+    productStatus.value = status
+    ElMessage.success(status === 'active' ? '商品已上架' : '商品已下架')
+  } catch (e: any) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.warning(e.message || '商品状态更新失败')
+  } finally { statusSaving.value = false }
 }
 
 async function toggleSku(x: any) {
@@ -179,6 +221,7 @@ async function toggleSku(x: any) {
 }
 
 onMounted(init)
+watch(() => route.params.id, init)
 </script>
 
 <template>
@@ -188,15 +231,21 @@ onMounted(init)
       <div><el-button @click="router.back()">返回</el-button><el-button type="primary" :loading="saving" :disabled="uploadingImage" @click="saveProduct">保存商品</el-button></div>
     </div>
 
+    <el-alert v-if="!isNew && productStatus === 'disabled'" title="该商品当前已下架，小程序和采购网站不可见。请核对资料与规格后上架。" type="warning" :closable="false" show-icon class="publication-alert">
+      <el-button type="primary" :loading="statusSaving" @click="toggleProductStatus">上架商品</el-button>
+    </el-alert>
+    <el-alert v-if="!isNew && productStatus === 'active' && !skus.some(item => item.status === 'active' && item.stockNum > 0)" title="商品已上架，但暂无有货规格。请在库存管理中按实际数量入库，客户才能下单。" type="info" :closable="false" class="publication-alert" />
+    <el-alert v-if="!loading && !isNew && !form.subtitle.trim()" title="尚未填写真实商品名称，客户暂时看到管理标签，请补齐下方商品名称。" type="warning" :closable="false" class="publication-alert" />
+
     <el-card shadow="never">
       <el-form :model="form" label-width="100">
         <el-row :gutter="20">
+          <el-col :span="24"><el-form-item label="商品名称" for="product-title" required :error="nameError"><el-input id="product-title" v-model="form.subtitle" maxlength="255" placeholder="请输入真实商品名称，例如：爆汁牛筋丸" @input="nameError = ''" /></el-form-item></el-col>
           <el-col :span="12" :xs="24"><el-form-item label="品牌" required><el-select v-model="form.brandId" filterable placeholder="请选择品牌" style="width:100%"><el-option v-for="x in brands" :key="x.id" :label="x.name" :value="x.id" /></el-select></el-form-item></el-col>
           <el-col :span="12" :xs="24"><el-form-item label="分类" required><el-select v-model="form.categoryId" filterable placeholder="请选择分类" style="width:100%"><el-option v-for="x in categories" :key="x.id" :label="x.name" :value="x.id" /></el-select></el-form-item></el-col>
-          <el-col :span="12" :xs="24"><el-form-item label="商品名称"><el-input :model-value="displayedName" readonly placeholder="选择品牌和分类后自动生成" /></el-form-item></el-col>
+          <el-col :span="12" :xs="24"><el-form-item label="管理标签" for="product-label"><el-input id="product-label" :model-value="displayedName" readonly placeholder="选择品牌和分类后自动生成" /></el-form-item></el-col>
           <el-col :span="12" :xs="24"><el-form-item label="商品编码"><el-input :model-value="displayedCode" readonly placeholder="选择品牌和分类后预览" /></el-form-item></el-col>
-          <el-col :span="24"><p class="identity-tip">商品名称由“品牌 + 分类”生成；商品编码由系统保存时正式分配。更换品牌或分类将生成新商品编码。</p></el-col>
-          <el-col :span="12" :xs="24"><el-form-item label="副标题"><el-input v-model="form.subtitle" /></el-form-item></el-col>
+          <el-col :span="24"><p class="identity-tip">管理标签由“品牌 + 分类”生成，商品编码由系统分配。商品名称可按实际商品修改，不影响标签、编码、规格或库存。更换品牌或分类将生成新商品编码。</p></el-col>
           <el-col :span="12" :xs="24"><el-form-item label="规格"><el-input v-model="form.specification" /></el-form-item></el-col>
           <el-col :span="24">
             <div class="product-flag-grid">
@@ -208,33 +257,29 @@ onMounted(init)
             </div>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="商品主图">
+            <el-form-item label="商品图片">
               <div class="product-image-field">
-                <div v-if="form.imageUrl" class="product-image-preview">
-                  <el-image
-                    :src="form.imageUrl"
-                    :preview-src-list="[form.imageUrl]"
-                    fit="cover"
-                    preview-teleported
-                  />
+                <div v-if="form.images.length" class="product-image-grid">
+                  <div v-for="(url, index) in form.images" :key="url" class="product-image-card">
+                    <div class="product-image-preview">
+                      <el-image :src="url" :preview-src-list="form.images" :initial-index="index" fit="contain" preview-teleported />
+                      <span class="product-image-number">{{ index === 0 ? '主图' : `第${index + 1}张` }}</span>
+                    </div>
+                    <div class="product-image-controls">
+                      <el-button size="small" :disabled="uploadingImage || index === 0" :aria-label="`将第${index + 1}张设为主图`" @click="moveImage(index, 0)">设为主图</el-button>
+                      <el-button size="small" :disabled="uploadingImage || index === 0" :aria-label="`前移第${index + 1}张图片`" @click="moveImage(index, index - 1)">前移</el-button>
+                      <el-button size="small" :disabled="uploadingImage || index === form.images.length - 1" :aria-label="`后移第${index + 1}张图片`" @click="moveImage(index, index + 1)">后移</el-button>
+                      <el-button size="small" type="danger" :disabled="uploadingImage" :aria-label="`删除第${index + 1}张图片`" @click="removeImage(index)">删除</el-button>
+                    </div>
+                  </div>
                 </div>
-                <div v-else class="product-image-empty">暂无商品主图</div>
-
+                <div v-else class="product-image-empty">暂无商品图片</div>
+                <input ref="imageInput" class="product-image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="选择商品图片" :disabled="uploadingImage || saving" @change="handleImageSelection" />
                 <div class="product-image-actions">
-                  <el-upload
-                    accept="image/jpeg,image/png,image/webp"
-                    :show-file-list="false"
-                    :before-upload="beforeImageUpload"
-                    :http-request="handleImageUpload"
-                    :disabled="uploadingImage"
-                  >
-                    <el-button type="primary" plain :loading="uploadingImage">
-                      {{ form.imageUrl ? '更换图片' : '选择图片' }}
-                    </el-button>
-                  </el-upload>
-                  <el-button v-if="form.imageUrl" type="danger" plain :disabled="uploadingImage" @click="removeImage">移除图片</el-button>
+                  <el-button type="primary" plain :loading="uploadingImage" :disabled="form.images.length >= 9 || saving" @click="imageInput?.click()">添加图片</el-button>
+                  <span aria-live="polite">{{ uploadProgress || `${form.images.length} / 9 张` }}</span>
                 </div>
-                <p class="product-image-tip">支持 JPG、PNG、WebP，单张不超过 5MB；选择后立即上传。</p>
+                <p class="product-image-tip">最多9张，支持 JPG、PNG、WebP，单张不超过5MB。第一张为列表主图，详情页按顺序滑动查看；添加、排序或删除后请保存商品。</p>
               </div>
             </el-form-item>
           </el-col>
@@ -253,7 +298,7 @@ onMounted(init)
         <el-table-column prop="minOrderQty" label="起订量" width="80" />
         <el-table-column label="库存" width="110">
           <template #default="{ row }">
-            <el-input-number v-model="row.stockNum" :min="0" size="small" controls-position="right" style="width:90px" @change="(v: number) => updateSku(row.id, { stockNum: v })" />
+            <span>{{ row.stockNum }}（出入库调整）</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="80"><template #default="{ row }"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? '启用' : '禁用' }}</el-tag></template></el-table-column>
@@ -268,13 +313,14 @@ onMounted(init)
 
     <el-dialog v-model="skuVisible" :title="sku.id ? '编辑商品规格' : '新建商品规格'" width="480">
       <el-form label-width="90">
-        <el-form-item label="编码"><el-input v-model="sku.skuCode" /></el-form-item>
+        <el-form-item label="编码"><el-input v-model="sku.skuCode" :disabled="!!sku.id" maxlength="100" /></el-form-item>
         <el-form-item label="规格名"><el-input v-model="sku.specName" /></el-form-item>
+        <el-form-item label="销售单位"><el-input v-model="sku.saleUnit" maxlength="50" placeholder="例如：袋、箱" /></el-form-item>
         <el-form-item label="售价"><el-input-number v-model="sku.salePrice" :min="0" :precision="2" style="width:100%" /></el-form-item>
         <el-form-item label="起订量"><el-input-number v-model="sku.minOrderQty" :min="1" /></el-form-item>
-        <el-form-item label="库存"><el-input-number v-model="sku.stockNum" :min="0" /></el-form-item>
+        <p style="color:var(--brand-text-soft);font-size:12px">库存通过库存管理中的出入库单调整；新规格初始库存为0。</p>
       </el-form>
-      <template #footer><el-button @click="skuVisible = false">取消</el-button><el-button type="primary" @click="saveSku">保存</el-button></template>
+      <template #footer><el-button @click="skuVisible = false">取消</el-button><el-button type="primary" :loading="skuSaving" @click="saveSku">保存</el-button></template>
     </el-dialog>
   </section>
 </template>
@@ -282,13 +328,21 @@ onMounted(init)
 <style scoped>
 .page-heading, .card-title { display: flex; justify-content: space-between; align-items: center; }
 .page-heading { margin-bottom: 20px; }
-.card-title { color: var(--brand-text); font-weight: 750; }
+.card-title { color: var(--brand-text); font-weight: 600; }
 .sku-card { margin-top: 18px; }
+.publication-alert { margin-bottom: 18px; }
 .product-flag-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 20px; row-gap: 8px; margin-bottom: 18px; }
 .product-flag-item { display: grid; grid-template-columns: 100px auto; align-items: center; min-height: 40px; }
 .product-flag-item span { padding-right: 12px; color: var(--el-text-color-regular); text-align: right; line-height: 32px; }
+.product-image-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.product-image-card { width: 224px; }
+.product-image-preview { width: 100% !important; }
+.product-image-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.product-image-controls .el-button { margin-left: 0; min-height: 32px; }
+.product-image-number { position: absolute; top: 6px; left: 6px; padding: 0 8px; color: white; background: #273e32; border-radius: 3px; font-size: 12px; pointer-events: none; }
+.product-image-input { display: none; }
 .product-image-field { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-.product-image-preview, .product-image-empty { width: 168px; height: 168px; overflow: hidden; border: 1px dashed var(--brand-border); }
+.product-image-preview, .product-image-empty { position: relative; width: 168px; height: 168px; overflow: hidden; border: 1px dashed var(--brand-border); }
 .product-image-preview :deep(.el-image) { width: 100%; height: 100%; display: block; }
 .product-image-empty { display: flex; align-items: center; justify-content: center; color: var(--brand-text-soft); font-size: 13px; }
 .product-image-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -301,6 +355,6 @@ onMounted(init)
 @media (max-width: 640px) {
   .page-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
   .page-heading > div:last-child { display: flex; justify-content: flex-end; width: 100%; }
-  .product-image-preview, .product-image-empty { width: 140px; height: 140px; }
+  .product-image-preview, .product-image-empty { position: relative; width: 140px; height: 140px; }
 }
 </style>

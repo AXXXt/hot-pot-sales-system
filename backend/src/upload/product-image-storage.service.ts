@@ -20,6 +20,8 @@ export class ProductImageStorageService {
   private readonly bucket: string
   private readonly publicUrl: string
   private readiness?: Promise<void>
+  private readonly aiBucket: string
+  private aiReadiness?: Promise<void>
 
   constructor(
     @Inject(PRODUCT_IMAGE_CLIENT) private readonly client: ProductImageClient,
@@ -27,6 +29,7 @@ export class ProductImageStorageService {
     private readonly prisma: PrismaService
   ) {
     this.bucket = config.getOrThrow<string>('MINIO_BUCKET')
+    this.aiBucket = `${this.bucket}-ai-private`
     this.publicUrl = config.getOrThrow<string>('MINIO_PUBLIC_URL').replace(/\/+$/, '')
   }
 
@@ -37,6 +40,41 @@ export class ProductImageStorageService {
     now = new Date()
   ) {
     return this.uploadImage('products', buffer, mimetype, extension, now)
+  }
+
+  async uploadAiImage(buffer: Buffer) {
+    await this.ensureAiBucket()
+    const now = new Date()
+    const objectKey = `ai-private/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}.jpg`
+    await this.client.putObject(this.aiBucket, objectKey, buffer, buffer.length, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' })
+    return { objectKey }
+  }
+
+  async readAiImage(objectKey: string): Promise<Buffer> {
+    if (!/^ai-private\/\d{4}\/\d{2}\/[a-zA-Z0-9-]+\.jpg$/.test(objectKey)) throw new BadRequestException('识别附件地址无效')
+    const stream = await this.client.getObject(this.aiBucket, objectKey)
+    const chunks: Buffer[] = []
+    let bytes = 0
+    for await (const chunk of stream) {
+      bytes += chunk.length
+      if (bytes > 5 * 1024 * 1024) { stream.destroy(); throw new BadRequestException('识别附件过大') }
+      chunks.push(Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks)
+  }
+
+  async removeAiImage(objectKey: string) {
+    if (!/^ai-private\/\d{4}\/\d{2}\/[a-zA-Z0-9-]+\.jpg$/.test(objectKey)) throw new BadRequestException('识别附件地址无效')
+    await this.client.removeObject(this.aiBucket, objectKey)
+  }
+
+  private ensureAiBucket() {
+    if (!this.aiReadiness) this.aiReadiness = (async () => {
+      if (!await this.client.bucketExists(this.aiBucket)) await this.client.makeBucket(this.aiBucket)
+      // A dedicated bucket avoids inheriting legacy public product-image policies.
+      await this.client.setBucketPolicy(this.aiBucket, '')
+    })().catch(error => { this.aiReadiness = undefined; throw error })
+    return this.aiReadiness
   }
 
   async uploadPaymentProof(
@@ -100,7 +138,7 @@ export class ProductImageStorageService {
   }
 
   private async uploadImage(
-    prefix: 'products' | 'payment-proofs',
+    prefix: 'products' | 'payment-proofs' | 'ai-private',
     buffer: Buffer,
     mimetype: ProductImageDescriptor['mimetype'],
     extension: ProductImageDescriptor['extension'],

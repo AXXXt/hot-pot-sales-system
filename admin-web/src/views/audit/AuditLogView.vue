@@ -162,8 +162,8 @@ onMounted(load)
 
 <style scoped>
 .page-heading { margin-bottom: 20px; }
-.muted { color: #909399; font-size: 12px; }
-.detail-loading { padding: 30px; text-align: center; color: #909399; }
-.json-block { background: #f5f7fa; border-radius: 6px; padding: 10px 12px; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; }
+.muted { color: #666e68; font-size: 12px; }
+.detail-loading { padding: 30px; text-align: center; color: #666e68; }
+.json-block { background: #f5f7fa; border-radius: 4px; padding: 10px 12px; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; }
 :deep(.break-all .el-descriptions__content) { word-break: break-all; }
 </style>

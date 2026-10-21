@@ -47,6 +47,27 @@ class EnvSchema {
 
   @IsOptional()
   SMS_DEV_CODE?: string
+
+  @IsOptional()
+  TENCENT_SMS_SECRET_ID?: string
+
+  @IsOptional()
+  TENCENT_SMS_SECRET_KEY?: string
+
+  @IsOptional()
+  TENCENT_SMS_SDK_APP_ID?: string
+
+  @IsOptional()
+  TENCENT_SMS_SIGN_NAME?: string
+
+  @IsOptional()
+  TENCENT_SMS_LOGIN_TEMPLATE_ID?: string
+
+  @IsOptional()
+  TENCENT_SMS_REGISTER_TEMPLATE_ID?: string
+
+  @IsOptional()
+  TENCENT_SMS_REGION?: string
 }
 
 const developmentDefaults: Record<string, string> = {
@@ -98,6 +119,31 @@ export function validateEnv(config: Record<string, unknown>) {
     }
     if (!env.SMS_PROVIDER || env.SMS_PROVIDER === 'development') {
       throw new Error('Production SMS_PROVIDER must be a real provider or explicitly disabled')
+    }
+    if (!['disabled', 'experience', 'tencentcloud'].includes(String(env.SMS_PROVIDER))) {
+      throw new Error('Production SMS_PROVIDER is not supported')
+    }
+  }
+
+  if (env.SMS_PROVIDER === 'tencentcloud') {
+    const required = [
+      'TENCENT_SMS_SECRET_ID',
+      'TENCENT_SMS_SECRET_KEY',
+      'TENCENT_SMS_SDK_APP_ID',
+      'TENCENT_SMS_SIGN_NAME',
+      'TENCENT_SMS_LOGIN_TEMPLATE_ID',
+      'TENCENT_SMS_REGISTER_TEMPLATE_ID'
+    ]
+    const missing = required.filter(key => !String(merged[key] || '').trim())
+    if (missing.length > 0) {
+      throw new Error(`Tencent SMS configuration is incomplete: ${missing.join(', ')}`)
+    }
+    if (!/^\d{6,20}$/.test(String(merged.TENCENT_SMS_SDK_APP_ID))) {
+      throw new Error('TENCENT_SMS_SDK_APP_ID must contain only digits')
+    }
+    if (!/^\d{5,20}$/.test(String(merged.TENCENT_SMS_LOGIN_TEMPLATE_ID)) ||
+        !/^\d{5,20}$/.test(String(merged.TENCENT_SMS_REGISTER_TEMPLATE_ID))) {
+      throw new Error('Tencent SMS template IDs must contain only digits')
     }
   }
 

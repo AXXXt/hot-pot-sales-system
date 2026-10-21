@@ -46,6 +46,7 @@ export const useCartStore = defineStore('client-cart', () => {
     const nextQuantity = Math.min((existing?.quantity || 0) + quantity, sku.stockNum)
     if (nextQuantity <= 0) return
     if (existing) {
+      existing.name = product.name
       existing.quantity = nextQuantity
       existing.price = sku.customerPrice || sku.basePrice
       existing.stockNum = sku.stockNum

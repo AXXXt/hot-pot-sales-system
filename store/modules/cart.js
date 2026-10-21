@@ -38,7 +38,7 @@ function setCartItems(cartItems) {
 
 function addItem(item) {
   const itemBrandId = getItemBrandId(item)
-  const targetIndex = state.cartItems.findIndex((current) => current.productId === item.productId && current.skuId === item.skuId)
+  const targetIndex = state.cartItems.findIndex((current) => Number(current.productId) === Number(item.productId) && Number(current.skuId) === Number(item.skuId))
   if (targetIndex >= 0) {
     state.cartItems[targetIndex].quantity = Number(state.cartItems[targetIndex].quantity || 0) + Number(item.quantity || 0)
     state.cartItems[targetIndex].brandId = itemBrandId || getItemBrandId(state.cartItems[targetIndex])

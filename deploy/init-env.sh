@@ -15,9 +15,13 @@ minio_password=$(openssl rand -hex 24)
   printf 'DATABASE_URL=mysql://weiduoxian:%s@mysql:3306/weiduoxian?connection_limit=5\n' "$db_password"
   printf 'REDIS_PASSWORD=%s\nREDIS_URL=redis://:%s@redis:6379\n' "$redis_password" "$redis_password"
   printf 'JWT_ACCESS_SECRET=%s\nJWT_REFRESH_SECRET=%s\n' "$(openssl rand -hex 48)" "$(openssl rand -hex 48)"
+  printf 'AI_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 32)"
   printf 'CORS_ORIGIN=https://weiduoxian.cn,https://www.weiduoxian.cn,https://app.weiduoxian.cn,https://admin.weiduoxian.cn\n'
   printf 'MINIO_ENDPOINT=minio\nMINIO_PORT=9000\nMINIO_USE_SSL=false\nMINIO_ACCESS_KEY=weiduoxian-storage\nMINIO_SECRET_KEY=%s\n' "$minio_password"
   printf 'MINIO_BUCKET=b2b-miniapp\nMINIO_PUBLIC_URL=https://weiduoxian.cn\nMINIO_SIGNING_ENDPOINT=weiduoxian.cn\nMINIO_REGION=us-east-1\n'
   printf 'SMS_PROVIDER=disabled\n'
+  printf 'TENCENT_SMS_SECRET_ID=\nTENCENT_SMS_SECRET_KEY=\nTENCENT_SMS_SDK_APP_ID=\n'
+  printf 'TENCENT_SMS_SIGN_NAME=\nTENCENT_SMS_LOGIN_TEMPLATE_ID=\n'
+  printf 'TENCENT_SMS_REGISTER_TEMPLATE_ID=\nTENCENT_SMS_REGION=ap-guangzhou\n'
 } > .env
 echo 'Production secrets generated; .env is root-readable only'

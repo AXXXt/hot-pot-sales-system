@@ -14,6 +14,8 @@ const saving = ref(false)
 const productsLoading = ref(false)
 const selectorVisible = ref(false)
 const mode = ref<VisibilityMode>('factory')
+const savedMode = ref<VisibilityMode>('factory')
+const savedIds = ref<number[]>([])
 const selectedIds = ref<number[]>([])
 const visibleProductCount = ref(0)
 const products = ref<any[]>([])
@@ -30,6 +32,9 @@ const dataOf = (response: any) => response?.data ?? response ?? {}
 
 const currentDescription = computed(() => (
   modeOptions.find(option => option.value === mode.value)?.description || ''
+))
+const hasChanges = computed(() => mode.value !== savedMode.value || (
+  mode.value === 'custom' && JSON.stringify([...selectedIds.value].sort()) !== JSON.stringify([...savedIds.value].sort())
 ))
 
 const categories = computed(() => {
@@ -55,7 +60,9 @@ async function loadVisibility() {
     const response: any = await getProductVisibility(props.customerId)
     const data = dataOf(response)
     mode.value = data.mode || 'factory'
+    savedMode.value = mode.value
     selectedIds.value = Array.isArray(data.productIds) ? data.productIds : []
+    savedIds.value = [...selectedIds.value]
     visibleProductCount.value = Number(data.visibleProductCount || 0)
   } catch (error: any) {
     ElMessage.error(error?.message || '可见商品配置加载失败')
@@ -68,9 +75,19 @@ async function loadProducts() {
   if (products.value.length) return
   productsLoading.value = true
   try {
-    const response: any = await getProducts({ page: 1, pageSize: 500 })
-    const data = dataOf(response)
-    products.value = data.items || data || []
+    const loaded: any[] = []
+    let page = 1
+    let total = 0
+    do {
+      const response: any = await getProducts({ page, pageSize: 100 })
+      const data = dataOf(response)
+      const items = Array.isArray(data.items) ? data.items : []
+      loaded.push(...items)
+      total = Number(data.total || 0)
+      page += 1
+      if (!items.length) break
+    } while (loaded.length < total)
+    products.value = loaded
   } catch (error: any) {
     ElMessage.error(error?.message || '商品列表加载失败')
   } finally {
@@ -92,6 +109,7 @@ function confirmSelection() {
 }
 
 async function saveVisibility() {
+  if (saving.value || loading.value) return
   if (mode.value === 'custom' && !selectedIds.value.length) {
     ElMessage.warning('自定义模式至少选择一个商品')
     return
@@ -105,7 +123,9 @@ async function saveVisibility() {
     })
     const data = dataOf(response)
     mode.value = data.mode
+    savedMode.value = mode.value
     selectedIds.value = data.productIds || []
+    savedIds.value = [...selectedIds.value]
     visibleProductCount.value = Number(data.visibleProductCount || 0)
     ElMessage.success('可见商品已更新')
   } catch (error: any) {
@@ -123,7 +143,7 @@ onMounted(loadVisibility)
     <template #header>
       <div class="card-header">
         <strong>可见商品</strong>
-        <el-tag type="info" effect="plain">当前 {{ visibleProductCount }} 件</el-tag>
+        <el-tag type="info" effect="plain">已保存配置：当前 {{ visibleProductCount }} 件</el-tag>
       </div>
     </template>
 
@@ -139,9 +159,11 @@ onMounted(loadVisibility)
     </div>
 
     <div class="mode-description">{{ currentDescription }}</div>
+    <p v-if="hasChanges" class="mode-description">配置尚未保存，客户仍按上次保存的范围查看商品。</p>
+    <p v-else-if="visibleProductCount === 0" class="mode-description">当前范围没有已上架商品，请检查商品上下架状态。AI新建商品需在编辑页核对后上架。</p>
 
     <div class="card-actions">
-      <el-button type="primary" :loading="saving" @click="saveVisibility">保存配置</el-button>
+      <el-button type="primary" :loading="saving" :disabled="loading" @click="saveVisibility">保存配置</el-button>
     </div>
 
     <el-dialog v-model="selectorVisible" title="选择客户可见商品" width="min(760px, 92vw)">
@@ -180,10 +202,10 @@ onMounted(loadVisibility)
 .mode-description { margin-top: 12px; color: var(--brand-text-soft); font-size: 13px; }
 .card-actions { justify-content: flex-end; margin-top: 18px; }
 .selector-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 12px; margin-bottom: 14px; }
-.product-selector { min-height: 240px; max-height: 420px; overflow-y: auto; border: 1px solid var(--brand-border); border-radius: 14px; }
-.product-option { min-height: 50px; padding: 0 14px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 120px; align-items: center; border-bottom: 1px solid #f2e7e5; cursor: pointer; font-size: 14px; line-height: 20px; }
+.product-selector { min-height: 240px; max-height: 420px; overflow-y: auto; border: 1px solid var(--brand-border); border-radius: 4px; }
+.product-option { min-height: 50px; padding: 0 14px; display: grid; grid-template-columns: 28px minmax(0, 1fr) 120px; align-items: center; border-bottom: 1px solid #f4f6f4; cursor: pointer; font-size: 14px; line-height: 20px; }
 .product-option:last-child { border-bottom: 0; }
-.product-option:hover { background: #fff2ef; }
+.product-option:hover { background: #f4f6f4; }
 .product-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--brand-text); }
 .product-category { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--brand-text-soft); font-size: 12px; text-align: right; }
 .selected-count { margin-right: auto; color: var(--brand-text-soft); font-size: 13px; }

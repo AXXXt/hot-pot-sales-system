@@ -255,9 +255,9 @@ onMounted(() => { load(); loadAssignees() })
 .pager { display: flex; justify-content: flex-end; margin-top: 16px; }
 .inline-loading { padding: 40px; text-align: center; color: var(--brand-muted); }
 .detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.detail-phone { font-size: 18px; font-weight: 750; color: var(--brand-text); }
+.detail-phone { font-size: 18px; font-weight: 600; color: var(--brand-text); }
 .detail-desc { margin-bottom: 20px; }
-.section-title { margin: 4px 0 12px; font-weight: 700; color: var(--brand-text); }
+.section-title { margin: 4px 0 12px; font-weight: 600; color: var(--brand-text); }
 .follow-content { font-size: 13px; color: var(--brand-text); }
 .follow-next { margin-top: 4px; font-size: 12px; color: var(--brand-text-soft); }
 .follow-operator { margin-top: 4px; font-size: 12px; color: var(--brand-muted); }

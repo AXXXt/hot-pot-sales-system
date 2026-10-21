@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common'
 import { OrderController } from './order.controller'
 import { OrderService } from './order.service'
-import { PrismaService } from '../prisma.service'
 import { AuthModule } from '../auth/auth.module'
 import { ProductModule } from '../product/product.module'
 import { AuditModule } from '../audit/audit.module'
@@ -13,7 +12,7 @@ import { OrderAccessGuard } from './order-access.guard'
 @Module({
   imports: [AuthModule, ProductModule, AuditModule, NotifyModule, LogisticsModule, MetricsModule],
   controllers: [OrderController],
-  providers: [OrderService, PrismaService, OrderAccessGuard],
+  providers: [OrderService, OrderAccessGuard],
   exports: [OrderService]
 })
 export class OrderModule {}

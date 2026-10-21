@@ -6,5 +6,5 @@ html, body, #app { min-height: 100%; margin: 0; }
 body { min-width: 320px; }
 button, input, textarea, select { font: inherit; }
 a { color: inherit; }
-::selection { background: rgba(141, 28, 28, .18); }
+::selection { background: rgba(34, 38, 37, .18); }
 </style>

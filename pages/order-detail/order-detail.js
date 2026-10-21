@@ -95,6 +95,10 @@ Page({
     }
   },
 
+  onRetry() {
+    if (this.data.orderId) this.loadDetail(this.data.orderId)
+  },
+
   async onCancel() {
     wx.showModal({
       title: '取消订单',

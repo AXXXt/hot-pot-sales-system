@@ -7,12 +7,12 @@
 .od-loading,
 .od-error {
   padding: 90rpx 32rpx;
-  border-radius: 38rpx;
+  border-radius: 8rpx;
   background: rgba(255, 255, 255, 0.95);
   color: var(--text-secondary);
   font-size: 28rpx;
   text-align: center;
-  box-shadow: var(--shadow-lg);
+  box-shadow: none;
 }
 
 .od-body {
@@ -24,25 +24,15 @@
 .od-header {
   position: relative;
   overflow: hidden;
-  padding: 38rpx 34rpx;
-  border-radius: 40rpx;
+  padding: 20rpx 0 32rpx;
+  border-radius: 8rpx;
   display: flex;
   flex-direction: column;
   gap: 9rpx;
-  background: var(--brand-gradient);
-  color: #FFFFFF;
-  box-shadow: 0 24rpx 60rpx rgba(75, 7, 7, 0.24);
-}
-
-.od-header::after {
-  content: '';
-  position: absolute;
-  width: 300rpx;
-  height: 300rpx;
-  right: -150rpx;
-  top: -160rpx;
-  border: 6rpx solid rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
+  background: #FFFFFF;
+  color: var(--text-primary);
+  border-bottom: 1rpx solid var(--border-default);
+  box-shadow: none;
 }
 
 .od-header__status,
@@ -54,29 +44,29 @@
 
 .od-header__status {
   font-size: 38rpx;
-  font-weight: 800;
-  color: #FFFFFF;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .od-header__status--success,
 .od-header__status--warning,
 .od-header__status--primary,
 .od-header__status--info {
-  color: #FFFFFF;
+  color: var(--brand-secondary);
 }
 
 .od-header__no,
 .od-header__time {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--text-secondary);
 }
 
 .od-card {
-  padding: 30rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.72);
-  border-radius: 34rpx;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--border-default);
+  border-radius: 8rpx;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .od-card__title {
@@ -84,7 +74,7 @@
   margin-bottom: 18rpx;
   color: var(--text-primary);
   font-size: 30rpx;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .od-card__text {
@@ -124,7 +114,7 @@
 .od-item__name {
   color: var(--text-primary);
   font-size: 27rpx;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .od-item__spec,
@@ -144,14 +134,14 @@
   min-width: 120rpx;
   color: var(--text-primary);
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
   text-align: right;
 }
 
 .od-item__total {
   color: var(--brand-primary);
   font-size: 36rpx;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .od-actions {
@@ -164,22 +154,22 @@
 .od-btn {
   min-height: 92rpx;
   border: 1rpx solid var(--border-default);
-  border-radius: 26rpx;
+  border-radius: 8rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.94);
   color: var(--text-primary);
   font-size: 29rpx;
-  font-weight: 700;
-  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .od-btn--primary {
   border-color: transparent;
-  background: linear-gradient(135deg, var(--brand-accent), var(--brand-primary));
+  background: #222625;
   color: #FFFFFF;
-  box-shadow: 0 12rpx 28rpx rgba(141, 28, 28, 0.22);
+  box-shadow: none;
 }
 
 .od-btn--danger {

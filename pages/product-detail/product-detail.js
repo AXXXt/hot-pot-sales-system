@@ -1,3 +1,4 @@
+// 商品详情：规格选择、库存约束与采购金额预估。
 const { getProductDetail, getProductSkus } = require('../../services/api/product')
 const auth = require('../../store/modules/auth')
 const cart = require('../../store/modules/cart')
@@ -16,12 +17,14 @@ Page({
     skuLoading: true,
     skuError: '',
     imageError: false,
+    failedImages: {},
     imageIndex: 0,
     inCartCount: 0,
     canBuy: false,
     loginRequired: false,
     priceMode: '',
     displayPrice: '',
+    estimatedTotal: '待报价',
     saleUnitText: '',
     customerPriceText: '',
     basePriceText: '',
@@ -37,6 +40,7 @@ Page({
   },
 
   onLoad(options) {
+    this.requestedSkuId = String(options.skuId || '')
     const productId = String(options.id || '').trim()
     if (!productId || !/^\d+$/.test(productId)) {
       this.setData({ loading: false, error: '商品不存在或参数无效' })
@@ -51,26 +55,29 @@ Page({
   },
 
   normalizeDetail(product) {
-    const images = Array.isArray(product.images) ? product.images.filter(Boolean) : []
+    const images = Array.isArray(product.images) ? product.images.filter(function (url, index, list) { return typeof url === 'string' && !!url && list.indexOf(url) === index }) : []
     if (!images.length && product.main_image_url) images.push(product.main_image_url)
     return images
   },
 
   applySkuViewModel(product, skuList) {
-    const selectedSku = skuList[0] || null
+    const selectedSku = skuList.find(item => !item.sold_out && Number(item.available_qty) >= Number(item.min_order_qty || 1)) || skuList[0] || null
     const customerPrice = selectedSku && selectedSku.customer_price
     const salePrice = selectedSku && selectedSku.sale_price
     const saleUnit = (selectedSku && selectedSku.sale_unit) || '单位待确认'
-    const priceValue = auth.state.token && customerPrice ? customerPrice : salePrice
+    const priceValue = auth.state.token && customerPrice != null ? customerPrice : salePrice
+    const minQuantity = Math.max(1, Number(selectedSku && selectedSku.min_order_qty || 1))
+    const maxQuantity = Math.max(0, Number(selectedSku && selectedSku.available_qty || 0))
+    const canBuy = Boolean(selectedSku && !selectedSku.sold_out && maxQuantity >= minQuantity)
     this.setData({
       selectedSkuId: selectedSku ? String(selectedSku.id) : '',
       selectedSku,
-      quantity: Number((selectedSku && selectedSku.min_order_qty) || 1),
-      canBuy: Boolean(selectedSku && !selectedSku.sold_out),
-      quantityDisabled: !selectedSku || selectedSku.sold_out,
-      minQuantity: Number((selectedSku && selectedSku.min_order_qty) || 1),
-      maxQuantity: Number((selectedSku && selectedSku.available_qty) || 999999),
-      displayPrice: priceValue ? '¥' + priceValue : '价格待确认',
+      quantity: minQuantity,
+      canBuy,
+      quantityDisabled: !canBuy,
+      minQuantity,
+      maxQuantity,
+      displayPrice: priceValue != null && priceValue !== '' ? '¥' + priceValue : '价格待确认',
       saleUnitText: '/ ' + saleUnit,
       customerPriceText: customerPrice
         ? '协议价 ¥' + customerPrice
@@ -85,10 +92,11 @@ Page({
         { label: '单位', value: (selectedSku && selectedSku.sale_unit) || '单位待确认' }
       ].filter(function (item) { return item.value && item.value !== '--' })
     })
+    this.updateEstimatedTotal()
   },
 
   loadDetail(productId) {
-    this.setData({ loading: true, error: '', skuError: '', skuLoading: true })
+    this.setData({ loading: true, error: '', skuError: '', skuLoading: true, imageError: false, failedImages: {}, imageIndex: 0, canBuy: false, quantityDisabled: true })
     var that = this
     Promise.all([getProductDetail(productId), getProductSkus(productId)])
       .then(function (results) {
@@ -112,7 +120,8 @@ Page({
           imageList: that.normalizeDetail(product),
           inCartCount: cart.getCount()
         })
-        that.applySkuViewModel(product, skuList)
+        const requested = skuList.find(item => String(item.id) === that.requestedSkuId)
+        that.applySkuViewModel(product, requested ? [requested] : skuList)
       })
       .catch(function (err) {
         var message = (err && err.message) || '加载失败，请重试'
@@ -126,8 +135,19 @@ Page({
     }
   },
 
-  onImageFail() {
-    this.setData({ imageError: true })
+  onImageFail(e) {
+    const index = Number(e.currentTarget.dataset.index || 0)
+    const failed = Object.assign({}, this.data.failedImages)
+    failed[index] = true
+    this.setData({ failedImages: failed })
+  },
+
+  onPreviewImage(e) {
+    const index = Number(e.currentTarget.dataset.index || 0)
+    const failed = this.data.failedImages
+    const urls = this.data.imageList.filter(function (url, position) { return !failed[position] })
+    if (!urls.length || failed[index]) return
+    wx.previewImage({ current: this.data.imageList[index], urls: urls, fail: function () { wx.showToast({ title: '图片预览失败，请重试', icon: 'none' }) } })
   },
 
   onSwiperChange(e) {
@@ -140,15 +160,23 @@ Page({
     if (!selectedSku) return
     this.setData({ selectedSkuId: skuId, selectedSku: selectedSku })
     this.applySkuViewModel(this.data.product, [selectedSku])
-    this.setData({ skuError: '', canBuy: !selectedSku.sold_out, quantityDisabled: Boolean(selectedSku.sold_out) })
+    this.setData({ skuError: this.data.canBuy ? '' : '该规格库存不足起订量' })
   },
 
   onQuantityChange(e) {
     const nextQuantity = Number(e.detail)
     const min = Number(this.data.minQuantity || 1)
     const max = Number(this.data.maxQuantity || 999999)
-    if (nextQuantity < min || nextQuantity > max) return
+    if (!Number.isInteger(nextQuantity) || this.data.quantityDisabled || nextQuantity < min || nextQuantity > max) return
     this.setData({ quantity: nextQuantity })
+    this.updateEstimatedTotal()
+  },
+
+  updateEstimatedTotal() {
+    const sku = this.data.selectedSku
+    const price = sku && (auth.state.token && sku.customer_price != null ? sku.customer_price : sku.sale_price)
+    const knownPrice = price != null && price !== '' && Number.isFinite(Number(price))
+    this.setData({ estimatedTotal: knownPrice ? '¥' + (Number(price) * this.data.quantity).toFixed(2) : '待报价' })
   },
 
   ensureLogin() {
@@ -170,6 +198,7 @@ Page({
   },
 
   onAddToCart() {
+    if (this.data.loading || this.data.skuLoading || !this.data.canBuy) return
     if (!this.ensureLogin()) return
     if (!this.data.selectedSku) {
       this.setData({ skuError: '请选择规格后再加入购物车' })
@@ -198,6 +227,7 @@ Page({
   },
 
   onBuyNow() {
+    if (this.data.loading || this.data.skuLoading || !this.data.canBuy) return
     if (!this.ensureLogin()) return
     if (!this.data.selectedSku) {
       this.setData({ skuError: '请选择规格后再下单' })

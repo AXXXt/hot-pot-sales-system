@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { HealthController } from './health.controller'
 import { AppController } from './app.controller'
 import { validateEnv } from './config/env.validation'
-import { PrismaService } from './prisma.service'
+import { PrismaModule } from './prisma.module'
 import { redisProvider } from './redis.provider'
 import { minioProvider } from './minio.provider'
 import { AuthModule } from './auth/auth.module'
@@ -21,6 +21,7 @@ import { ImportModule } from './import/import.module'
 import { MetricsModule } from './monitor/monitor.module'
 import { InventoryModule } from './inventory/inventory.module'
 import { LeadModule } from './lead/lead.module'
+import { AiModule } from './ai/ai.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { LeadModule } from './lead/lead.module'
       isGlobal: true,
       validate: validateEnv
     }),
+    PrismaModule,
     AuthModule,
     ProductModule,
     DashboardModule,
@@ -43,8 +45,9 @@ import { LeadModule } from './lead/lead.module'
     MetricsModule,
     InventoryModule,
     LeadModule,
+    AiModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [PrismaService, redisProvider, minioProvider]
+  providers: [redisProvider, minioProvider]
 })
 export class AppModule {}
