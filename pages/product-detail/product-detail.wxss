@@ -329,3 +329,7 @@ button.product-actionbar__primary[size="mini"][disabled] {
   background: #ebeeeb;
   color: #7f8781;
 }
+
+.package-picker { padding: 24rpx 0; display:flex; flex-wrap:wrap; gap:20rpx; align-items:center; }
+.package-picker__value { padding:16rpx 24rpx; border:1rpx solid #d5dcd5; border-radius:8rpx; min-height:48rpx; }
+.package-picker__hint { width:100%; color:#657067; font-size:24rpx; }

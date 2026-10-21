@@ -14,6 +14,8 @@ import { WxService } from '../notify/wx.service'
 import { LogisticsService } from '../logistics/logistics.service'
 import { MetricsService } from '../monitor/metrics.service'
 import { Prisma } from '@prisma/client'
+import { stockAvailability } from '../inventory/stock-availability'
+import { changeStock, reserveOrder, BatchAllocation } from '../inventory/stock-ledger'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -153,15 +155,17 @@ export class OrderService {
     }
   }
 
-  private async createOrder(dto: CreateOrderDto, userId?: number) {
+  async createDraftInTransaction(tx: Prisma.TransactionClient, dto: CreateOrderDto, userId: number) { return this.createOrder(dto, userId, tx) }
+
+  private async createOrder(dto: CreateOrderDto, userId?: number, db: Prisma.TransactionClient = this.prisma) {
     const actor = userId
-      ? await this.prisma.user.findUnique({
+      ? await db.user.findUnique({
           where: { id: userId },
           select: { customerId: true, userType: true, tenantId: true }
         })
       : null
-    const customerId = actor?.customerId ?? dto.customerId
-    const customer = await this.prisma.customer.findUnique({ where: { id: customerId } })
+    const customerId = actor?.userType === 'customer_user' ? actor.customerId! : dto.customerId
+    const customer = await db.customer.findUnique({ where: { id: customerId } })
     if (!customer) throw new NotFoundException({ message: '客户不存在' })
     if (actor?.tenantId && customer.tenantId !== actor.tenantId) throw new ForbiddenException('无权为该客户创建订单')
     if (customer.status !== 'active') throw new BadRequestException({ message: '客户账号未审核通过' })
@@ -169,7 +173,7 @@ export class OrderService {
     const items = this.normalizeItems(dto.items)
     const skuIds = items.map(item => item.skuId)
     const productWhere = await this.productVisibility.whereForCustomer(customerId)
-    const skus = await this.prisma.productSku.findMany({
+    const skus = await db.productSku.findMany({
       where: {
         id: { in: skuIds },
         tenantId: customer.tenantId,
@@ -184,7 +188,8 @@ export class OrderService {
         errorCode: 'PRO_1004'
       })
     }
-    this.assertOrderQuantities(items, skus)
+    const available = await stockAvailability(db, skus)
+    this.assertOrderQuantities(items, skus.map(sku => ({ ...sku, stockNum: available.get(sku.id) || 0, reservedNum: 0 })))
     const brandIds = [...new Set(skus.map(sku => sku.product.brandId))]
     if (brandIds.length !== 1) {
       throw new BadRequestException({
@@ -194,7 +199,7 @@ export class OrderService {
     }
     const orderBrandId = brandIds[0]
     const now = new Date()
-    const priceRules = await this.prisma.customerPriceRule.findMany({
+    const priceRules = await db.customerPriceRule.findMany({
       where: {
         tenantId: customer.tenantId,
         customerId,
@@ -222,7 +227,7 @@ export class OrderService {
 
     const orderNo = 'OD' + no()
     const initialStatus = (dto as any).sampleFlag ? 'pending_shipment' : 'draft'
-    const order = await this.prisma.order.create({
+    const order = await db.order.create({
       data: {
         tenantId: customer.tenantId, brandId: orderBrandId, customerId, userId, orderNo,
         status: initialStatus,
@@ -250,7 +255,7 @@ export class OrderService {
 
   private assertOrderQuantities(
     items: Array<{ skuId: number; quantity: number }>,
-    skus: Array<{ id: number; name: string | null; saleUnit: string; minOrderQty: number; stockNum: number }>
+    skus: Array<{ id: number; name: string | null; saleUnit: string; minOrderQty: number; stockNum: number; reservedNum?: number }>
   ) {
     const skuMap = new Map(skus.map(sku => [sku.id, sku]))
     for (const item of items) {
@@ -262,7 +267,7 @@ export class OrderService {
           errorCode: 'ORD_1003'
         })
       }
-      if (item.quantity > sku.stockNum) {
+      if (item.quantity > sku.stockNum - (sku.reservedNum || 0)) {
         throw new BadRequestException({
           message: `${skuName} 库存不足，当前库存 ${sku.stockNum}${sku.saleUnit}`,
           errorCode: 'INV_1001'
@@ -419,9 +424,10 @@ export class OrderService {
     try {
       await this.prisma.$transaction(async (tx) => {
         await this.claimOrder(tx, order, 'pending_shipment')
+        if (order.stockReserved) await reserveOrder(tx, order, order.items, true)
         for (const item of [...order.items].sort((a, b) => a.skuId - b.skuId)) {
           const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
-          if (!sku || sku.stockNum < item.quantity) {
+          if (!sku || sku.stockNum - (sku.reservedNum || 0) < item.quantity) {
             throw new BadRequestException({
               message: '库存不足：' + (sku?.name || item.productName) + ' 当前库存 ' + (sku?.stockNum || 0) + '，需要 ' + item.quantity,
               errorCode: 'INV_1001'
@@ -429,7 +435,7 @@ export class OrderService {
           }
           const beforeStock = sku.stockNum
           const afterStock = beforeStock - item.quantity
-          await this.changeStock(tx, item.skuId, beforeStock, afterStock)
+          const batchAllocations = await changeStock(tx, sku, afterStock, { orderOut: true })
           await tx.stockMovement.create({
             data: {
               tenantId: order.tenantId,
@@ -438,7 +444,7 @@ export class OrderService {
               changeQty: -item.quantity,
               beforeQty: beforeStock,
               afterQty: afterStock,
-              type: 'order_out',
+              type: 'order_out', batchAllocations: batchAllocations as unknown as Prisma.InputJsonValue,
               sourceType: 'order',
               sourceId: order.id,
               operatorId: userId,
@@ -497,12 +503,14 @@ export class OrderService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.claimOrder(tx, order, 'cancelled')
+      if (order.stockReserved) await reserveOrder(tx, order, order.items, true)
       if (['pending_shipment', 'shipped'].includes(order.status)) {
         for (const item of [...order.items].sort((a, b) => a.skuId - b.skuId)) {
           const sku = await tx.productSku.findUnique({ where: { id: item.skuId } })
           const beforeStock = sku?.stockNum ?? 0
           const afterStock = beforeStock + item.quantity
-          await this.changeStock(tx, item.skuId, beforeStock, afterStock)
+          const original = sku?.batchTracking ? await tx.stockMovement.findFirst({ where: { tenantId: order.tenantId, skuId: item.skuId, sourceType: 'order', sourceId: order.id, type: 'order_out' } }) : null
+          const batchAllocations = await changeStock(tx, sku, afterStock, { restore: original?.batchAllocations as unknown as BatchAllocation[] | undefined, historicalReturn: !Array.isArray(original?.batchAllocations) || !original.batchAllocations.length })
           await tx.stockMovement.create({
             data: {
               tenantId: order.tenantId,
@@ -511,7 +519,7 @@ export class OrderService {
               changeQty: item.quantity,
               beforeQty: beforeStock,
               afterQty: afterStock,
-              type: 'order_return',
+              type: 'order_return', batchAllocations: batchAllocations as unknown as Prisma.InputJsonValue,
               sourceType: 'order',
               sourceId: order.id,
               operatorId: userId,
@@ -677,6 +685,10 @@ export class OrderService {
     if (!['pending_quote', 'completed'].includes(toStatus)) throw new BadRequestException('请通过对应业务操作更新订单')
     await this.prisma.$transaction(async tx => {
       await this.claimOrder(tx, order, toStatus)
+      if (toStatus === 'pending_quote') {
+        const items = await tx.orderItem.findMany({ where: { orderId: order.id, tenantId: order.tenantId } })
+        await reserveOrder(tx, order, items)
+      }
       await this.logInTransaction(tx, order, toStatus, userId)
     })
     await this.audit.write({
@@ -741,11 +753,6 @@ export class OrderService {
       data: { status: status as any }
     })
     if (result.count !== 1) throw new BadRequestException('订单状态已变化，请刷新后重试')
-  }
-
-  private async changeStock(tx: Prisma.TransactionClient, skuId: number, before: number, after: number) {
-    const result = await tx.productSku.updateMany({ where: { id: skuId, stockNum: before }, data: { stockNum: after } })
-    if (result.count !== 1) throw new BadRequestException('库存已变化，请重试')
   }
 
   private async logInTransaction(tx: Prisma.TransactionClient, order: { id: number; tenantId: number; status: string }, to: string, userId?: number) {

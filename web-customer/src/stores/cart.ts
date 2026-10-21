@@ -48,7 +48,7 @@ export const useCartStore = defineStore('client-cart', () => {
     if (existing) {
       existing.name = product.name
       existing.quantity = nextQuantity
-      existing.price = sku.customerPrice || sku.basePrice
+      existing.price = sku.customerPrice ?? sku.basePrice
       existing.stockNum = sku.stockNum
       return
     }
@@ -57,12 +57,12 @@ export const useCartStore = defineStore('client-cart', () => {
       skuId: sku.id,
       name: product.name,
       spec: sku.specText,
-      price: sku.customerPrice || sku.basePrice,
+      price: sku.customerPrice ?? sku.basePrice,
       unit: sku.saleUnit,
       quantity: nextQuantity,
       brandId: product.brand?.id,
       brandName: product.brand?.name,
-      image: product.mainImageUrl,
+      image: sku.imageUrl || product.mainImageUrl,
       minOrderQty: sku.minOrderQty,
       stockNum: sku.stockNum,
       available: sku.stockNum > 0

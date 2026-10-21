@@ -186,7 +186,7 @@ test('dragging cannot bypass disabled photo capability', async ({ page }) => {
   await page.goto('/dashboard'); await page.getByRole('button', { name: '打开AI运营助手' }).click()
   let uploads = 0; page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/attachments')) uploads++ })
   await page.locator('.ai-panel').dispatchEvent('drop', { dataTransfer: await transfer(page, [{ name: 'photo.png', type: 'image/png' }]) })
-  await expect(page.getByText('当前账号没有拍照建品权限，或图片识别尚未启用。')).toBeVisible(); expect(uploads).toBe(0)
+  await expect(page.getByText('当前账号没有图片业务权限，或图片识别尚未启用。')).toBeVisible(); expect(uploads).toBe(0)
 })
 test('version notification shows changes once per account and opens release notes', async ({ page }) => {
   await fixture(page)

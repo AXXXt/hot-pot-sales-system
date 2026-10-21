@@ -1,20 +1,24 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common'
 import { AuditAction, Prisma } from '@prisma/client'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { PrismaService } from '../prisma.service'
 import { StaffAccessService, StaffActor } from '../auth/staff-access.service'
 import { productDisplayName } from '../product/product-presentation'
+import { convertQuantity } from '../inventory/packaging'
+import { batchDates, businessDate, changeStock } from '../inventory/stock-ledger'
 
 type StockMode = 'increase' | 'decrease' | 'set' | ''
 export interface StockCandidate {
   skuId: number; productId: number; productName: string; skuCode: string
   specText: string; saleUnit: string; beforeQty: number
+  reservedNum?: number; packagingUnits?: unknown; batchTracking?: boolean
 }
 export interface InventoryDraft {
   keyword: string; specText: string; unit: string; skuId: number | null
   mode: StockMode; quantity: number | null; reason: string
   item: StockCandidate | null; candidates: StockCandidate[]; truncated: boolean
   afterQty: number | null; changeQty: number | null
+  factor?: number; unitError?: string; batchNo?: string; productionDate?: string; expiryDate?: string
 }
 
 export function normalizeInventoryDraft(value: any): InventoryDraft {
@@ -24,7 +28,8 @@ export function normalizeInventoryDraft(value: any): InventoryDraft {
     skuId: Number.isSafeInteger(value?.skuId) && value.skuId > 0 ? value.skuId : null,
     mode: ['increase', 'decrease', 'set'].includes(value?.mode) ? value.mode : '',
     quantity: Number.isSafeInteger(value?.quantity) && value.quantity >= 0 && value.quantity <= 2147483647 ? value.quantity : null,
-    reason: text(value?.reason, 200), item: null, candidates: [], truncated: false, afterQty: null, changeQty: null
+    reason: text(value?.reason, 200), item: null, candidates: [], truncated: false, afterQty: null, changeQty: null,
+    batchNo: text(value?.batchNo, 64), productionDate: text(value?.productionDate, 10), expiryDate: text(value?.expiryDate, 10)
   }
 }
 
@@ -35,11 +40,14 @@ export function inventoryMissing(payload: InventoryDraft): string[] {
   if (payload.item && !payload.item.saleUnit) missing.push('该规格尚未填写销售单位')
   if (!payload.mode) missing.push('增加、减少或设为指定库存')
   if (payload.quantity === null || (payload.mode !== 'set' && payload.quantity === 0)) missing.push('有效数量（增加或减少须大于0）')
-  if (payload.item && payload.unit !== payload.item.saleUnit) missing.push(`数量单位须为${payload.item.saleUnit}，不能自动换算箱、袋`)
+  if (payload.unitError) missing.push(`数量单位或批次：${payload.unitError}`)
+  if (payload.item && !payload.item.batchTracking && (payload.batchNo || payload.productionDate || payload.expiryDate)) missing.push('请先在规格中启用批次管理')
   if (payload.item && payload.afterQty !== null) {
     if (payload.afterQty < 0) missing.push('库存不足，调整后不能为负数')
     if (payload.afterQty > 2147483647) missing.push('调整后库存超过支持范围')
     if (payload.changeQty === 0) missing.push('目标与当前库存相同，无需调整')
+    if (payload.afterQty < (payload.item.reservedNum || 0)) missing.push('调整后库存不能低于订单预占量')
+    if (payload.changeQty! > 0 && payload.item.batchTracking && (!payload.batchNo || !payload.expiryDate)) missing.push('批次号和到期日期')
   }
   return missing
 }
@@ -59,10 +67,10 @@ export class AiInventoryService {
         ...(input.skuId ? { id: input.skuId } : {}),
         ...(input.specText ? { specText: { contains: input.specText } } : {}),
         ...(input.keyword ? { OR: [{ skuCode: { contains: input.keyword } }, { product: { OR: [{ name: { contains: input.keyword } }, { subtitle: { contains: input.keyword } }, { code: { contains: input.keyword } }] } }] } : {}) },
-      select: { id: true, productId: true, skuCode: true, specText: true, saleUnit: true, stockNum: true, product: { select: { name: true, subtitle: true } } },
+      select: { id: true, productId: true, skuCode: true, specText: true, saleUnit: true, stockNum: true, reservedNum: true, packagingUnits: true, batchTracking: true, product: { select: { name: true, subtitle: true } } },
       orderBy: { id: 'asc' }, take: 21
     })
-    return items.map(x => ({ skuId: x.id, productId: x.productId, skuCode: x.skuCode, specText: x.specText || '', saleUnit: x.saleUnit || '', beforeQty: x.stockNum, productName: productDisplayName(x.product) }))
+    return items.map(x => ({ skuId: x.id, productId: x.productId, skuCode: x.skuCode, specText: x.specText || '', saleUnit: x.saleUnit || '', beforeQty: x.stockNum, reservedNum: x.reservedNum || 0, packagingUnits: x.packagingUnits, batchTracking: x.batchTracking || false, productName: productDisplayName(x.product) }))
   }
 
   async search(actor: StaffActor, keyword: string) {
@@ -84,13 +92,20 @@ export class AiInventoryService {
     payload.specText = candidates[0].specText
     payload.unit ||= candidates[0].saleUnit
     if (payload.mode && payload.quantity !== null) {
-      payload.afterQty = payload.mode === 'set' ? payload.quantity : candidates[0].beforeQty + (payload.mode === 'increase' ? payload.quantity : -payload.quantity)
+      let quantity = payload.quantity
+      try {
+        const conversion = convertQuantity(candidates[0], quantity, payload.unit)
+        payload.factor = conversion.factor; quantity = conversion.baseQuantity
+        batchDates(payload)
+      } catch (error) { payload.unitError = (error as Error).message }
+      payload.afterQty = payload.mode === 'set' ? quantity : candidates[0].beforeQty + (payload.mode === 'increase' ? quantity : -quantity)
       payload.changeQty = payload.afterQty - candidates[0].beforeQty
+      if (payload.changeQty > 0 && payload.expiryDate && new Date(payload.expiryDate) <= businessDate()) payload.unitError = '到期批次不能作为新到货入库'
     }
     return payload
   }
 
-  async apply(tx: Prisma.TransactionClient, actor: StaffActor, payload: InventoryDraft, draftId: string) {
+  async apply(tx: Prisma.TransactionClient, actor: StaffActor, payload: InventoryDraft, draftId: string, sharedAdjustment?: { id: number; adjustmentNo: string }) {
     this.access.require(actor, 'inventory:read', 'inventory:adjust')
     const missing = inventoryMissing(payload)
     if (missing.length || !payload.item || payload.afterQty === null || payload.changeQty === null) throw new BadRequestException(`请检查：${missing.join('、')}`)
@@ -98,14 +113,14 @@ export class AiInventoryService {
     const current = await tx.productSku.findFirst({ where: { id: item.skuId, tenantId: actor.tenantId, status: 'active', product: this.scope(actor) }, include: { product: { select: { name: true, subtitle: true } } } })
     if (!current) throw new ConflictException('规格已停用或权限范围变化，请重新检查草稿')
     if (current.stockNum !== item.beforeQty || current.saleUnit !== item.saleUnit || current.skuCode !== item.skuCode || (current.specText || '') !== item.specText || productDisplayName(current.product) !== item.productName) throw new ConflictException('库存或规格资料已变化，请保存草稿刷新预览后再确认')
-    const updated = await tx.productSku.updateMany({ where: { id: current.id, tenantId: actor.tenantId, stockNum: item.beforeQty, status: 'active', skuCode: item.skuCode, specText: current.specText, saleUnit: item.saleUnit }, data: { stockNum: payload.afterQty } })
-    if (updated.count !== 1) throw new ConflictException('库存已变化，请保存草稿刷新后再确认')
+    if ((current.reservedNum || 0) !== (item.reservedNum || 0) || convertQuantity(current, payload.quantity!, payload.unit).factor !== (payload.factor || 1) || !!current.batchTracking !== !!item.batchTracking) throw new ConflictException('预占或包装配置已变化，请保存草稿刷新预览')
+    const batchAllocations = await changeStock(tx, { ...current, tenantId: actor.tenantId }, payload.afterQty, { receipt: payload })
     const type = payload.changeQty > 0 ? 'manual_in' : 'manual_out'
-    const reason = `AI库存调整：${payload.reason || (payload.mode === 'set' ? '设为指定数量' : payload.mode === 'increase' ? '增加库存' : '减少库存')}`
-    const adjustment = await tx.stockAdjustment.create({ data: { tenantId: actor.tenantId, adjustmentNo: `AI${Date.now().toString(36).toUpperCase()}${randomBytes(6).toString('hex')}`, type, reason, operatorId: actor.id } })
-    await tx.stockMovement.create({ data: { tenantId: actor.tenantId, skuId: current.id, productId: current.productId, type, changeQty: payload.changeQty, beforeQty: item.beforeQty, afterQty: payload.afterQty, sourceType: 'adjustment', sourceId: adjustment.id, stockAdjustmentId: adjustment.id, operatorId: actor.id, remark: reason } })
+    const reason = `AI库存调整：${payload.reason || (payload.mode === 'set' ? '设为指定数量' : payload.mode === 'increase' ? '增加库存' : '减少库存')}；输入${payload.quantity}${payload.unit}${(payload.factor || 1) > 1 ? `，1${payload.unit}=${payload.factor}${item.saleUnit}` : ''}`.slice(0, 255)
+    const adjustment = sharedAdjustment || await tx.stockAdjustment.create({ data: { tenantId: actor.tenantId, adjustmentNo: `AI${Date.now().toString(36).toUpperCase()}${randomBytes(6).toString('hex')}`, type, reason, operatorId: actor.id } })
+    await tx.stockMovement.create({ data: { tenantId: actor.tenantId, skuId: current.id, productId: current.productId, type, changeQty: payload.changeQty, beforeQty: item.beforeQty, afterQty: payload.afterQty, batchAllocations: batchAllocations as unknown as Prisma.InputJsonValue, sourceType: 'adjustment', sourceId: adjustment.id, stockAdjustmentId: adjustment.id, operatorId: actor.id, remark: reason } })
     const result = { type: 'inventory', id: adjustment.id, adjustmentNo: adjustment.adjustmentNo, ...item, afterQty: payload.afterQty, changeQty: payload.changeQty, path: '/inventory' }
-    await tx.auditLog.create({ data: { tenantId: actor.tenantId, operatorId: actor.id, action: AuditAction.inventory_adjust, module: 'inventory', targetType: 'stock_adjustment', targetId: String(adjustment.id), requestId: `ai-inventory-${draftId}`, afterData: result } })
+    await tx.auditLog.create({ data: { tenantId: actor.tenantId, operatorId: actor.id, action: AuditAction.inventory_adjust, module: 'inventory', targetType: 'stock_adjustment', targetId: String(adjustment.id), requestId: `ai-inventory-${createHash('sha256').update(`${draftId}:${current.id}:${payload.batchNo || ''}`).digest('hex').slice(0, 40)}`, afterData: result as unknown as Prisma.InputJsonValue } })
     return result
   }
 }

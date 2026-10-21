@@ -26,7 +26,7 @@ const originalCategoryId = ref<number | null>(null)
 const nameError = ref('')
 
 const form = reactive<any>({ name: '', subtitle: '', productCode: '', brandId: null, categoryId: null, description: '', specification: '', images: [] as string[], isFactoryProduct: false, supportSample: false, isRecommended: false, isNew: false, isHot: false })
-const sku = reactive<any>({ id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
+const sku = reactive<any>({ id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active', imageUrl: '', packagingUnits: [], lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batchTracking: false })
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 const selectedBrand = computed(() => brands.value.find((item) => item.id === form.brandId))
@@ -178,7 +178,7 @@ function removeImage(index: number) {
 }
 
 function editSku(x?: any) {
-  Object.assign(sku, x ? { ...x, specName: x.specText || '', saleUnit: x.saleUnit || '件', salePrice: Number(x.basePrice ?? 0) } : { id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
+  Object.assign(sku, { imageUrl: '', packagingUnits: [], lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batchTracking: false }, x ? { ...JSON.parse(JSON.stringify(x)), packagingUnits: Array.isArray(x.packagingUnits) ? JSON.parse(JSON.stringify(x.packagingUnits)) : [], specName: x.specText || '', saleUnit: x.saleUnit || '件', salePrice: Number(x.basePrice ?? 0) } : { id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
   skuVisible.value = true
 }
 
@@ -190,7 +190,7 @@ async function saveSku() {
   }
   skuSaving.value = true
   try {
-    const body: any = { specText: sku.specName.trim(), saleUnit: sku.saleUnit.trim(), basePrice: String(sku.salePrice), minOrderQty: sku.minOrderQty }
+    const body: any = { specText: sku.specName.trim(), saleUnit: sku.saleUnit.trim(), basePrice: String(sku.salePrice), minOrderQty: sku.minOrderQty, imageUrl: sku.imageUrl || '', packagingUnits: sku.packagingUnits || [], lowStockThreshold: sku.lowStockThreshold, leadTimeDays: sku.leadTimeDays, safetyStock: sku.safetyStock, batchTracking: sku.batchTracking }
     if (sku.id) { await updateSku(sku.id, body) }
     else { body.name = sku.specName.trim(); await createSku(id.value, body) }
     ElMessage.success('商品规格已保存')
@@ -300,7 +300,7 @@ watch(() => route.params.id, init)
       <el-empty v-if="!skus.length" description="暂无商品规格" />
       <el-table v-else :data="skus" size="small">
         <el-table-column prop="skuCode" label="规格编码" width="130" />
-        <el-table-column prop="specText" label="规格" min-width="120" />
+        <el-table-column label="规格图片" width="90"><template #default="{ row }"><el-image v-if="row.imageUrl || form.images[0]" :src="row.imageUrl || form.images[0]" style="width:52px;height:52px" fit="contain" :alt="row.specText" /></template></el-table-column><el-table-column prop="specText" label="规格" min-width="120" />
         <el-table-column label="售价" width="100"><template #default="{ row }">¥{{ Number(row.basePrice || 0).toFixed(2) }}</template></el-table-column>
         <el-table-column prop="minOrderQty" label="起订量" width="80" />
         <el-table-column label="库存" width="110">
@@ -309,20 +309,26 @@ watch(() => route.params.id, init)
           </template>
         </el-table-column>
         <el-table-column label="状态" width="80"><template #default="{ row }"><el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? '启用' : '禁用' }}</el-tag></template></el-table-column>
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="210">
           <template #default="{ row }">
-            <el-button link type="primary" @click="editSku(row)">编辑</el-button>
+            <el-button link type="primary" @click="editSku(row)">编辑</el-button><el-button link type="primary" @click="editSku({ ...row, id: null, skuCode: '', stockNum: 0, reservedNum: 0 })">复制规格</el-button>
             <el-button link @click="toggleSku(row)">{{ row.status === 'active' ? '禁用' : '启用' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="skuVisible" :title="sku.id ? '编辑商品规格' : '新建商品规格'" width="480">
+    <el-dialog v-model="skuVisible" class="sku-editor-dialog" top="5vh" :title="sku.id ? '编辑商品规格' : '新建商品规格'" width="min(620px, 94vw)">
       <el-form label-width="90">
         <el-form-item label="编码"><el-input :model-value="sku.id ? sku.skuCode : nextSkuCode" readonly aria-label="规格编码" /><small v-if="!sku.id">按已有规格继续编号，正式编码在保存时分配。</small></el-form-item>
         <el-form-item label="规格名"><el-input v-model="sku.specName" /></el-form-item>
         <el-form-item label="销售单位"><el-input v-model="sku.saleUnit" maxlength="50" placeholder="例如：袋、箱" /></el-form-item>
+        <el-form-item label="规格图片"><el-select v-model="sku.imageUrl" aria-label="规格专属图片" clearable placeholder="沿用商品主图"><el-option v-for="(url, index) in form.images" :key="url" :value="url" :label="`商品图片第${index + 1}张`"><el-image :src="url" style="width:32px;height:32px;vertical-align:middle" fit="contain" /> 图片第{{ index + 1 }}张</el-option></el-select><small>图片须先保存到商品图库，客户选规格时同步切换。</small></el-form-item>
+        <el-form-item label="包装换算"><div><div v-for="(pack, index) in sku.packagingUnits" :key="index" class="packaging-row"><el-input v-model="pack.unit" :aria-label="`包装单位${Number(index) + 1}`" placeholder="箱" maxlength="20" /><span>＝</span><el-input-number v-model="pack.factor" :min="2" :max="100000" :precision="0" :aria-label="`每包装基础数量${Number(index) + 1}`" /><span>{{ sku.saleUnit }}</span><el-button @click="sku.packagingUnits.splice(index, 1)">删除</el-button></div><el-button :disabled="sku.packagingUnits.length >= 5" @click="sku.packagingUnits.push({ unit: '', factor: 2 })">添加包装单位</el-button><p class="identity-tip">箱、袋共用本规格库存，按基础销售单位核算。不同净含量请建立独立规格。</p></div></el-form-item>
+        <el-form-item label="最低库存"><el-input-number v-model="sku.lowStockThreshold" aria-label="最低库存" :min="0" :max="2147483647" :precision="0" /></el-form-item>
+        <el-form-item label="供货天数"><el-input-number v-model="sku.leadTimeDays" aria-label="供货天数" :min="1" :max="365" :precision="0" /></el-form-item>
+        <el-form-item label="安全库存"><el-input-number v-model="sku.safetyStock" aria-label="安全库存" :min="0" :max="2147483647" :precision="0" /></el-form-item>
+        <el-form-item label="批次管理"><el-switch v-model="sku.batchTracking" :disabled="skus.some(x => x.id === sku.id && x.batchTracking)" aria-label="启用批次管理" /><small>启用后保留批次追溯，不支持关闭；入库须填批次号和到期日期。历史库存显示日期未知，订单先到期先出。</small></el-form-item>
         <el-form-item label="售价"><el-input-number v-model="sku.salePrice" :min="0" :precision="2" style="width:100%" /></el-form-item>
         <el-form-item label="起订量"><el-input-number v-model="sku.minOrderQty" :min="1" /></el-form-item>
         <p style="color:var(--brand-text-soft);font-size:12px">库存通过库存管理中的出入库单调整；新规格初始库存为0。</p>
@@ -333,6 +339,10 @@ watch(() => route.params.id, init)
 </template>
 
 <style scoped>
+:global(.sku-editor-dialog .el-dialog__body) { max-height:calc(90dvh - 150px); overflow-y:auto; }
+.packaging-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+.packaging-row .el-input { width:72px; }
+small { display:block; line-height:1.6; color:var(--brand-text-soft); }
 .page-heading, .card-title { display: flex; justify-content: space-between; align-items: center; }
 .page-heading { margin-bottom: 20px; }
 .card-title { color: var(--brand-text); font-weight: 600; }

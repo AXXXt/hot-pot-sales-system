@@ -14,6 +14,11 @@ const loading = ref(true)
 const error = ref('')
 const quantity = ref(1)
 const activeSkuId = ref<number>()
+const packageUnit = ref('')
+const factor = computed(() => sku.value?.packagingUnits?.find(x => x.unit === packageUnit.value)?.factor || 1)
+const minQuantity = computed(() => Math.max(1, Math.ceil((sku.value?.minOrderQty || 1) / factor.value)))
+const maxQuantity = computed(() => Math.floor((sku.value?.stockNum || 0) / factor.value))
+const gallery = computed(() => sku.value?.imageUrl ? [sku.value.imageUrl, ...(product.value?.images || []).filter(url => url !== sku.value?.imageUrl)] : product.value?.images)
 
 const sku = computed(() => product.value?.skus.find(item => item.id === activeSkuId.value) || product.value?.skus?.[0])
 const canBuy = computed(() => !!sku.value && sku.value.stockNum >= (sku.value.minOrderQty || 1))
@@ -25,6 +30,7 @@ async function load() {
     const response = await getProduct(Number(route.params.id))
     product.value = response.data
     activeSkuId.value = response.data.skus.find(item => item.stockNum >= (item.minOrderQty || 1))?.id
+    packageUnit.value = sku.value?.saleUnit || ''
     quantity.value = sku.value?.minOrderQty || 1
   } catch {
     error.value = '商品加载失败，请重试'
@@ -34,13 +40,14 @@ async function load() {
 }
 
 function selectSku(id: number) {
+  packageUnit.value = product.value?.skus.find(item => item.id === id)?.saleUnit || ''
   activeSkuId.value = id
   quantity.value = product.value?.skus.find(item => item.id === id)?.minOrderQty || 1
 }
 
 function addToCart() {
-  if (!product.value || !sku.value || !canBuy.value || !Number.isInteger(quantity.value) || quantity.value < (sku.value.minOrderQty || 1) || quantity.value > sku.value.stockNum) return
-  cart.addItem(product.value, sku.value, quantity.value)
+  if (!product.value || !sku.value || !canBuy.value || !Number.isInteger(quantity.value) || quantity.value < minQuantity.value || quantity.value > maxQuantity.value) return
+  cart.addItem(product.value, sku.value, quantity.value * factor.value)
   ElMessage.success('已加入进货单')
 }
 
@@ -52,24 +59,25 @@ onMounted(load)
     <el-breadcrumb class="breadcrumb"><el-breadcrumb-item to="/category">全部商品</el-breadcrumb-item><el-breadcrumb-item>{{ product?.name || '商品详情' }}</el-breadcrumb-item></el-breadcrumb>
     <el-alert v-if="error" :title="error" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
     <div v-if="product" class="detail">
-      <ProductGallery :key="product.id" :images="product.images" :cover="product.mainImageUrl" :name="product.name" />
+      <ProductGallery :key="`${product.id}:${sku?.id}`" :images="gallery" :cover="product.mainImageUrl" :name="product.name" />
       <section>
         <div class="badges"><el-tag v-if="product.isNew" type="warning">新品</el-tag><el-tag v-if="product.isHot" type="danger">热销</el-tag><el-tag>{{ product.brand?.name || '品牌商品' }}</el-tag></div>
         <h1>{{ product.name }}</h1>
         <p class="muted">{{ product.baseSpec || '餐饮食材整箱供货' }}</p>
         <div class="price-panel">
-          <div><small>采购价</small><strong class="price">¥{{ formatAmount(sku?.customerPrice ?? sku?.basePrice) }}</strong><span class="muted">/{{ sku?.saleUnit || '件' }}</span></div>
-          <div><small>库存</small><span>{{ sku?.stockNum || 0 }}</span></div>
-          <div><small>起订量</small><span>{{ sku?.minOrderQty || 1 }}</span></div>
+          <div><small>采购价</small><strong class="price">¥{{ formatAmount(Number(sku?.customerPrice ?? sku?.basePrice ?? 0) * factor) }}</strong><span class="muted">/{{ packageUnit || sku?.saleUnit || '件' }}</span></div>
+          <div><small>可售库存</small><span>{{ sku?.stockNum || 0 }}{{ sku?.saleUnit || '件' }}</span><small v-if="factor > 1">可整{{ maxQuantity }}{{ packageUnit }}</small></div>
+          <div><small>起订量</small><span>{{ minQuantity }}{{ packageUnit || sku?.saleUnit || '件' }}</span></div>
         </div>
         <div class="sku-list">
           <button v-for="item in product.skus" :key="item.id" :class="{ active: item.id === sku?.id, disabled: item.stockNum < (item.minOrderQty || 1) }" :aria-pressed="item.id === sku?.id" :disabled="item.stockNum < (item.minOrderQty || 1)" @click="selectSku(item.id)">
-            <strong>{{ item.specText || item.name }}</strong><span>¥{{ formatAmount(item.customerPrice ?? item.basePrice) }}</span>
+            <strong>{{ item.specText || item.name }}</strong><span>¥{{ formatAmount(item.customerPrice ?? item.basePrice) }}/{{ item.saleUnit }}</span>
           </button>
         </div>
+        <div v-if="sku?.packagingUnits?.length" class="package-row"><label for="package-unit">采购单位</label><el-select id="package-unit" v-model="packageUnit" aria-label="采购包装单位" @change="quantity = minQuantity"><el-option :value="sku.saleUnit" :label="sku.saleUnit" /><el-option v-for="item in sku.packagingUnits" :key="item.unit" :value="item.unit" :label="`${item.unit}（${item.factor}${sku.saleUnit}）`" /></el-select><p class="muted">{{ quantity }}{{ packageUnit || sku.saleUnit }}＝{{ quantity * factor }}{{ sku.saleUnit }}，进货单按{{ sku.saleUnit }}核算。</p></div>
         <div class="buy-row">
-          <el-input-number v-model="quantity" aria-label="采购数量" :disabled="!canBuy" :min="sku?.minOrderQty || 1" :max="Math.max(sku?.stockNum || 0, sku?.minOrderQty || 1)" />
-          <el-button type="primary" size="large" :disabled="!canBuy" @click="addToCart">{{ canBuy ? '加入进货单' : '库存不足' }}</el-button>
+          <el-input-number v-model="quantity" aria-label="采购数量" :disabled="!canBuy" :min="minQuantity" :max="Math.max(maxQuantity, minQuantity)" />
+          <el-button type="primary" size="large" :disabled="!canBuy || maxQuantity < minQuantity" @click="addToCart">{{ canBuy ? '加入进货单' : '库存不足' }}</el-button>
         </div>
         <div class="service"><span v-if="product.deliveryText">{{ product.deliveryText }}</span><span>整箱批发</span><span>订单进度可查</span></div>
       </section>
@@ -79,6 +87,8 @@ onMounted(load)
 </template>
 
 <style scoped>
+.package-row { margin-bottom:18px; }
+.package-row label { margin-right:12px; }
 .breadcrumb { margin-bottom: 28px; line-height: 1.6; }
 .detail { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 48px; align-items: start; }
 h1 { margin: 18px 0 12px; font-size: 28px; line-height: 1.4; font-weight: 600; }

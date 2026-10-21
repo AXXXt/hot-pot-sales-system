@@ -29,7 +29,7 @@ export class AiModelService {
         headers: { Authorization: `Bearer ${this.settings.decrypt(config.encryptedKey)}`, 'Content-Type': 'application/json' },
         // The assistant stores business results, not the provider's private reasoning transcript.
         // DeepSeek enables thinking by default and requires that transcript on later tool turns.
-        body: JSON.stringify({ model, temperature: 0.1, max_tokens: 2500, messages,
+        body: JSON.stringify({ model, temperature: 0.1, max_tokens: tools.some(tool => ['inventory_batch_draft', 'order_list_draft'].includes(tool.function.name)) ? 6000 : 2500, messages,
           ...(new URL(endpoint).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
           ...(tools.length ? { tools, tool_choice: 'auto' } : {}) })
       })
@@ -37,6 +37,7 @@ export class AiModelService {
       const rawText = await response.text()
       if (rawText.length > 200000) throw new Error('model response too large')
       const data = JSON.parse(rawText)
+      if (data.choices?.[0]?.finish_reason === 'length') throw new Error('incomplete model response')
       const message = data.choices?.[0]?.message
       if (!message || (typeof message.content !== 'string' && !Array.isArray(message.tool_calls))) throw new Error('invalid model response')
       await this.prisma.aiUsageRecord.update({ where: { id: usage.id }, data: {

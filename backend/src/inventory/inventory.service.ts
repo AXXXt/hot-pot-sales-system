@@ -1,5 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, Prisma } from '@prisma/client'
+import { changeStock, receiptInput } from './stock-ledger'
+import { convertQuantity } from './packaging'
 import { customAlphabet } from 'nanoid'
 import { PrismaService } from '../prisma.service'
 import { AuditService } from '../audit/audit.service'
@@ -62,13 +64,25 @@ export class InventoryService {
     if (!userId) return
     const actor = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { userType: true }
+      select: { userType: true, tenantId: true, brandAccess: { select: { brandId: true } } }
     })
     if (!actor || actor.userType === 'customer_user') {
       throw new ForbiddenException({
         message: '仅管理端人员可执行此操作',
         errorCode: 'INV_1004'
       })
+    }
+    return actor
+  }
+
+
+  private async assertDocumentScope(actor: any, document: any) {
+    if (!actor?.tenantId) return
+    if (document.tenantId !== actor.tenantId) throw new ForbiddenException('库存单据不在当前租户范围')
+    if (actor.userType !== 'super_admin') {
+      const ids = [...new Set(document.items.map((x: any) => x.skuId))] as number[]
+      const count = await this.prisma.productSku.count({ where: { id: { in: ids }, tenantId: actor.tenantId, product: { brandId: { in: actor.brandAccess.map((x: any) => x.brandId) } } } })
+      if (count !== ids.length) throw new ForbiddenException('库存单据包含未授权品牌')
     }
   }
 
@@ -105,7 +119,7 @@ export class InventoryService {
         skuCode: sku.skuCode,
         specText: sku.specText,
         saleUnit: sku.saleUnit,
-        stockNum: sku.stockNum,
+        stockNum: sku.stockNum, reservedNum: sku.reservedNum || 0, availableNum: Math.max(0, sku.stockNum - (sku.reservedNum || 0)), packagingUnits: sku.packagingUnits || [], batchTracking: sku.batchTracking,
         minOrderQty: sku.minOrderQty,
         status: sku.status,
         productId: sku.productId,
@@ -231,11 +245,12 @@ export class InventoryService {
   }
 
   async createAdjustment(dto: CreateAdjustmentDto, userId?: number) {
-    await this.assertStaffActor(userId)
+    const actor = await this.assertStaffActor(userId)
+    const tenantId = actor?.tenantId || 1
     const created = await this.prisma.$transaction(async (tx) => {
       const adjustment = await tx.stockAdjustment.create({
         data: {
-          tenantId: 1,
+          tenantId,
           adjustmentNo: this.nextNo('ADJ'),
           type: dto.type,
           reason: dto.reason,
@@ -246,30 +261,31 @@ export class InventoryService {
       for (const item of dto.items) {
         const sku = await tx.productSku.findUnique({
           where: { id: item.skuId },
-          include: { product: { select: { name: true, status: true } } }
+          include: { product: { select: { name: true, status: true, brandId: true } } }
         })
         if (!sku || sku.status !== 'active' || sku.product?.status !== 'active') {
           throw new BadRequestException({ message: 'SKU不存在或已停用', errorCode: 'INV_1003' })
         }
+        if (actor?.tenantId && (sku.tenantId !== actor.tenantId || (actor.userType !== 'super_admin' && !actor.brandAccess.some(x => x.brandId === sku.product.brandId)))) throw new ForbiddenException('规格不在当前授权范围')
         const before = sku.stockNum
-        const changeQty = dto.type === 'manual_in' ? item.quantity : -item.quantity
-        if (dto.type === 'manual_out' && before < item.quantity) {
+        const quantity = item.unit ? convertQuantity(sku, item.quantity, item.unit).baseQuantity : item.quantity
+        const changeQty = dto.type === 'manual_in' ? quantity : -quantity
+        if (dto.type === 'manual_out' && before < quantity) {
           throw new BadRequestException({
             message: `库存不足：${sku.product?.name || ''} ${sku.specText} 当前库存 ${before}`,
             errorCode: 'INV_1001'
           })
         }
         const after = before + changeQty
-        const stockUpdate = await tx.productSku.updateMany({ where: { id: item.skuId, stockNum: before }, data: { stockNum: after } })
-        if (stockUpdate.count !== 1) throw new BadRequestException('库存已变化，请重试')
+        const batchAllocations = await changeStock(tx, sku, after, { receipt: item })
         const movement = await tx.stockMovement.create({
           data: {
-            tenantId: 1,
+            tenantId,
             skuId: item.skuId,
             productId: sku.productId,
             changeQty,
             beforeQty: before,
-            afterQty: after,
+            afterQty: after, batchAllocations: batchAllocations as unknown as Prisma.InputJsonValue,
             type: dto.type,
             sourceType: 'adjustment',
             sourceId: adjustment.id,
@@ -284,6 +300,7 @@ export class InventoryService {
     })
 
     await this.audit.write({
+      tenantId,
       action: AuditAction.inventory_adjust,
       module: 'inventory',
       targetType: 'stock_adjustment',
@@ -343,6 +360,7 @@ export class InventoryService {
                 specText: true,
                 saleUnit: true,
                 stockNum: true,
+                batchTracking: true,
                 product: { select: { id: true, name: true, code: true } }
               }
             }
@@ -356,8 +374,9 @@ export class InventoryService {
   }
 
   async createStocktake(dto: CreateStocktakeDto, userId?: number) {
-    await this.assertStaffActor(userId)
-    const skuWhere: any = { tenantId: 1, status: 'active', product: { status: 'active' } }
+    const actor = await this.assertStaffActor(userId)
+    const tenantId = actor?.tenantId || 1
+    const skuWhere: any = { tenantId, status: 'active', product: { status: 'active', ...(actor && actor.userType !== 'super_admin' && actor.brandAccess ? { brandId: { in: actor.brandAccess.map(x => x.brandId) } } : {}) } }
     if (dto.skuIds?.length) skuWhere.id = { in: dto.skuIds }
 
     const skus = await this.prisma.productSku.findMany({
@@ -372,7 +391,7 @@ export class InventoryService {
     const stocktake = await this.prisma.$transaction(async (tx) => {
       const created = await tx.stocktake.create({
         data: {
-          tenantId: 1,
+          tenantId,
           stocktakeNo: this.nextNo('PD'),
           remark: dto.remark,
           operatorId: userId
@@ -380,7 +399,7 @@ export class InventoryService {
       })
       await tx.stocktakeItem.createMany({
         data: skus.map((sku) => ({
-          tenantId: 1,
+          tenantId,
           stocktakeId: created.id,
           skuId: sku.id,
           systemQty: sku.stockNum
@@ -390,6 +409,7 @@ export class InventoryService {
     })
 
     await this.audit.write({
+      tenantId,
       action: AuditAction.inventory_adjust,
       module: 'inventory',
       targetType: 'stocktake',
@@ -401,12 +421,13 @@ export class InventoryService {
   }
 
   async updateStocktakeItems(id: number, dto: UpdateStocktakeItemsDto, userId?: number) {
-    await this.assertStaffActor(userId)
+    const actor = await this.assertStaffActor(userId)
     const stocktake = await this.prisma.stocktake.findUnique({
       where: { id },
       include: { items: true }
     })
     if (!stocktake) throw new NotFoundException({ message: '盘点单不存在', errorCode: 'INV_1005' })
+    await this.assertDocumentScope(actor, stocktake)
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可填写实盘数', errorCode: 'INV_1008' })
 
     await this.prisma.$transaction(async (tx) => {
@@ -423,6 +444,7 @@ export class InventoryService {
           data: {
             countedQty: input.countedQty,
             diffQty: input.countedQty - item.systemQty,
+            receiptBatch: receiptInput(input, item.receiptBatch),
             remark: input.remark
           }
         })
@@ -432,12 +454,13 @@ export class InventoryService {
   }
 
   async completeStocktake(id: number, dto: CompleteStocktakeDto, userId?: number) {
-    await this.assertStaffActor(userId)
+    const actor = await this.assertStaffActor(userId)
     const stocktake = await this.prisma.stocktake.findUnique({
       where: { id },
       include: { items: true }
     })
     if (!stocktake) throw new NotFoundException({ message: '盘点单不存在', errorCode: 'INV_1005' })
+    await this.assertDocumentScope(actor, stocktake)
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可完成', errorCode: 'INV_1008' })
 
     const inputs = new Map(dto.items.map((item) => [item.skuId, item]))
@@ -461,7 +484,7 @@ export class InventoryService {
         if (!item) continue
         await tx.stocktakeItem.update({
           where: { id: item.id },
-          data: { countedQty: input.countedQty, remark: input.remark }
+          data: { countedQty: input.countedQty, remark: input.remark, receiptBatch: receiptInput(input, item.receiptBatch) }
         })
       }
 
@@ -474,16 +497,15 @@ export class InventoryService {
         const after = input.countedQty
         const diff = after - before
         if (diff !== 0) {
-          const stockUpdate = await tx.productSku.updateMany({ where: { id: item.skuId, stockNum: before }, data: { stockNum: after } })
-          if (stockUpdate.count !== 1) throw new BadRequestException('库存已变化，请重试')
+          const batchAllocations = await changeStock(tx, sku, after, { receipt: receiptInput(input, item.receiptBatch) })
           await tx.stockMovement.create({
             data: {
-              tenantId: 1,
+              tenantId: stocktake.tenantId || 1,
               skuId: item.skuId,
               productId: sku.productId,
               changeQty: diff,
               beforeQty: before,
-              afterQty: after,
+              afterQty: after, batchAllocations: batchAllocations as unknown as Prisma.InputJsonValue,
               type: diff > 0 ? 'stocktake_in' : 'stocktake_out',
               sourceType: 'stocktake',
               sourceId: stocktake.id,
@@ -506,6 +528,7 @@ export class InventoryService {
     })
 
     await this.audit.write({
+      tenantId: stocktake.tenantId || 1,
       action: AuditAction.inventory_adjust,
       module: 'inventory',
       targetType: 'stocktake',

@@ -6,8 +6,8 @@ function adaptProductListItem(p) {
   const amount = s => Number(s.customerPrice ?? s.basePrice ?? Infinity)
   const firstSku = skus.reduce((best, item) => !best || amount(item) < amount(best) ? item : best, null) || {}
   const displayPrice = firstSku.customerPrice ?? firstSku.basePrice ?? ''
-  const available = skus.filter(s => Number(s.stockNum || 0) >= Math.max(Number(s.minOrderQty || 1), 1))
-  const stockNum = skus.reduce((max, s) => Math.max(max, Number(s.stockNum || 0)), 0)
+  const available = skus.filter(s => Number(s.availableNum ?? s.stockNum ?? 0) >= Math.max(Number(s.minOrderQty || 1), 1))
+  const stockNum = skus.reduce((max, s) => Math.max(max, Number(s.availableNum ?? s.stockNum ?? 0)), 0)
   const canBuy = available.length > 0
   const stockText = !canBuy && stockNum > 0 ? '库存不足' : stockNum > 10 ? '库存充足' : stockNum > 0 ? '库存紧张' : '售罄'
   return {
@@ -46,7 +46,7 @@ function adaptProductListItem(p) {
     stock_text: stockText,
     sold_out: !canBuy,
     skus: (p.skus || []).map((s) => ({
-      id: s.id,
+      id: s.id, image_url: s.imageUrl || '', packaging_units: s.packagingUnits || [],
       sku_code: s.skuCode,
       name: s.name,
       spec_text: s.specText,
@@ -54,9 +54,9 @@ function adaptProductListItem(p) {
       sale_price: s.basePrice,
       customer_price: s.customerPrice ?? null,
       min_order_qty: s.minOrderQty,
-      stock_qty: s.stockNum || 0,
-      stock_text: (s.stockNum || 0) > 10 ? '库存充足' : (s.stockNum || 0) > 0 ? '库存紧张' : '售罄',
-      sold_out: (s.stockNum || 0) <= 0
+      stock_qty: s.availableNum ?? s.stockNum ?? 0,
+      stock_text: (s.availableNum ?? s.stockNum ?? 0) > 10 ? '库存充足' : (s.availableNum ?? s.stockNum ?? 0) > 0 ? '库存紧张' : '售罄',
+      sold_out: (s.availableNum ?? s.stockNum ?? 0) <= 0
     }))
   }
 }
@@ -81,7 +81,7 @@ function adaptProductDetail(p) {
     brand_name: p.brand?.name || '',
     brand: p.brand,
     skus: (p.skus || []).map((s) => ({
-      id: s.id,
+      id: s.id, image_url: s.imageUrl || '', packaging_units: s.packagingUnits || [],
       sku_code: s.skuCode,
       name: s.name,
       spec_text: s.specText,
@@ -90,17 +90,17 @@ function adaptProductDetail(p) {
       customer_price: s.customerPrice ?? null,
       base_price: s.basePrice,
       min_order_qty: s.minOrderQty,
-      stock_qty: s.stockNum || 0,
-      available_qty: s.stockNum || 0,
-      stock_text: (s.stockNum || 0) > 10 ? '库存充足' : (s.stockNum || 0) > 0 ? '库存紧张' : '售罄',
-      sold_out: (s.stockNum || 0) <= 0
+      stock_qty: s.availableNum ?? s.stockNum ?? 0,
+      available_qty: s.availableNum ?? s.stockNum ?? 0,
+      stock_text: (s.availableNum ?? s.stockNum ?? 0) > 10 ? '库存充足' : (s.availableNum ?? s.stockNum ?? 0) > 0 ? '库存紧张' : '售罄',
+      sold_out: (s.availableNum ?? s.stockNum ?? 0) <= 0
     }))
   }
 }
 
 function adaptSku(s) {
   return {
-    id: s.id,
+    id: s.id, image_url: s.imageUrl || '', packaging_units: s.packagingUnits || [],
     sku_code: s.skuCode,
     name: s.name,
     spec_text: s.specText,
@@ -109,10 +109,10 @@ function adaptSku(s) {
     customer_price: s.customerPrice ?? null,
     base_price: s.basePrice,
     min_order_qty: s.minOrderQty,
-    stock_qty: s.stockNum || 0,
-    available_qty: s.stockNum || 0,
-    stock_text: (s.stockNum || 0) > 10 ? '库存充足' : (s.stockNum || 0) > 0 ? '库存紧张' : '售罄',
-    sold_out: (s.stockNum || 0) <= 0
+    stock_qty: s.availableNum ?? s.stockNum ?? 0,
+    available_qty: s.availableNum ?? s.stockNum ?? 0,
+    stock_text: (s.availableNum ?? s.stockNum ?? 0) > 10 ? '库存充足' : (s.availableNum ?? s.stockNum ?? 0) > 0 ? '库存紧张' : '售罄',
+    sold_out: (s.availableNum ?? s.stockNum ?? 0) <= 0
   }
 }
 

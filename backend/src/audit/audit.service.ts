@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service'
 import { getAuditContext } from './audit-context'
 
 export interface AuditWriteInput {
+  tenantId?: number
   action: AuditAction
   module?: string
   targetType: string
@@ -58,7 +59,7 @@ export class AuditService {
     try {
       await this.prisma.auditLog.create({
         data: {
-          tenantId: 1,
+          tenantId: input.tenantId ?? 1,
           operatorId: input.operatorId ?? ctx?.userId ?? null,
           action: input.action,
           module: input.module ?? null,

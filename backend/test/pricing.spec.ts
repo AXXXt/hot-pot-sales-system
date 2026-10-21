@@ -7,7 +7,7 @@ describe('customer agreement pricing', () => {
       product: {
         findFirst: jest.fn().mockResolvedValue({
           id: 1,
-          skus: [{ id: 11, basePrice: '100.00' }]
+          skus: [{ id: 11, stockNum: 100, reservedNum: 0, minOrderQty: 1, basePrice: '100.00' }]
         })
       },
       user: {
@@ -48,7 +48,7 @@ describe('customer agreement pricing', () => {
           name: '500g',
           specText: '500g',
           saleUnit: '件',
-          basePrice: '100.00',
+          stockNum: 100, reservedNum: 0, minOrderQty: 1, basePrice: '100.00',
           product: { id: 1, name: '测试商品', brandId: 4 }
         }])
       },
@@ -132,7 +132,7 @@ describe('customer agreement pricing', () => {
             name: '500g',
             specText: '500g',
             saleUnit: '件',
-            basePrice: '100.00',
+            stockNum: 100, reservedNum: 0, minOrderQty: 1, basePrice: '100.00',
             product: { id: 1, name: '品牌甲商品', brandId: 4 }
           },
           {
@@ -141,7 +141,7 @@ describe('customer agreement pricing', () => {
             name: '500g',
             specText: '500g',
             saleUnit: '件',
-            basePrice: '120.00',
+            stockNum: 100, reservedNum: 0, minOrderQty: 1, basePrice: '120.00',
             product: { id: 2, name: '品牌乙商品', brandId: 5 }
           }
         ])

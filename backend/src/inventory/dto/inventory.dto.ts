@@ -12,7 +12,14 @@ import {
   ValidateNested
 } from 'class-validator'
 
-export class CreateAdjustmentItemDto {
+export class BatchReceiptDto {
+  @IsOptional() @IsString() @MaxLength(64) batchNo?: string
+  @IsOptional() @IsString() @MaxLength(10) productionDate?: string
+  @IsOptional() @IsString() @MaxLength(10) expiryDate?: string
+}
+
+export class CreateAdjustmentItemDto extends BatchReceiptDto {
+  @IsOptional() @IsString() @MaxLength(50) unit?: string
   @IsInt()
   @IsNotEmpty()
   skuId: number
@@ -50,7 +57,7 @@ export class CreateStocktakeDto {
   skuIds?: number[]
 }
 
-export class StocktakeItemInputDto {
+export class StocktakeItemInputDto extends BatchReceiptDto {
   @IsInt()
   @IsNotEmpty()
   skuId: number

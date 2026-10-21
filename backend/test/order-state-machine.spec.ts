@@ -21,6 +21,7 @@ describe('OrderService state machine', () => {
         update: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 })
       },
+      orderItem: { findMany: jest.fn().mockResolvedValue([]) },
       orderStatusLog: { create: jest.fn().mockResolvedValue({}) }
     }
     Object.assign(prisma, { $transaction: async (fn: any) => fn(prisma) })
@@ -123,7 +124,7 @@ describe('OrderService stock deduction and rollback', () => {
     await service.approveFinance(100, 9)
 
     expect(tx.productSku.updateMany).toHaveBeenCalledWith({
-      where: { id: 11, stockNum: 10 },
+      where: { id: 11, reservedNum: 0, tenantId: undefined, stockNum: 10 },
       data: { stockNum: 5 }
     })
     expect(tx.order.updateMany).toHaveBeenCalledWith({
@@ -149,7 +150,7 @@ describe('OrderService stock deduction and rollback', () => {
     await service.cancel(100, 9)
 
     expect(tx.productSku.updateMany).toHaveBeenCalledWith({
-      where: { id: 11, stockNum: 10 },
+      where: { id: 11, reservedNum: 0, tenantId: undefined, stockNum: 10 },
       data: { stockNum: 15 }
     })
     expect(tx.order.updateMany).toHaveBeenCalledWith({

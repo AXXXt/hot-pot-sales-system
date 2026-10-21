@@ -9,7 +9,7 @@ const auth = useAuthStore()
 const loading = ref(true); const saving = ref(false); const testing = ref(false); const error = ref(''); const tab = ref('connection')
 const hasKey = ref(false); const encryptionReady = ref(false)
 const form = reactive({ enabled: false, baseUrl: '', textModel: '', visionModel: '', apiKey: '', allowWrites: false, dailyRequests: 100,
-  features: { products: true, vision: true, analytics: true, tasks: true, inventory: true } })
+  features: { products: true, vision: true, analytics: true, tasks: true, inventory: true, orders: true } })
 const usage = ref<any[]>([]); const schedules = ref<any[]>([])
 const scheduleForm = reactive({ name: '', kind: 'daily_todos', hour: 9, enabled: true })
 const authorization = ref<any>({ roles: [], users: [], brands: [], permissions: [] })
@@ -18,7 +18,7 @@ const date = (value: string) => value ? new Date(value).toLocaleString('zh-CN', 
 
 function apply(value: any) {
   for (const key of ['enabled', 'baseUrl', 'textModel', 'visionModel', 'allowWrites', 'dailyRequests'] as const) (form as any)[key] = value[key]
-  form.features = { products: true, vision: true, analytics: true, tasks: true, inventory: true, ...value.features }
+  form.features = { products: true, vision: true, analytics: true, tasks: true, inventory: true, orders: true, ...value.features }
   hasKey.value = value.hasKey; encryptionReady.value = value.encryptionReady; form.apiKey = ''
 }
 async function load() {
@@ -96,7 +96,7 @@ onMounted(load)
       </el-tab-pane>
       <el-tab-pane label="能力与权限" name="capabilities">
         <section class="settings-section"><h2>可用能力</h2><p>能力开关决定系统开放哪些功能，人员仍需具备对应业务权限。</p>
-          <div v-for="item in [{ key: 'products', title: '一句话建品', note: '生成并检查商品及规格草稿' }, { key: 'vision', title: '拍照建品', note: '从私有包装照片提取信息' }, { key: 'analytics', title: '经营统计', note: '查询当前人员可见范围的数据' }, { key: 'inventory', title: '一句话调库存', note: '核对具体规格后调整数量，保留单据与流水' }, { key: 'tasks', title: '个人事务', note: '整理待办、提醒和自动报告' }]" :key="item.key" class="setting-row"><div><strong>{{ item.title }}</strong><p>{{ item.note }}</p></div><el-switch v-model="(form.features as any)[item.key]" :aria-label="item.title" /></div>
+          <div v-for="item in [{ key: 'products', title: '一句话建品', note: '生成并检查商品及规格草稿' }, { key: 'orders', title: '采购清单转订单', note: '按客户协议价和品牌拆分订单草稿' }, { key: 'vision', title: '图片识别', note: '识别商品包装、到货单及客户采购清单' }, { key: 'analytics', title: '经营统计', note: '查询当前人员可见范围的数据' }, { key: 'inventory', title: '一句话调库存', note: '核对具体规格后调整数量，保留单据与流水' }, { key: 'tasks', title: '个人事务', note: '整理待办、提醒和自动报告' }]" :key="item.key" class="setting-row"><div><strong>{{ item.title }}</strong><p>{{ item.note }}</p></div><el-switch v-model="(form.features as any)[item.key]" :aria-label="item.title" /></div>
           <div class="setting-row"><div><strong>允许确认后执行业务操作</strong><p>首版支持创建下架商品和个人提醒，仍需AI执行及业务权限。</p></div><el-switch v-model="form.allowWrites" aria-label="允许业务写入" /></div>
         </section>
         <section v-if="auth.can('role:manage')" class="settings-section"><h2>人员授权</h2><p>角色分配能力，人员分配品牌范围。销售仅查询负责的客户和线索；普通人员未分配品牌时无法查看品牌业务数据。</p>

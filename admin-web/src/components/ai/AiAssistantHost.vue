@@ -19,7 +19,7 @@ const fileInput = ref<HTMLInputElement>(); const panel = ref<HTMLElement>(); con
 const position = ref<{ left: number; top: number } | null>(null)
 const mobile = ref(innerWidth <= 640)
 const dragDepth = ref(0)
-const canAttachImages = computed(() => !!capability.value?.enabled && capability.value.tools.includes('product_draft') && capability.value.features.vision === true)
+const canAttachImages = computed(() => !!capability.value?.enabled && ['product_draft', 'inventory_batch_draft', 'order_list_draft'].some(name => capability.value?.tools.includes(name)) && capability.value.features.vision === true)
 let abort: AbortController | undefined
 let reminderTimer: ReturnType<typeof setInterval> | undefined
 const reminderCount = ref(0)
@@ -117,7 +117,7 @@ function productPrompt() { input.value = '新增商品：品牌，分类，商�
 
 async function attach(files: File[]) {
   if (!files.length) return
-  if (!canAttachImages.value) { error.value = '当前账号没有拍照建品权限，或图片识别尚未启用。'; return }
+  if (!canAttachImages.value) { error.value = '当前账号没有图片业务权限，或图片识别尚未启用。'; return }
   if (busy.value || uploading.value) { error.value = '正在处理上一项任务，请稍后再添加照片。'; return }
   if (images.value.length + files.length > 3) { error.value = '每次最多3张照片，请减少数量后重试。'; return }
   if (files.some(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024 || !file.size)) { error.value = '请选择5MB以内的JPG、PNG或WebP图片。'; return }
@@ -162,9 +162,12 @@ async function save(draft: AiDraft, payload: any) {
 async function confirm(draft: AiDraft) {
   const catalog = draft.action === 'product.create' ? [!draft.payload.brandId && draft.payload.brandName ? `品牌“${draft.payload.brandName}”` : '', !draft.payload.categoryId && draft.payload.categoryName ? `分类“${draft.payload.categoryName}”` : ''].filter(Boolean) : []
   const note = catalog.length ? `同时新建${catalog.join('、')}，若存在同名可用项则复用。` : ''
+  const workflowNote = draft.action === 'inventory.batch'
+    ? draft.payload.lines.map((line: any, index: number) => `${index + 1}. ${line.item.productName}（${line.item.specText}，${line.item.skuCode}）：${line.item.beforeQty} → ${line.afterQty}${line.item.saleUnit}${line.batchNo ? '，批次' + line.batchNo + '，到期' + line.expiryDate : ''}`).join('；') + '。整单确认后生成出入库流水。'
+    : draft.action === 'order.create' ? `客户：${draft.payload.customer.customerName}。` + draft.payload.lines.map((line: any) => `${line.item.productName} ${line.specText} ${line.baseQuantity}${line.item.saleUnit}，¥${line.amount}`).join('；') + `。按品牌创建${draft.payload.orders.length}张草稿，之后需在订单详情提交。` : ''
   const stock = draft.payload.item
-  const stockNote = stock ? `将${stock.productName}（${stock.specText}，${stock.skuCode}）库存从${stock.beforeQty}${stock.saleUnit}调整为${draft.payload.afterQty}${stock.saleUnit}，并生成出入库单和流水。确认继续？` : '请先选择明确的商品规格。'
-  try { await ElMessageBox.confirm(draft.action === 'product.create' ? `${note}将创建下架商品及所列规格，初始库存为0。确认继续？` : draft.action === 'inventory.adjust' ? stockNote : '将添加所列事项和北京时间提醒。确认继续？', '确认业务操作', { confirmButtonText: '确认执行', cancelButtonText: '返回检查', type: 'warning' }) }
+  const stockNote = stock ? `将${stock.productName}（${stock.specText}，${stock.skuCode}）库存从${stock.beforeQty}${stock.saleUnit}调整为${draft.payload.afterQty}${stock.saleUnit}${draft.payload.factor > 1 ? `（1${draft.payload.unit}＝${draft.payload.factor}${stock.saleUnit}）` : ''}${draft.payload.batchNo ? `，批次${draft.payload.batchNo}，到期${draft.payload.expiryDate || '按已登记日期'}` : ''}，并生成出入库单和流水。确认继续？` : '请先选择明确的商品规格。'
+  try { await ElMessageBox.confirm(draft.action === 'product.create' ? `${note}将创建下架商品及所列规格，初始库存为0。确认继续？` : workflowNote || (draft.action === 'inventory.adjust' ? stockNote : '将添加所列事项和北京时间提醒。确认继续？'), '确认业务操作', { confirmButtonText: '确认执行', cancelButtonText: '返回检查', type: 'warning', customClass: 'ai-workflow-confirm' }) }
   catch { return }
   draftBusy.value = true; error.value = ''
   try {
@@ -172,7 +175,7 @@ async function confirm(draft: AiDraft) {
     drafts.value[draft.id] = { ...draft, status: 'succeeded' }
     const createdCatalog = [result.result.catalog?.brand?.created ? `品牌“${result.result.catalog.brand.name}”` : '', result.result.catalog?.category?.created ? `分类“${result.result.catalog.category.name}”` : ''].filter(Boolean)
     if (result.result.scopeChanged) { conversationId.value = ''; messages.value = []; drafts.value = {} }
-    messages.value.push({ id: result.id, role: 'assistant', content: draft.action === 'product.create' ? `已创建：${result.result.name}（${result.result.code}），状态为下架，客户暂不可见。${createdCatalog.length ? `已同步创建${createdCatalog.join('、')}。` : ''}请到商品管理打开编辑页，核对资料后点击“上架商品”；库存需在库存管理中按实际数量入库。` : draft.action === 'inventory.adjust' ? `已调整：${result.result.productName}（${result.result.specText}），${result.result.beforeQty}${result.result.saleUnit} → ${result.result.afterQty}${result.result.saleUnit}，出入库单 ${result.result.adjustmentNo}。可到库存管理查看流水。` : '个人提醒已添加，可在“我的事务”查看。' })
+    messages.value.push({ id: result.id, role: 'assistant', content: draft.action === 'product.create' ? `已创建：${result.result.name}（${result.result.code}），状态为下架，客户暂不可见。${createdCatalog.length ? `已同步创建${createdCatalog.join('、')}。` : ''}请到商品管理打开编辑页，核对资料后点击“上架商品”；库存需在库存管理中按实际数量入库。` : draft.action === 'inventory.adjust' ? `已调整：${result.result.productName}（${result.result.specText}），${result.result.beforeQty}${result.result.saleUnit} → ${result.result.afterQty}${result.result.saleUnit}，出入库单 ${result.result.adjustmentNo}。可到库存管理查看流水。` : draft.action === 'inventory.batch' ? `已完成${result.result.items.length}个规格的整单库存操作，单据${result.result.adjustmentNo}。请到库存管理查看流水。` : draft.action === 'order.create' ? `已创建${result.result.orders.length}张订单草稿：${result.result.orders.map((x: any) => x.orderNo).join('、')}。请到订单管理核对并提交。` : '个人提醒已添加，可在“我的事务”查看。' })
     if (draft.action === 'product.create') {
       try { await refreshCapability(); options.value = await api.getCatalogOptions(); await loadList() }
       catch { ElMessage.warning('创建已完成，品牌和分类列表刷新失败，请刷新页面。') }
@@ -227,11 +230,11 @@ onBeforeUnmount(() => { abort?.abort(); clearImages(); stopDrag?.(); document.bo
           <p v-if="busy" class="ai-progress" role="status">{{ progress }}…</p>
         </div>
         <div v-if="error" class="ai-error" role="alert">{{ error }}</div>
-        <div class="ai-shortcuts"><el-button v-if="capability?.tools.includes('inventory_adjust_draft')" size="small" :disabled="busy" @click="input = '把【商品名称】【规格】库存增加【数量】【销售单位】'; composer?.focus()">一句话调库存</el-button><el-button size="small" :disabled="busy" @click="send('today', '整理我的今日待办')">今日待办</el-button><el-button v-if="capability?.tools.includes('product_draft')" size="small" :disabled="busy" @click="productPrompt">一句话建品</el-button><el-button v-if="capability?.tools.includes('metrics_summary')" size="small" :disabled="busy" @click="send('metrics', '查看本周经营统计')">经营统计</el-button><el-button v-if="capability?.tools.includes('tasks_list')" size="small" :disabled="busy" @click="send('tasks', '查看我的事务')">我的事务<span v-if="reminderCount"> · {{ reminderCount }}到期</span></el-button></div>
+        <div class="ai-shortcuts"><el-button v-if="capability?.tools.includes('inventory_batch_draft')" size="small" :disabled="busy" @click="input = '按下面清单批量入库，请核对商品、规格、单位和数量：'; composer?.focus()">批量入库/盘点</el-button><el-button v-if="capability?.tools.includes('order_list_draft')" size="small" :disabled="busy" @click="input = '为【客户名称】把下面采购清单生成订单草稿，请核对规格和协议价：'; composer?.focus()">清单转订单</el-button><el-button v-if="capability?.tools.includes('inventory_adjust_draft')" size="small" :disabled="busy" @click="input = '把【商品名称】【规格】库存增加【数量】【销售单位】'; composer?.focus()">一句话调库存</el-button><el-button size="small" :disabled="busy" @click="send('today', '整理我的今日待办')">今日待办</el-button><el-button v-if="capability?.tools.includes('product_draft')" size="small" :disabled="busy" @click="productPrompt">一句话建品</el-button><el-button v-if="capability?.tools.includes('metrics_summary')" size="small" :disabled="busy" @click="send('metrics', '查看本周经营统计')">经营统计</el-button><el-button v-if="capability?.tools.includes('tasks_list')" size="small" :disabled="busy" @click="send('tasks', '查看我的事务')">我的事务<span v-if="reminderCount"> · {{ reminderCount }}到期</span></el-button></div>
         <div class="ai-composer">
           <div v-if="images.length" class="attachment-previews"><div v-for="(image, index) in images" :key="image.id"><img :src="image.url" :alt="`待识别包装照片${index + 1}`" /><el-button text :icon="Close" :aria-label="`移除照片${index + 1}`" @click="removeImage(index)" /></div></div>
           <textarea ref="composer" v-model="input" rows="3" maxlength="4000" aria-label="向AI运营助手描述需求" placeholder="描述需求，或拖入、粘贴包装照片…" :disabled="busy" @paste="paste" @keydown.enter.exact.prevent="send()" />
-          <div class="composer-actions"><div><input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden @change="pick" /><el-button v-if="capability?.tools.includes('product_draft') && capability.features.vision" text :icon="Picture" :loading="uploading" :disabled="busy" @click="fileInput?.click()">照片</el-button><el-checkbox v-model="usePage" size="small">引用当前页</el-checkbox></div><el-button type="primary" :loading="busy" :disabled="uploading || (!input.trim() && !images.length)" @click="send()">发送</el-button></div>
+          <div class="composer-actions"><div><input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden @change="pick" /><el-button v-if="canAttachImages" text :icon="Picture" :loading="uploading" :disabled="busy" @click="fileInput?.click()">照片</el-button><el-checkbox v-model="usePage" size="small">引用当前页</el-checkbox></div><el-button type="primary" :loading="busy" :disabled="uploading || (!input.trim() && !images.length)" @click="send()">发送</el-button></div>
           <p class="composer-note">{{ usePage ? `引用：${route.meta.title || '当前页面'}。` : '' }}业务修改需检查草稿并确认。Enter发送，Shift+Enter换行。</p>
         </div>
       </template>
@@ -240,6 +243,7 @@ onBeforeUnmount(() => { abort?.abort(); clearImages(); stopDrag?.(); document.bo
 </template>
 
 <style scoped>
+:global(.ai-workflow-confirm .el-message-box__message) { max-height:60dvh; overflow-y:auto; overflow-wrap:anywhere; }
 .ai-launcher { position: fixed; right: 24px; bottom: 24px; z-index: 1700; display: flex; align-items: center; gap: 9px; height: 48px; padding: 0 18px; border: 1px solid #222625; border-radius: 24px; background: #222625; color: white; box-shadow: 0 6px 20px #22262522; cursor: pointer; font-weight: 600; }
 .ai-launcher:focus-visible, .drag-handle:focus-visible { outline: 3px solid #43715b; outline-offset: 3px; }
 .reminder-badge { min-width: 20px; padding: 2px 5px; border-radius: 12px; background: #c4461b; font-size: 11px; }

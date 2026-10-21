@@ -12,6 +12,8 @@ import { buildProductCode, toCategorySegment } from './product-code'
 import { normalizeProductTitle, presentProduct, productDisplayName } from './product-presentation'
 import { imageUpdate } from './product-images'
 import { nextSkuCode } from './sku-code'
+import { skuOptions } from './sku-options'
+import { stockAvailability } from '../inventory/stock-availability'
 
 const PRODUCT_LIST_INCLUDE = Prisma.validator<Prisma.ProductInclude>()({
   category: { select: { id: true, name: true } },
@@ -27,7 +29,7 @@ const PRODUCT_LIST_INCLUDE = Prisma.validator<Prisma.ProductInclude>()({
       saleUnit: true,
       basePrice: true,
       minOrderQty: true,
-      stockNum: true
+      stockNum: true, reservedNum: true, imageUrl: true, packagingUnits: true, batchTracking: true
     },
     orderBy: { basePrice: 'asc' }
   }
@@ -79,7 +81,7 @@ export class ProductService {
     }
 
     if (feed === 'frequent') {
-      return this.frequentList(where, brandId, page, userId)
+      return this.frequentList(where, brandId, page, userId, Boolean(accessWhere.status))
     }
 
     const priceSort = sortBy === 'price_asc' || sortBy === 'price_desc'
@@ -87,7 +89,7 @@ export class ProductService {
       where,
       include: PRODUCT_LIST_INCLUDE,
       orderBy: { createdAt: 'desc' },
-      ...(priceSort ? {} : {
+      ...(priceSort || inStock ? {} : {
         skip: (page - 1) * pageSize,
         take: pageSize
       })
@@ -98,17 +100,18 @@ export class ProductService {
       this.prisma.product.count({ where })
     ])
 
-    const pricedItems = (await this.applyAgreementPrices(items, userId)).map(product => ({
+    let pricedItems = (await this.applyAgreementPrices(items, userId, Boolean(accessWhere.status))).map(product => ({
       ...product,
       skus: [...product.skus].sort((left, right) => (
         Number(left.customerPrice ?? left.basePrice) - Number(right.customerPrice ?? right.basePrice)
       ))
     }))
+    if (inStock) pricedItems = pricedItems.filter(product => product.skus.some(sku => sku.availableNum >= ((sku as any).minOrderQty || 1)))
     const pageItems = priceSort
       ? this.sortByPrice(pricedItems, sortBy).slice((page - 1) * pageSize, page * pageSize)
-      : pricedItems
+      : inStock ? pricedItems.slice((page - 1) * pageSize, page * pageSize) : pricedItems
 
-    return { items: pageItems, page, pageSize, total }
+    return { items: pageItems, page, pageSize, total: inStock ? pricedItems.length : total }
   }
 
   async create(dto: CreateProductDto, tenantId: number = 1) {
@@ -204,13 +207,13 @@ export class ProductService {
         brand: { select: { id: true, name: true } },
         skus: {
           ...(accessWhere.status ? { where: { status: 'active' as const } } : {}),
-          select: { id: true, skuCode: true, name: true, specText: true, saleUnit: true, basePrice: true, minOrderQty: true, stockNum: true, status: true },
+          select: { id: true, skuCode: true, name: true, specText: true, saleUnit: true, basePrice: true, minOrderQty: true, stockNum: true, reservedNum: true, imageUrl: true, packagingUnits: true, lowStockThreshold: true, leadTimeDays: true, safetyStock: true, batchTracking: true, status: true },
           orderBy: { basePrice: 'asc' }
         }
       }
     })
     if (!product) throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
-    return this.applyAgreementPrice(product, userId)
+    return this.applyAgreementPrice(product, userId, Boolean(accessWhere.status))
   }
 
   async update(id: number, dto: UpdateProductDto, userId?: number) {
@@ -249,6 +252,7 @@ export class ProductService {
       }
 
       await transaction.product.update({ where: { id }, data: updateData })
+      if (Array.isArray(updateData.images)) await transaction.productSku.updateMany({ where: { productId: id, imageUrl: { notIn: updateData.images as string[] } }, data: { imageUrl: null } })
     })
     await this.audit.write({
       action: 'update',
@@ -358,12 +362,12 @@ export class ProductService {
   }
 
   async skus(productId: number, userId?: number) {
-    await this.visibility.assertVisible(productId, userId)
+    const scope = await this.visibility.assertVisible(productId, userId)
     const skus = await this.prisma.productSku.findMany({
       where: { productId, status: 'active' },
       orderBy: { basePrice: 'asc' }
     })
-    return this.applySkuAgreementPrices(skus, userId)
+    return this.applySkuAgreementPrices(skus, userId, Boolean(scope?.status))
   }
 
   async validateCart(skuIds: number[], userId: number) {
@@ -386,7 +390,7 @@ export class ProductService {
         }
       }
     })
-    const pricedSkus = await this.applySkuAgreementPrices(skus, userId)
+    const pricedSkus = await this.applySkuAgreementPrices(skus, userId, Boolean(accessWhere.status))
     const foundIds = new Set(pricedSkus.map(sku => sku.id))
 
     return {
@@ -402,9 +406,9 @@ export class ProductService {
         customerPrice: sku.customerPrice,
         basePrice: sku.basePrice.toString(),
         minOrderQty: sku.minOrderQty,
-        stockNum: sku.stockNum,
-        available: sku.stockNum > 0,
-        unavailableReason: sku.stockNum > 0 ? null : '该规格已售罄'
+        stockNum: sku.availableNum,
+        available: sku.availableNum >= sku.minOrderQty,
+        unavailableReason: sku.availableNum >= sku.minOrderQty ? null : '该规格已售罄'
       })),
       invalidSkuIds: skuIds.filter(skuId => !foundIds.has(skuId))
     }
@@ -432,13 +436,23 @@ export class ProductService {
         specText: dto.specText,
         saleUnit: dto.saleUnit,
         basePrice: dto.basePrice,
-        minOrderQty: dto.minOrderQty
+        minOrderQty: dto.minOrderQty,
+        ...skuOptions(dto, product)
       } })
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted })
   }
 
   async updateSku(id: number, dto: UpdateSkuDto) {
-    await this.prisma.productSku.update({ where: { id }, data: dto })
+    await this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM product_skus WHERE id = ${id} FOR UPDATE`)
+      const current = await tx.productSku.findUnique({ where: { id }, include: { product: true } })
+      if (!current) throw new NotFoundException('规格不存在')
+      const data = { ...dto }
+      delete data.stockNum
+      if (dto.stockNum !== undefined) throw new BadRequestException('库存必须通过出入库或盘点调整')
+      await tx.productSku.update({ where: { id }, data: { ...data, ...skuOptions(dto, current.product, current) } })
+      if (!current.batchTracking && dto.batchTracking && current.stockNum > 0) await tx.stockBatch.create({ data: { tenantId: current.tenantId, skuId: current.id, batchNo: '__LEGACY__', quantity: current.stockNum } })
+    })
     return this.prisma.productSku.findUnique({ where: { id } })
   }
 
@@ -573,7 +587,7 @@ export class ProductService {
     })
   }
 
-  private async frequentList(where: any, brandId: number | undefined, page: number, userId?: number) {
+  private async frequentList(where: any, brandId: number | undefined, page: number, userId?: number, customerView = false) {
     const pageSize = 5
     if (!userId) return { items: [], page, pageSize, total: 0 }
 
@@ -614,7 +628,7 @@ export class ProductService {
       .filter((product): product is NonNullable<typeof product> => Boolean(product))
 
     return {
-      items: await this.applyAgreementPrices(orderedProducts, userId),
+      items: await this.applyAgreementPrices(orderedProducts, userId, customerView),
       page,
       pageSize,
       total: orderedProducts.length
@@ -659,22 +673,24 @@ export class ProductService {
     return new Map(rules.filter(rule => rule.skuId != null).map(rule => [rule.skuId!, rule.price.toString()]))
   }
 
-  private async applySkuAgreementPrices<T extends { id: number }>(skus: T[], userId?: number) {
+  private async applySkuAgreementPrices<T extends { id: number }>(skus: T[], userId?: number, customerView = false) {
     const prices = await this.agreementPriceMap(userId, skus.map(sku => sku.id))
-    return skus.map(sku => ({ ...sku, customerPrice: prices.get(sku.id) ?? null }))
+    const available = await stockAvailability(this.prisma, skus)
+    return skus.map(sku => ({ ...sku, ...(customerView ? { stockNum: available.get(sku.id) || 0 } : {}), availableNum: available.get(sku.id) || 0, customerPrice: prices.get(sku.id) ?? null }))
   }
 
-  private async applyAgreementPrices<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(products: T[], userId?: number) {
+  private async applyAgreementPrices<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(products: T[], userId?: number, customerView = false) {
     const skus = products.flatMap(product => product.skus)
     const prices = await this.agreementPriceMap(userId, skus.map(sku => sku.id))
+    const available = await stockAvailability(this.prisma, skus)
     return products.map(product => ({
       ...presentProduct(product),
-      skus: product.skus.map(sku => ({ ...sku, customerPrice: prices.get(sku.id) ?? null }))
+      skus: product.skus.map(sku => ({ ...sku, ...(customerView ? { stockNum: available.get(sku.id) || 0 } : {}), availableNum: available.get(sku.id) || 0, customerPrice: prices.get(sku.id) ?? null }))
     }))
   }
 
-  private async applyAgreementPrice<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(product: T, userId?: number) {
-    const [result] = await this.applyAgreementPrices([product], userId)
+  private async applyAgreementPrice<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(product: T, userId?: number, customerView = false) {
+    const [result] = await this.applyAgreementPrices([product], userId, customerView)
     return result
   }
 }

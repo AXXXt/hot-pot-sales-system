@@ -10,6 +10,9 @@ export interface ProductSku {
   customerPrice?: string | null
   minOrderQty: number
   stockNum: number
+  availableNum?: number
+  imageUrl?: string
+  packagingUnits?: Array<{ unit: string; factor: number }>
 }
 
 export interface Product {
@@ -88,7 +91,7 @@ export function getProduct(id: number) {
 }
 
 function presentProduct(product: Product): Product {
-  return { ...product, name: product.displayName?.trim() || product.subtitle?.trim() || product.name }
+  return { ...product, skus: product.skus.map(sku => ({ ...sku, stockNum: sku.availableNum ?? sku.stockNum })), name: product.displayName?.trim() || product.subtitle?.trim() || product.name }
 }
 
 export function getCategories() {

@@ -3,11 +3,12 @@ import { PrismaService } from '../prisma.service'
 import { StaffAccessService, StaffActor } from '../auth/staff-access.service'
 import { metricRange } from './ai.metrics'
 import { EFFECTIVE_ORDER_STATUSES } from './ai.types'
+import { InventoryPlanningService } from '../inventory/inventory-planning.service'
 import { presentProduct } from '../product/product-presentation'
 
 @Injectable()
 export class AiDataService {
-  constructor(private readonly prisma: PrismaService, private readonly access: StaffAccessService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: StaffAccessService, private readonly planning?: InventoryPlanningService) {}
 
   async options(actor: StaffActor) {
     this.access.require(actor, 'product:create')
@@ -30,6 +31,10 @@ export class AiDataService {
 
   async lowStock(actor: StaffActor) {
     this.access.require(actor, 'inventory:read')
+    if (this.planning) {
+      const result = await this.planning.overview(actor)
+      return { type: 'inventory', title: '库存预警', items: result.items.filter(x => x.lowStock).slice(0, 30).map(x => ({ ...x, id: x.skuId, productId: x.productId, product: { name: x.productName, subtitle: x.productName }, recentQuantity: x.sold28, salesDays: 28 })), note: result.note }
+    }
     const items = await this.prisma.productSku.findMany({
       where: { tenantId: actor.tenantId, stockNum: { lte: 10 }, status: 'active', product: { AND: [this.access.productWhere(actor), { status: 'active' }] } },
       select: { id: true, productId: true, specText: true, saleUnit: true, stockNum: true, product: { select: { name: true, subtitle: true } } },
@@ -119,6 +124,10 @@ export class AiDataService {
 
   async replenishment(actor: StaffActor) {
     this.access.require(actor, 'inventory:read', 'analytics:view', 'order:read')
+    if (this.planning) {
+      const result = await this.lowStock(actor)
+      return { ...result, title: '补货建议' }
+    }
     const stock = await this.lowStock(actor)
     if (!stock.items.length) return { ...stock, title: '补货建议', note: '当前权限范围内没有触发预警的SKU。' }
     const sales = await this.prisma.orderItem.groupBy({ by: ['skuId', 'saleUnit'], where: { tenantId: actor.tenantId, skuId: { in: stock.items.map(x => x.id) }, order: {

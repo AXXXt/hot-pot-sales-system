@@ -7,6 +7,7 @@ import { ProductService } from '../product/product.service'
 import { ProductDraft } from './ai.types'
 import { AiInventoryService, InventoryDraft, inventoryMissing, normalizeInventoryDraft } from './ai-inventory.service'
 import { AiSettingsService, DEFAULT_FEATURES } from './ai-settings.service'
+import { AiWorkflowsService, normalizeWorkflow, workflowMissing } from './ai-workflows.service'
 import { toBrandPrefix } from '../product/product-code'
 import { productDisplayName } from '../product/product-presentation'
 
@@ -41,11 +42,12 @@ export function productMissing(payload: ProductDraft) {
 
 @Injectable()
 export class AiDraftService {
-  constructor(private readonly prisma: PrismaService, private readonly access: StaffAccessService, private readonly products: ProductService, private readonly settings: AiSettingsService, private readonly inventory?: AiInventoryService) {}
+  constructor(private readonly prisma: PrismaService, private readonly access: StaffAccessService, private readonly products: ProductService, private readonly settings: AiSettingsService, private readonly inventory?: AiInventoryService, private readonly workflows?: AiWorkflowsService) {}
 
   private digest(action: string, payload: unknown, fingerprint: string) { return createHash('sha256').update(JSON.stringify({ action, payload, fingerprint })).digest('hex') }
 
   private normalize(action: string, value: any) {
+    if (['inventory.batch', 'order.create'].includes(action)) return normalizeWorkflow(action, value)
     if (action === 'inventory.adjust') return normalizeInventoryDraft(value)
     if (action === 'product.create') return normalizeProductDraft(value)
     if (action === 'task.create') {
@@ -58,11 +60,16 @@ export class AiDraftService {
   }
 
   private authorize(actor: StaffActor, action: string) {
+    if (['inventory.batch', 'order.create'].includes(action)) {
+      if (!this.workflows) throw new BadRequestException('清单能力不可用')
+      return this.workflows.authorize(actor, action)
+    }
     if (action === 'inventory.adjust') this.access.require(actor, 'inventory:read')
     this.access.require(actor, 'ai:use', action === 'product.create' ? 'product:create' : action === 'task.create' ? 'task:manage_own' : action === 'inventory.adjust' ? 'inventory:adjust' : '__unknown_action__')
   }
 
   private async prepare(actor: StaffActor, action: string, value: unknown) {
+    if (['inventory.batch', 'order.create'].includes(action)) return this.workflows!.prepare(actor, action, value)
     if (action === 'inventory.adjust') {
       if (!this.inventory) throw new BadRequestException('库存调整能力不可用')
       return this.inventory.prepare(actor, value)
@@ -96,7 +103,7 @@ export class AiDraftService {
 
   present(draft: any, actor?: StaffActor) {
     const payload = draft.action === 'product.create' ? normalizeProductDraft(draft.payload) : null
-    const missing = payload ? productMissing(payload) : draft.action === 'inventory.adjust' ? inventoryMissing(draft.payload as InventoryDraft) : []
+    const missing = payload ? productMissing(payload) : draft.action === 'inventory.adjust' ? inventoryMissing(draft.payload as InventoryDraft) : ['inventory.batch', 'order.create'].includes(draft.action) ? workflowMissing(draft.action, draft.payload) : []
     if (actor && payload?.brandName && !this.access.has(actor, 'brand:manage')) missing.push('新建品牌需要品牌管理权限')
     if (actor && payload?.categoryName && !this.access.has(actor, 'product:update')) missing.push('新建分类需要商品维护权限')
     return { type: 'draft', ...draft, missing }
@@ -125,7 +132,7 @@ export class AiDraftService {
     const draft = await this.get(actor, id, true)
     this.access.require(actor, 'ai:execute')
     const config = await this.settings.configFor(actor.tenantId)
-    const feature = draft.action === 'product.create' ? 'products' : draft.action === 'inventory.adjust' ? 'inventory' : 'tasks'
+    const feature = draft.action === 'product.create' ? 'products' : draft.action.startsWith('inventory.') ? 'inventory' : draft.action === 'order.create' ? 'orders' : 'tasks'
     const features = { ...DEFAULT_FEATURES, ...(config?.features as object ?? {}) }
     if (!config?.enabled || !config.allowWrites || features[feature] !== true) throw new BadRequestException('此业务写入能力尚未启用')
     if (draft.version !== version || draft.digest !== digest) throw new ConflictException('确认内容与当前草稿不一致')
@@ -147,13 +154,14 @@ export class AiDraftService {
         if (done) return done
         throw new ConflictException('草稿状态已变化，请刷新确认结果')
       }
-      const payload: any = draft.action === 'inventory.adjust' ? draft.payload : this.normalize(draft.action, draft.payload)
+      const payload: any = ['inventory.adjust', 'inventory.batch', 'order.create'].includes(draft.action) ? draft.payload : this.normalize(draft.action, draft.payload)
       let result: Record<string, unknown>
       if (draft.action === 'product.create') result = await this.createProduct(tx, actor, payload)
       else if (draft.action === 'inventory.adjust') {
         if (!this.inventory) throw new BadRequestException('库存调整能力不可用')
         result = await this.inventory.apply(tx, actor, payload, id)
-      } else {
+      } else if (['inventory.batch', 'order.create'].includes(draft.action)) result = await this.workflows!.apply(tx, actor, draft.action, payload, id)
+      else {
         const task = await tx.opsTask.create({ data: { tenantId: actor.tenantId, ownerId: actor.id, title: payload.title, dueAt: new Date(payload.dueAt) } })
         result = { id: task.id, title: task.title, dueAt: task.dueAt.toISOString(), type: 'task' }
       }

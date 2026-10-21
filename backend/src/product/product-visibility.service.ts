@@ -73,7 +73,7 @@ export class ProductVisibilityService {
     return { ...FACTORY_SCOPE, tenantId: customer.tenantId }
   }
 
-  async assertVisible(productId: number, userId?: number): Promise<void> {
+  async assertVisible(productId: number, userId?: number): Promise<Prisma.ProductWhereInput> {
     const scope = await this.whereForUser(userId)
     const product = await this.prisma.product.findFirst({
       where: { id: productId, ...scope },
@@ -85,5 +85,6 @@ export class ProductVisibilityService {
         errorCode: 'PRO_1001'
       })
     }
+    return scope
   }
 }

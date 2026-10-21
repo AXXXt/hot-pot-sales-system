@@ -13,6 +13,7 @@ Page({
     skus: [],
     selectedSkuId: '',
     quantity: 1,
+    packageUnit: '', packageFactor: 1, packageOptions: [], packageIndex: 0, packageHint: '',
     selectedSku: null,
     skuLoading: true,
     skuError: '',
@@ -71,7 +72,9 @@ Page({
     const canBuy = Boolean(selectedSku && !selectedSku.sold_out && maxQuantity >= minQuantity)
     this.setData({
       selectedSkuId: selectedSku ? String(selectedSku.id) : '',
-      selectedSku,
+      selectedSku, packageUnit: saleUnit, packageFactor: 1, packageIndex: 0, packageHint: '',
+      packageOptions: [{ unit: saleUnit, factor: 1, label: saleUnit }].concat((selectedSku && selectedSku.packaging_units || []).map(item => ({ ...item, label: item.unit + '（' + item.factor + saleUnit + '）' }))),
+      imageIndex: Math.max(0, this.data.imageList.indexOf(selectedSku && selectedSku.image_url)),
       quantity: minQuantity,
       canBuy,
       quantityDisabled: !canBuy,
@@ -79,10 +82,10 @@ Page({
       maxQuantity,
       displayPrice: priceValue != null && priceValue !== '' ? '¥' + priceValue : '价格待确认',
       saleUnitText: '/ ' + saleUnit,
-      customerPriceText: customerPrice
-        ? '协议价 ¥' + customerPrice
+      customerPriceText: customerPrice != null
+        ? '协议价 ¥' + customerPrice + '/' + saleUnit
         : (auth.state.token ? '' : '登录查看协议价'),
-      basePriceText: salePrice ? '基础价 ¥' + salePrice : '',
+      basePriceText: salePrice != null ? '基础价 ¥' + salePrice + '/' + saleUnit : '',
       stockText: selectedSku && selectedSku.sold_out ? '售罄' : (selectedSku && selectedSku.stock_text) || '库存待确认',
       minOrderText: selectedSku && selectedSku.min_order_qty ? selectedSku.min_order_qty + (selectedSku.sale_unit || '') : '起订量待确认',
       deliveryText: product.delivery_text || '配送信息待确认',
@@ -163,6 +166,22 @@ Page({
     this.setData({ skuError: this.data.canBuy ? '' : '该规格库存不足起订量' })
   },
 
+  onPackageChange(e) {
+    const index = Number(e.detail.value)
+    const pack = this.data.packageOptions[index]
+    if (!pack || !this.data.selectedSku) return
+    const sku = this.data.selectedSku
+    const min = Math.max(1, Math.ceil(Number(sku.min_order_qty || 1) / pack.factor))
+    const max = Math.floor(Number(sku.available_qty || 0) / pack.factor)
+    const price = auth.state.token && sku.customer_price != null ? sku.customer_price : sku.sale_price
+    this.setData({ packageIndex: index, packageUnit: pack.unit, packageFactor: pack.factor,
+      quantity: min, minQuantity: min, maxQuantity: max, quantityDisabled: max < min, canBuy: max >= min,
+      minOrderText: min + pack.unit,
+      saleUnitText: '/ ' + pack.unit, displayPrice: price != null && price !== '' ? '¥' + (Number(price) * pack.factor).toFixed(2) : '价格待确认',
+      packageHint: '1' + pack.unit + '＝' + pack.factor + sku.sale_unit + '，进货单按' + sku.sale_unit + '核算' })
+    this.updateEstimatedTotal()
+  },
+
   onQuantityChange(e) {
     const nextQuantity = Number(e.detail)
     const min = Number(this.data.minQuantity || 1)
@@ -176,7 +195,7 @@ Page({
     const sku = this.data.selectedSku
     const price = sku && (auth.state.token && sku.customer_price != null ? sku.customer_price : sku.sale_price)
     const knownPrice = price != null && price !== '' && Number.isFinite(Number(price))
-    this.setData({ estimatedTotal: knownPrice ? '¥' + (Number(price) * this.data.quantity).toFixed(2) : '待报价' })
+    this.setData({ estimatedTotal: knownPrice ? '¥' + (Number(price) * this.data.quantity * this.data.packageFactor).toFixed(2) : '待报价' })
   },
 
   ensureLogin() {
@@ -212,13 +231,13 @@ Page({
       productId: this.data.productId,
       skuId: String(this.data.selectedSku.id),
       brandId: this.data.product && this.data.product.brand_id,
-      quantity: this.data.quantity,
+      quantity: this.data.quantity * this.data.packageFactor,
       snapshot: {
         name: this.data.product && this.data.product.name,
         brandId: this.data.product && this.data.product.brand_id,
         brandText: this.data.product && this.data.product.brand_name || '',
         spec: this.data.selectedSku && this.data.selectedSku.spec_text || '',
-        price: this.data.selectedSku && this.data.selectedSku.customer_price || this.data.selectedSku && this.data.selectedSku.sale_price || '',
+        price: this.data.selectedSku && (this.data.selectedSku.customer_price ?? this.data.selectedSku.sale_price) || '',
         priceUnit: this.data.selectedSku && this.data.selectedSku.sale_unit || ''
       }
     })
@@ -241,13 +260,13 @@ Page({
       productId: this.data.productId,
       skuId: String(this.data.selectedSku.id),
       brandId: this.data.product && this.data.product.brand_id,
-      quantity: this.data.quantity,
+      quantity: this.data.quantity * this.data.packageFactor,
       snapshot: {
         name: this.data.product && this.data.product.name,
         brandId: this.data.product && this.data.product.brand_id,
         brandText: this.data.product && this.data.product.brand_name || '',
         spec: this.data.selectedSku && this.data.selectedSku.spec_text || '',
-        price: this.data.selectedSku && this.data.selectedSku.customer_price || this.data.selectedSku && this.data.selectedSku.sale_price || '',
+        price: this.data.selectedSku && (this.data.selectedSku.customer_price ?? this.data.selectedSku.sale_price) || '',
         priceUnit: this.data.selectedSku && this.data.selectedSku.sale_unit || ''
       }
     })

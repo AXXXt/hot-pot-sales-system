@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { PrismaService } from '../prisma.service'
 import { StaffAccessService, StaffActor } from '../auth/staff-access.service'
 
-export const DEFAULT_FEATURES = { products: true, vision: true, analytics: true, tasks: true, inventory: true }
+export const DEFAULT_FEATURES = { products: true, vision: true, analytics: true, tasks: true, inventory: true, orders: true }
 const PROVIDER_HOSTS = ['dashscope.aliyuncs.com', 'dashscope-intl.aliyuncs.com', 'api.deepseek.com']
 
 export function validateModelEndpoint(value: string) {

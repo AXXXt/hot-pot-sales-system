@@ -442,6 +442,13 @@ model ProductSku {
   basePrice      Decimal                @map("base_price") @db.Decimal(18, 2)
   minOrderQty    Int                    @map("min_order_qty")
   stockNum       Int                    @default(0) @map("stock_num")
+  reservedNum    Int                    @default(0) @map("reserved_num")
+  imageUrl       String?                @map("image_url") @db.VarChar(500)
+  packagingUnits Json?                  @map("packaging_units")
+  lowStockThreshold Int                 @default(10) @map("low_stock_threshold")
+  leadTimeDays   Int                    @default(3) @map("lead_time_days")
+  safetyStock    Int                    @default(0) @map("safety_stock")
+  batchTracking  Boolean                @default(false) @map("batch_tracking")
   status         SkuStatus              @default(active)
   createdAt      DateTime               @default(now()) @map("created_at")
   updatedAt      DateTime               @updatedAt @map("updated_at")
@@ -452,6 +459,7 @@ model ProductSku {
   priceHistories CustomerPriceHistory[]
   movements      StockMovement[]
   stocktakeItems StocktakeItem[]
+  batches        StockBatch[]
 
   @@unique([tenantId, skuCode])
   @@index([tenantId, productId, status])
@@ -472,6 +480,7 @@ model Order {
   logisticsType    String?                @map("logistics_type") @db.VarChar(50)
   logisticsInfo    Json?                  @map("logistics_info")
   sampleFlag       Boolean                @default(false) @map("sample_flag")
+  stockReserved    Boolean                @default(false) @map("stock_reserved")
   orderNo          String                 @unique @map("order_no") @db.VarChar(64)
   status           OrderStatus            @default(draft)
   totalAmount      Decimal                @map("total_amount") @db.Decimal(18, 2)
@@ -662,6 +671,7 @@ model StockMovement {
   changeQty         Int              @map("change_qty")
   beforeQty         Int              @map("before_qty")
   afterQty          Int              @map("after_qty")
+  batchAllocations  Json?            @map("batch_allocations")
   type              String           @db.VarChar(32)
   sourceType        String           @map("source_type") @db.VarChar(32)
   sourceId          Int?             @map("source_id")
@@ -716,6 +726,7 @@ model Stocktake {
 }
 
 model StocktakeItem {
+  receiptBatch Json? @map("receipt_batch")
   id          Int        @id @default(autoincrement())
   tenantId    Int        @map("tenant_id")
   stocktakeId Int        @map("stocktake_id")
@@ -906,6 +917,36 @@ model OpsTask {
 
   @@index([tenantId, ownerId, status, dueAt])
   @@map("ops_tasks")
+}
+
+model StockBatch {
+  id             Int        @id @default(autoincrement())
+  tenantId       Int        @map("tenant_id")
+  skuId          Int        @map("sku_id")
+  batchNo        String     @map("batch_no") @db.VarChar(64)
+  productionDate DateTime?  @map("production_date") @db.Date
+  expiryDate     DateTime?  @map("expiry_date") @db.Date
+  quantity       Int        @default(0)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  sku            ProductSku @relation(fields: [skuId], references: [id])
+
+  @@unique([tenantId, skuId, batchNo])
+  @@index([tenantId, expiryDate])
+  @@map("stock_batches")
+}
+
+model ReplenishmentPlan {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  ownerId   Int      @map("owner_id")
+  planNo    String   @unique @map("plan_no") @db.VarChar(64)
+  status    String   @default("draft") @db.VarChar(32)
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, ownerId, status])
+  @@map("replenishment_plans")
 }
 
 model AiSchedule {

@@ -36,7 +36,7 @@ describe('InventoryService', () => {
       9
     )
 
-    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, stockNum: 100 }, data: { stockNum: 105 } })
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, reservedNum: 0, tenantId: undefined, stockNum: 100 }, data: { stockNum: 105 } })
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ changeQty: 5, beforeQty: 100, afterQty: 105, type: 'manual_in', sourceType: 'adjustment', sourceId: 1 })
@@ -110,7 +110,7 @@ describe('InventoryService', () => {
       9
     )
 
-    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, stockNum: 105 }, data: { stockNum: 100 } })
+    expect(tx.productSku.updateMany).toHaveBeenCalledWith({ where: { id: 26, reservedNum: 0, tenantId: undefined, stockNum: 105 }, data: { stockNum: 100 } })
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ changeQty: -5, beforeQty: 105, afterQty: 100, type: 'stocktake_out', sourceType: 'stocktake', sourceId: 9 })

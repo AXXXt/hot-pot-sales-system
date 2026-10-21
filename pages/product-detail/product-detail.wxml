@@ -26,7 +26,7 @@
           data-id="{{item.id}}"
           bindtap="onSelectSku"
           disabled="{{item.sold_out}}"
-        ><text class="sku-item__name">{{item.spec_text || item.name}}</text><text class="sku-item__desc">{{item.sale_unit || '单位待确认'}}{{item.sold_out ? ' · 售罄' : ''}}</text><text wx:if="{{selectedSkuId == item.id}}" class="sku-item__check">✓</text></button></view><text wx:if="{{skuError}}" class="inline-error">{{skuError}}</text><view class="quantity-row"><view><text class="quantity-title">采购数量</text><text class="quantity-unit">{{selectedSku.sale_unit || ''}}</text></view><quantity-stepper id="quantity-stepper"
+        ><text class="sku-item__name">{{item.spec_text || item.name}}</text><text class="sku-item__desc">{{item.sale_unit || '单位待确认'}}{{item.sold_out ? ' · 售罄' : ''}}</text><text wx:if="{{selectedSkuId == item.id}}" class="sku-item__check">✓</text></button></view><text wx:if="{{skuError}}" class="inline-error">{{skuError}}</text><view wx:if="{{packageOptions.length > 1}}" class="package-picker"><text>采购单位</text><picker range="{{packageOptions}}" range-key="label" value="{{packageIndex}}" bindchange="onPackageChange"><view class="package-picker__value">{{packageOptions[packageIndex].label}} ▾</view></picker><text class="package-picker__hint">{{packageHint}}</text></view><view class="quantity-row"><view><text class="quantity-title">采购数量</text><text class="quantity-unit">{{packageUnit || selectedSku.sale_unit || ''}}</text></view><quantity-stepper id="quantity-stepper"
           value="{{quantity}}"
           min="{{minQuantity}}"
           max="{{maxQuantity}}"

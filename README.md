@@ -4,6 +4,8 @@
 
 当前已发布版本：**v1.2.6（2026-10-21，`ai-20261021-9`）**。在新电脑继续开发前，请先阅读[开发交接与接续提示词](dev-docs/development_handoff.md)、[本地联调环境](dev-docs/local_development.md)和[生产部署记录](dev-docs/production_deployment.md)。
 
+仓库还包含待发布的[商品、库存与接单扩展](dev-docs/admin/operations_workflow.md)：规格专属图与复制、包装换算、AI批量库存、库存预占、补货草稿、采购清单转订单及批次保质期。新电脑须应用全部18个迁移；这些源码更新不代表线上或微信正式版已发布。
+
 ## 技术栈
 
 | 端 | 技术 |
@@ -104,7 +106,7 @@ npm run dev
 cd backend
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint --max-warnings=0
-npm test            # Jest；最近一次验证46套件、366项
+npm test            # Jest；最近一次验证47套件、369项
 
 # 管理后台
 cd admin-web

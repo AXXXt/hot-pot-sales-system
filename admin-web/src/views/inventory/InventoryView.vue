@@ -123,12 +123,12 @@ const adjustmentLoading = ref(false)
 const adjustmentError = ref('')
 const adjustmentDialog = ref(false)
 const adjusting = ref(false)
-const adjustmentForm = reactive({ type: 'manual_in', reason: '', rows: [] as Array<{ skuId?: number; quantity: number }> })
+const adjustmentForm = reactive({ type: 'manual_in', reason: '', rows: [] as Array<{ skuId?: number; quantity: number; unit?: string; batchNo?: string; productionDate?: string; expiryDate?: string }> })
 const adjustmentDetailVisible = ref(false)
 const adjustmentDetail = ref<any>(null)
 
 function adjustmentTypeLabel(type: string) {
-  return type === 'manual_in' ? '入库' : '出库'
+  return type === 'manual_in' ? '入库' : type === 'stocktake' ? 'AI盘点' : '出库'
 }
 
 async function loadAdjustments() {
@@ -166,7 +166,7 @@ async function submitAdjustment() {
     await createAdjustment({
       type: adjustmentForm.type,
       reason: adjustmentForm.reason || undefined,
-      items: adjustmentForm.rows.map((r) => ({ skuId: r.skuId, quantity: r.quantity }))
+      items: adjustmentForm.rows.map((r) => ({ ...r }))
     })
     ElMessage.success('出入库单已生效')
     adjustmentDialog.value = false
@@ -253,7 +253,7 @@ async function submitStocktake() {
 async function openStocktakeDetail(id: number, readonly = false) {
   const response: any = await getStocktakeDetail(id)
   stocktakeDetail.value = dataOf(response)
-  detailRows.value = (stocktakeDetail.value?.items || []).map((item: any) => ({ ...item, countedQty: item.countedQty ?? undefined }))
+  detailRows.value = (stocktakeDetail.value?.items || []).map((item: any) => ({ ...item, ...(item.receiptBatch || {}), countedQty: item.countedQty ?? undefined }))
   detailReadonly.value = readonly || stocktakeDetail.value?.status !== 'draft'
   stocktakeDetailVisible.value = true
 }
@@ -276,6 +276,7 @@ async function saveStocktake(action: 'save' | 'complete') {
   const items = detailRows.value.map((row) => ({
     skuId: row.skuId,
     countedQty: Number(row.countedQty),
+    batchNo: row.batchNo || undefined, productionDate: row.productionDate || undefined, expiryDate: row.expiryDate || undefined,
     remark: row.remark || undefined
   }))
   if (items.some((item) => !Number.isInteger(item.countedQty) || item.countedQty < 0)) {
@@ -322,7 +323,7 @@ onMounted(async () => {
 <template>
   <section>
     <div class="page-heading">
-      <div><h1>库存管理</h1><p>库存总览、出入库流水、手动出入库与定期盘点</p></div>
+      <div><h1>库存管理</h1><p>库存总览、出入库流水、手动出入库与定期盘点</p></div><router-link to="/inventory/planning"><el-button type="primary" plain>预警、补货与批次</el-button></router-link>
     </div>
     <el-card shadow="never">
       <el-tabs v-model="activeTab">
@@ -446,7 +447,7 @@ onMounted(async () => {
               <el-select v-model="row.skuId" filterable placeholder="选择商品规格" style="flex:1">
                 <el-option v-for="sku in skuOptions" :key="sku.id" :label="`${sku.productName} ${sku.specText}（库存 ${sku.stockNum}）`" :value="sku.id" />
               </el-select>
-              <el-input-number v-model="row.quantity" :min="1" :max="99999" />
+              <el-input-number v-model="row.quantity" :min="1" :max="99999" /><el-select v-model="row.unit" placeholder="基础单位" clearable aria-label="出入库数量单位" style="min-width:100px"><el-option :value="skuOptions.find(x => x.id === row.skuId)?.saleUnit || '件'" :label="skuOptions.find(x => x.id === row.skuId)?.saleUnit || '件'" /><el-option v-for="pack in skuOptions.find(x => x.id === row.skuId)?.packagingUnits || []" :key="pack.unit" :value="pack.unit" :label="`${pack.unit}（${pack.factor}基础单位）`" /></el-select><template v-if="skuOptions.find(x => x.id === row.skuId)?.batchTracking"><el-input v-model="row.batchNo" placeholder="批次号" maxlength="64" /><el-input v-if="adjustmentForm.type === 'manual_in'" v-model="row.productionDate" placeholder="生产日期YYYY-MM-DD" /><el-input v-if="adjustmentForm.type === 'manual_in'" v-model="row.expiryDate" placeholder="到期日期YYYY-MM-DD" /></template>
               <el-button text type="danger" @click="removeAdjustmentRow(index)">移除</el-button>
             </div>
             <el-button text type="primary" @click="addAdjustmentRow">+ 添加一行</el-button>
@@ -512,7 +513,7 @@ onMounted(async () => {
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="备注" min-width="140"><template #default="{ row }"><el-input v-if="!detailReadonly" v-model="row.remark" maxlength="255" /><span v-else>{{ row.remark || '-' }}</span></template></el-table-column>
+        <el-table-column v-if="!detailReadonly" label="盘盈批次" min-width="280"><template #default="{ row }"><template v-if="row.sku?.batchTracking && rowDiffSign(row) > 0"><el-input v-model="row.batchNo" placeholder="盘盈批次号" /><el-input v-model="row.productionDate" placeholder="生产日期YYYY-MM-DD" /><el-input v-model="row.expiryDate" placeholder="到期日期YYYY-MM-DD" /></template></template></el-table-column><el-table-column label="备注" min-width="140"><template #default="{ row }"><el-input v-if="!detailReadonly" v-model="row.remark" maxlength="255" /><span v-else>{{ row.remark || '-' }}</span></template></el-table-column>
       </el-table>
       <template #footer>
         <el-button @click="stocktakeDetailVisible = false">关闭</el-button>
@@ -528,7 +529,7 @@ onMounted(async () => {
 <style scoped>
 .tab-actions { display: flex; justify-content: flex-end; margin-bottom: 14px; }
 .adj-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.adj-row { display: flex; align-items: center; gap: 10px; }
+.adj-row { display: flex; align-items: center; gap: 10px; flex-wrap:wrap; border-bottom:1px solid var(--brand-border); padding-bottom:12px; }
 .adj-row .el-select { flex: 1; }
 .page-heading { justify-content: space-between; }
 .el-pagination { justify-content: flex-end; margin-top: 16px; }

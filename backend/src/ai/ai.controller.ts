@@ -84,11 +84,11 @@ export class AiController {
     } finally { clearInterval(heartbeat); res.end() }
   }
 
-  @Post('attachments') @RequirePermissions('ai:use', 'product:create')
+  @Post('attachments') @RequirePermissions('ai:use')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   upload(@Req() req: StaffRequest, @UploadedFile() file?: ProductImageFile) { return this.attachments.upload(req.actor, file) }
 
-  @Get('attachments/:id') @RequirePermissions('ai:use', 'product:create')
+  @Get('attachments/:id') @RequirePermissions('ai:use')
   async image(@Req() req: StaffRequest, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const buffer = await this.attachments.bytes(req.actor, id)
     res.setHeader('Content-Type', 'image/jpeg'); res.setHeader('Cache-Control', 'private, no-store'); res.send(buffer)

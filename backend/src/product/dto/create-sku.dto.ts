@@ -1,7 +1,16 @@
-import { IsString, IsInt, IsOptional, IsIn, Matches, MaxLength, Min } from 'class-validator'
+import { IsString, IsInt, IsOptional, IsIn, IsBoolean, IsArray, Matches, MaxLength, Min, Max } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
-export class CreateSkuDto {
+class SkuOptionsDto {
+  @IsOptional() @IsString() @MaxLength(500) imageUrl?: string
+  @IsOptional() @IsArray() packagingUnits?: Array<{ unit: string; factor: number }>
+  @IsOptional() @IsInt() @Min(0) @Max(2147483647) lowStockThreshold?: number
+  @IsOptional() @IsInt() @Min(1) @Max(365) leadTimeDays?: number
+  @IsOptional() @IsInt() @Min(0) @Max(2147483647) safetyStock?: number
+  @IsOptional() @IsBoolean() batchTracking?: boolean
+}
+
+export class CreateSkuDto extends SkuOptionsDto {
   @ApiPropertyOptional({ deprecated: true, description: '由系统自动续编，客户端传入值不参与分配' })
   @IsOptional() @IsString()
   @Matches(/\S/)
@@ -39,7 +48,7 @@ export class CreateSkuDto {
   stockNum?: number
 }
 
-export class UpdateSkuDto {
+export class UpdateSkuDto extends SkuOptionsDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(200)
   name?: string
