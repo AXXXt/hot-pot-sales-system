@@ -15,7 +15,7 @@ function createPrismaMock() {
       groupBy: jest.fn()
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{
-          createdAt: new Date(2026, 6, 27, 21, 0, 0),
+          createdAt: new Date('2026-07-27T21:00:00+08:00'),
           _count: { id: 1 },
           _sum: { payableAmount: '77.50' }
         }]),
@@ -24,7 +24,7 @@ function createPrismaMock() {
         orderNo: 'OD002',
         status: 'shipped',
         payableAmount: '77.50',
-        createdAt: new Date(2026, 6, 27, 21, 0, 0),
+        createdAt: new Date('2026-07-27T21:00:00+08:00'),
         customer: { customerName: '客户A' }
       }])
     },
@@ -52,7 +52,7 @@ function createPrismaMock() {
 
 describe('DashboardService', () => {
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date(2026, 6, 27, 12, 0, 0))
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-27T12:00:00+08:00'))
   })
 
   afterEach(() => {
@@ -71,11 +71,11 @@ describe('DashboardService', () => {
     expect(stats.topProducts[0].revenue).toBe(77.5)
   })
 
-  it('builds the seven-day trend using local calendar dates', () => {
+  it('builds the seven-day trend using Shanghai calendar dates regardless of the host timezone', () => {
     const service = new DashboardService({} as any)
-    const start = new Date(2026, 6, 21, 0, 0, 0)
+    const start = new Date('2026-07-21T00:00:00+08:00')
     const raw = [{
-      createdAt: new Date(2026, 6, 27, 21, 0, 0),
+      createdAt: new Date('2026-07-27T21:00:00+08:00'),
       _count: { id: 1 },
       _sum: { payableAmount: '77.50' }
     }]

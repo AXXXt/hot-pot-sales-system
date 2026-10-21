@@ -49,7 +49,8 @@ jobs:
       - run: npm ci --prefix admin-web
       - run: npm ci --prefix web-customer
       - run: node --test tests/*.test.js deploy/test/*.test.cjs
-      - run: python3 -m unittest discover -s deploy/test -p 'test_*.py'
+      # Worker fixtures enforce the same root ownership as the production worker.
+      - run: sudo python3 -m unittest discover -s deploy/test -p 'test_*.py'
   web:
     runs-on: ubuntu-latest
     strategy:

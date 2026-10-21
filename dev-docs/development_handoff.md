@@ -105,6 +105,8 @@ npm run test:e2e
 
 数据库集成测试须使用数据库名以 `_test` 结尾的独立 `TEST_DATABASE_URL`，先为同一测试库应用迁移，不能指向生产或日常开发库。浏览器测试用的 Chrome 或 Playwright 浏览器需在新电脑准备；原生自动化脚本依赖的 `.codex-mini-automator` 是本地工具目录，不是应用运行依赖。
 
+GitHub Actions 使用 Node 24，根目录测试单独安装两个网站的 Vite 依赖。后台经营日期按上海时区统计，相关测试使用显式 `+08:00` 时间，避免换到UTC主机后日期偏移。发布 worker 的POSIX测试核对root文件所有权，CI在隔离runner中使用 `sudo python3` 运行；Windows会跳过这一项，不应因此删除生产所有权校验。
+
 两个网站生产构建设置 `VITE_API_BASE_URL=/api/v1`。后台发布还需设置 `VITE_PLATFORM_VERSION`、`VITE_PLATFORM_RELEASE_ID`，并执行 `npx vite build --config vite.platform.config.ts` 构建独立版本中心。具体切换流程见生产部署记录，不直接覆盖服务器 `.env`。
 
 正式小程序上传使用**独立运行文件白名单目录**，仅复制 `assets/components/constants/pages/services/store/styles/utils`、`app.js/app.json/app.wxss/config.js/sitemap.json` 和 `project.config.json`，核对生产地址并启用 `urlCheck`，不要上传调试生成目录。原仓库根目录上传曾因源包超过2MB被拒绝。
