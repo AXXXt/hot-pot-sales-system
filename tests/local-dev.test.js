@@ -102,3 +102,60 @@ test('local generated folders never enter the production mini package', () => {
     assert.ok(ignore.some(rule => rule.type === 'prefix' && file.startsWith(rule.value)))
   }
 })
+
+function minioBuildFixture(reply, env = {}) {
+  const calls = [], output = []
+  const context = { module: { exports: {} }, __dirname: path.join(__dirname, '../scripts'), URL, process: { env },
+    console: { log: value => output.push(value) },
+    require: name => {
+      if (name === 'node:child_process') return { spawnSync: (command, args) => { calls.push({ command, args }); return reply(args) } }
+      if (name === 'node:fs') return new Proxy({}, { get: () => () => { throw new Error('Unexpected filesystem mutation') } })
+      return require(name)
+    } }
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../scripts/build-local-minio.cjs'), 'utf8'), context)
+  return { helper: context.module.exports, calls, output }
+}
+
+test('MinIO source fallback defaults to a dry plan without contacting Docker or the filesystem', () => {
+  const f = minioBuildFixture(() => { throw new Error('Unexpected Docker call') })
+  f.helper.main([])
+  const plan = JSON.parse(f.output[0])
+  assert.equal(plan.mode, 'plan-only')
+  assert.equal(plan.dockerContacted, false)
+  assert.equal(plan.productionImageBytesEquivalent, false)
+  assert.equal(plan.sourceRevision, '827004cd6d3da8f49a5320c94ae74ae128156ed6')
+  assert.equal(f.calls.length, 0)
+})
+
+test('MinIO source fallback refuses an existing target before creating logs, context or an image', () => {
+  const f = minioBuildFixture(args => ({ status: 0, stdout: args[0] === 'context' ? JSON.stringify('unix:///var/run/docker.sock') : args[0] === 'info' ? 'linux' : 'sha256:existing-image' }))
+  assert.throws(() => f.helper.main(['--build', '--tag', f.helper.originalTag]), /refuses to overwrite/)
+  assert.equal(f.calls.length, 3)
+  assert.ok(f.calls.every(call => call.command === 'docker' && !['build', 'tag', 'run', 'compose'].includes(call.args[0])))
+})
+
+test('MinIO source fallback rejects remote Docker overrides before any command is sent', () => {
+  for (const endpoint of ['ssh://remote.example', 'tcp://192.0.2.10:2375']) {
+    const f = minioBuildFixture(() => { throw new Error('Unexpected Docker call') }, { DOCKER_HOST: endpoint })
+    assert.throws(() => f.helper.main(['--build']), /Only a local Docker/)
+    assert.equal(f.calls.length, 0)
+  }
+  const helper = require('../scripts/build-local-minio.cjs')
+  for (const endpoint of ['unix:///var/run/docker.sock', 'npipe:////./pipe/dockerDesktopLinuxEngine', 'tcp://127.0.0.1:2375', 'tcp://[::1]:2375']) assert.equal(helper.localEndpoint(endpoint), true)
+  for (const endpoint of ['ssh://localhost', 'tcp://example.com:2375', 'npipe:////remote/pipe/docker']) assert.equal(helper.localEndpoint(endpoint), false)
+})
+
+test('MinIO source fallback rejects ambiguous plan/build requests and unapproved image tags', () => {
+  const helper = require('../scripts/build-local-minio.cjs')
+  assert.throws(() => helper.options(['--plan', '--build']), /cannot be combined/)
+  assert.throws(() => helper.options(['--build', '--tag', 'minio/minio:latest']), /pinned/)
+  assert.equal(helper.options(['--build', '--tag', helper.ciTag]).tag, helper.ciTag)
+})
+
+test('MinIO source fallback rejects remote builder overrides even with a local Docker context', () => {
+  for (const env of [{ BUILDX_BUILDER: 'external-builder' }, { BUILDKIT_HOST: 'tcp://192.0.2.1:1234' }]) {
+    const f = minioBuildFixture(() => { throw new Error('Unexpected Docker call') }, env)
+    assert.throws(() => f.helper.main(['--build']), /external builder overrides/)
+    assert.equal(f.calls.length, 0)
+  }
+})

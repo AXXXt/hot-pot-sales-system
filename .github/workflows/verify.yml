@@ -43,23 +43,20 @@ jobs:
       - run: npm run lint
       - run: npm test -- --silent
       - run: npx prisma migrate deploy
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.x'
-          cache: false
-      - name: Build pinned upstream MinIO and start isolated object storage
+      - name: Build pinned upstream MinIO with the new-computer helper
         run: |
-          GOBIN="$RUNNER_TEMP/qa-minio-bin" CGO_ENABLED=0 go install github.com/minio/minio@RELEASE.2025-01-20T14-49-07Z
-          mkdir -p "$RUNNER_TEMP/qa-minio-data"
-          MINIO_ROOT_USER="$MINIO_ACCESS_KEY" MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
-            nohup "$RUNNER_TEMP/qa-minio-bin/minio" server "$RUNNER_TEMP/qa-minio-data" \
-              --address 127.0.0.1:9000 --console-address 127.0.0.1:9001 \
-              > "$RUNNER_TEMP/qa-minio.log" 2>&1 &
+          if ! node ../scripts/build-local-minio.cjs --build --tag wdx-minio-source-ci:RELEASE.2025-01-20T14-49-07Z; then
+            cat ../.wx-local-runtime/minio-source-build/*.log
+            exit 1
+          fi
+          docker run --detach --name ci-minio --publish 127.0.0.1:9000:9000 \
+            --env MINIO_ROOT_USER="$MINIO_ACCESS_KEY" --env MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            wdx-minio-source-ci:RELEASE.2025-01-20T14-49-07Z server /data
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/ready; then exit 0; fi
             sleep 1
           done
-          cat "$RUNNER_TEMP/qa-minio.log"
+          docker logs ci-minio
           exit 1
       - run: npm run test:integration
       - run: npm run build
