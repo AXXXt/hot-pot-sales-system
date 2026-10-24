@@ -2129,9 +2129,9 @@
     "scenario": "微信平台隐私指引衔接",
     "priority": "P2",
     "status": "受阻",
-    "mode": "外部配置/人工事实待确认",
-    "evidence": "backend/test/legal-consent.integration-spec.ts；backend/test/lead-conversion.integration-spec.ts；backend/test/public-lead-rate.integration-spec.ts；tests/order-notifications.test.js；tests/notification-session-boundaries.test.js；原生注册/隐私Node VM测试（非原生画面）；本轮用户/主控确认事实（见本建议note）；正式内容未确认不推断",
-    "note": "微信隐私技术适配ensureWechatPrivacy、拒绝不选图/上传、openPrivacyContract入口及调用链已有源码/Node回归。；边界/余项：用户正在查微信后台隐私配置入口；声明、平台指引、上传域名和系统隐私弹窗未确认。"
+    "mode": "用户确认平台已更新；PC微信原生入口实际读取与刷新复验",
+    "evidence": "backend/test/legal-consent.integration-spec.ts；backend/test/lead-conversion.integration-spec.ts；backend/test/public-lead-rate.integration-spec.ts；tests/order-notifications.test.js；tests/notification-session-boundaries.test.js；原生注册/隐私Node VM测试（非原生画面）；本轮用户/主控确认事实（见本建议note）；正式内容未确认不推断；2026-10-24 16:12 PC微信公开指引实际读取；本机privacy-verification/runtime-observation.json、pc-wechat-contract-empty.png、pc-wechat-contract-empty-dates.png（均不提交）",
+    "note": "用户已完成平台隐私表单填写并确认状态为已更新。PC小程序1.3.13经我的→账户设置→隐私政策→查看微信隐私保护指引可打开微信公开文档，但仍显示暂无收集信息、联系电话空、更新/生效日期均1970年1月1日；原文刷新复验结果相同。只能确认运行端内容与用户填写内容存在差异，尚不能判断是未同步、版本环境或保存问题，不认定用户填写丢失或平台已生效。本人反馈重新点去完善要求重新填写，最终提交及成功回执尚未确认，继续核对保存/版本衔接及手机专项；未代同意隐私授权，未选图、上传或新增订单。"
   },
   {
     "id": "GAP-004",
