@@ -256,6 +256,29 @@
   font-size: 21rpx;
   font-weight: 600;
 }
+
+.cart-validation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 18rpx;
+  padding: 20rpx;
+  background: var(--bg-muted, #f4f6f4);
+  color: var(--text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.cart-validation.is-error { color: var(--status-danger); }
+.cart-validation__retry {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--brand-primary);
+  background: #FFFFFF;
+  font-size: 24rpx;
+}
+.qty-btn.is-disabled { color: var(--text-secondary); opacity: 0.45; }
 .cart-bar__total { min-width: 0; }
 .cart-bar__amount { font-size: 32rpx; overflow-wrap: anywhere; }
 .cart-bar__btn { margin-left: 20rpx; flex-shrink: 0; }

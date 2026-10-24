@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { randomUUID } from 'node:crypto'
 import { INestApplication, ValidationPipe } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -47,6 +48,8 @@ beforeAll(async () => {
   const otherBrand = await db.brand.create({ data: { tenantId: tenants[1], code: 'CAT', name: 'Foreign brand' } })
   await db.product.create({ data: { tenantId: tenants[1], brandId: otherBrand.id, code: 'CAT-2', name: 'Foreign product', isFactoryProduct: true } })
   const module = await Test.createTestingModule({ controllers: [ProductController], providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
     ProductService, ProductVisibilityService, StaffAccessService,
     { provide: PrismaService, useValue: db }, { provide: JwtService, useValue: jwt },
     { provide: ConfigService, useValue: new ConfigService({ JWT_ACCESS_SECRET: secret }) },
@@ -63,7 +66,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (app) await app.close()
   const where = { tenantId: { in: tenants } }
-  for (const model of ['user', 'productSku', 'product', 'productCategory', 'brand', 'customer'] as const) await (db[model] as any).deleteMany({ where })
+  for (const model of ['auditLog', 'user', 'productSku', 'product', 'productCategory', 'brand', 'customer'] as const) await (db[model] as any).deleteMany({ where })
   await db.tenant.deleteMany({ where: { id: { in: tenants } } })
   await db.$disconnect()
 })

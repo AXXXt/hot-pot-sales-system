@@ -13,7 +13,7 @@ import {
   formatPlotPoints
 } from './chart-geometry'
 import type { DashboardLowStockItem } from './dashboard-presenters'
-import { getTopLowStockItems } from './dashboard-presenters'
+import { getTopLowStockItems, lowStockPercent, lowStockWarningText } from './dashboard-presenters'
 
 type DashboardPage = 'tasks' | 'overview'
 
@@ -150,12 +150,6 @@ function clearPointerStart() {
   swipeStart.value = null
 }
 
-function lowStockPercent(item: DashboardLowStockItem): number {
-  const availableQty = Number(item.availableQty) || 0
-  const warningQty = Number(item.warningQty) || 10
-  return Math.max(0, Math.min(100, Math.round((availableQty / warningQty) * 100)))
-}
-
 function lowStockState(item: DashboardLowStockItem): string {
   const availableQty = Number(item.availableQty) || 0
   if (availableQty <= 0) return '立即处理'
@@ -180,7 +174,7 @@ function lowStockMeta(item: DashboardLowStockItem): string {
   const skuName = item.skuName?.trim()
   if (productName) details.push(skuName || '未命名 SKU')
   details.push(item.warehouse?.trim() || '未分配仓库')
-  details.push(`预警线 ${item.warningQty || 10}`)
+  details.push(lowStockWarningText(item))
   return details.join(' · ')
 }
 </script>
@@ -219,14 +213,16 @@ function lowStockMeta(item: DashboardLowStockItem): string {
             <h2 id="tasks-page-title" class="sr-only">今日待办</h2>
 
             <div class="summary-grid">
-              <button type="button" v-if="canSee('orders')" class="summary-card" @click="openOrders('pending_quote')"><span>待报价订单</span><strong class="is-warning">{{ stats.pendingQuotes || 0 }}</strong><small>需尽快填写报价</small></button>
-              <button type="button" v-if="canSee('orders')" class="summary-card" @click="openOrders('pending_shipment')"><span>待发货订单</span><strong class="is-primary">{{ stats.pendingShipments || 0 }}</strong><small>已确认待配送</small></button>
-              <button type="button" v-if="canSee('inventory')" class="summary-card" @click="router.push('/inventory')"><span>库存预警</span><strong class="is-danger">{{ stats.inventoryWarnings || 0 }}</strong><small>仅展示风险最高前 5 条</small></button>
+              <button v-if="canSee('orders')" type="button" class="summary-card" @click="openOrders('pending_quote')"><span>待报价订单</span><strong class="is-warning">{{ stats.pendingQuotes || 0 }}</strong><small>需尽快填写报价</small></button>
+              <button v-if="canSee('orders')" type="button" class="summary-card" @click="openOrders('pending_shipment')"><span>待发货订单</span><strong class="is-primary">{{ stats.pendingShipments || 0 }}</strong><small>已确认待配送</small></button>
+              <button v-if="canSee('inventory')" type="button" class="summary-card" @click="router.push('/inventory')"><span>库存预警</span><strong class="is-danger">{{ stats.inventoryWarnings || 0 }}</strong><small>{{ stats.inventoryTruncated ? '仅统计当前前 500 个规格' : '仅展示风险最高前 5 条' }}</small></button>
             </div>
 
             <div class="task-grid">
               <div v-if="canSee('inventory')" class="dashboard-card inventory-card">
                 <div class="section-head"><div><h3>高风险库存</h3><p>按库存占预警线比例排序</p></div><span class="section-note">仅展示前 5 条</span></div>
+                <p v-if="stats.inventoryTruncated" class="section-note" role="status">库存预警仅统计当前前 500 个商品规格，其他规格请到库存管理查看。</p>
+                <p v-if="stats.inventoryTruncated && Number.isSafeInteger(stats.inventoryTotal)" class="section-note">当前权限共 {{stats.inventoryTotal}} 个可见规格，可在库存计划页继续加载。</p>
                 <div v-if="topLowStockItems.length" class="low-stock-list">
                   <button v-for="item in topLowStockItems" :key="item.id" type="button" class="low-stock-item" @click="router.push('/products/' + item.productId + '/edit')">
                     <span class="low-stock-main"><strong>{{ lowStockTitle(item) }}</strong><small>{{ lowStockMeta(item) }}</small></span>
@@ -235,7 +231,7 @@ function lowStockMeta(item: DashboardLowStockItem): string {
                   </button>
                 </div>
                 <div v-else class="card-empty">暂无预警</div>
-                <button type="button" class="view-all-link" @click="router.push('/products')">查看全部 {{ stats.inventoryWarnings || 0 }} 个 <span>→</span></button>
+                <button type="button" class="view-all-link" @click="router.push(stats.inventoryTruncated ? '/inventory' : '/products')">{{ stats.inventoryTruncated ? '查看库存管理' : `查看全部 ${stats.inventoryWarnings || 0} 个` }} <span>→</span></button>
               </div>
 
               <div v-if="canSee('orders')" class="task-side">

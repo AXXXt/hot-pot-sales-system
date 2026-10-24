@@ -1,6 +1,6 @@
 // 采购首页：真实客户账期、商品推荐与进货单入口。
 const store = require('../../store/index')
-const { getProductList, getProductCategories } = require('../../services/api/product')
+const { getProductList } = require('../../services/api/product')
 const { getProfile } = require('../../services/api/auth')
 const cart = require('../../store/modules/cart')
 
@@ -36,7 +36,6 @@ Page({
     cartCount: 0,
     cartTotal: '0.00',
     keyword: '',
-    categories: [],
     error: false
   },
 
@@ -44,7 +43,6 @@ Page({
     this._skipNextShowRefresh = true
     this.refreshProfile()
     this.loadHomeData()
-    this.loadCategories()
   },
 
   onShow() {
@@ -128,13 +126,6 @@ Page({
     if (!activeFeed || activeFeed === this.data.activeFeed) return
     this.setData({ activeFeed })
     this.loadFeedProducts()
-  },
-
-  async loadCategories() {
-    try {
-      const res = await getProductCategories()
-      this.setData({ categories: (res.data || []).slice(0, 3) })
-    } catch { this.setData({ categories: [] }) }
   },
 
   refreshCart() {

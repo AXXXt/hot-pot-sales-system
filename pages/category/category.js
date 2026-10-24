@@ -132,7 +132,11 @@ Page({
   },
 
   resetFilters() {
-    this.setData({ keyword: '', activeCategoryId: 'all', activeSort: 'default' })
+    this.setData({
+      keyword: '', activeCategoryId: 'all', activeSort: 'default',
+      scrollIntoViewId: 'category-all'
+    })
+    store.brand.state.pendingCategoryId = ''
     this.loadProducts()
   },
 

@@ -11,11 +11,14 @@ import { ProductVisibilityService } from '../product/product-visibility.service'
 import { productDisplayName } from '../product/product-presentation'
 import { AuditService } from '../audit/audit.service'
 import { WxService } from '../notify/wx.service'
+import { ShipmentNotificationService } from '../notify/shipment-notification.service'
+import { OrderNotificationService } from '../notify/order-notification.service'
 import { LogisticsService } from '../logistics/logistics.service'
 import { MetricsService } from '../monitor/metrics.service'
 import { Prisma } from '@prisma/client'
 import { stockAvailability } from '../inventory/stock-availability'
 import { changeStock, reserveOrder, BatchAllocation } from '../inventory/stock-ledger'
+import { getOrderScope, OrderScope } from './order-access.guard'
 
 const no = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 16)
 
@@ -38,12 +41,21 @@ export class OrderService {
     private readonly audit: AuditService,
     private readonly wx: WxService,
     private readonly logistics: LogisticsService,
-    private readonly metrics?: MetricsService
+    private readonly metrics?: MetricsService,
+    private readonly shipmentNotification?: ShipmentNotificationService,
+    private readonly orderNotifications?: OrderNotificationService
   ) {}
 
-  async list(query: { status?: string; customerId?: number; tenantId?: number; page: number; pageSize: number }) {
+  async list(query: { status?: string; customerId?: number; tenantId?: number; brandIds?: number[]; customerIds?: number[]; page: number; pageSize: number }) {
     const { status, customerId, page, pageSize } = query
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 500
+      || (customerId !== undefined && (!Number.isSafeInteger(customerId) || customerId <= 0))
+      || (status && !['all', 'pending', ...Object.keys(TRANSITIONS)].includes(status))) {
+      throw new BadRequestException('订单查询参数无效')
+    }
     const where: any = { tenantId: query.tenantId || 1 }
+    if (query.brandIds) where.brandId = { in: query.brandIds }
+    if (query.customerIds) where.AND = [{ customerId: { in: query.customerIds } }]
     if (status === 'pending') where.status = { notIn: ['completed', 'cancelled'] }
     else if (status && status !== 'all') where.status = status
     if (customerId) where.customerId = customerId
@@ -84,16 +96,22 @@ export class OrderService {
           }
         },
         items: { include: { sku: { select: { id: true, skuCode: true, specText: true } } } },
-        statusLogs: { orderBy: { createdAt: 'asc' } },
-        refunds: { orderBy: { createdAt: 'asc' } }
+        statusLogs: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        refunds: { orderBy: { createdAt: 'asc' } },
+        priceAdjustments: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }
       }
     })
     if (!order) throw new NotFoundException({ message: '订单不存在', errorCode: 'ORD_1001' })
     const customer = order.customer as typeof order.customer | undefined
     const creditLimit = Number(customer?.creditLimit || 0)
     const creditUsed = Number(customer?.creditUsed || 0)
+    const latestLog = order.statusLogs?.[order.statusLogs.length - 1]
     return {
       ...order,
+      financeRejection: order.status === 'pending_confirm' && latestLog?.fromStatus === 'pending_finance'
+        && latestLog.toStatus === 'pending_confirm'
+        ? { reason: latestLog.remark || '请核对付款信息后重新提交', rejectedAt: latestLog.createdAt }
+        : null,
       customer: customer ? {
         ...customer,
         creditRemaining: Math.max(0, creditLimit - creditUsed).toFixed(2)
@@ -168,6 +186,11 @@ export class OrderService {
     const customer = await db.customer.findUnique({ where: { id: customerId } })
     if (!customer) throw new NotFoundException({ message: '客户不存在' })
     if (actor?.tenantId && customer.tenantId !== actor.tenantId) throw new ForbiddenException('无权为该客户创建订单')
+    const staffScope = userId && actor?.userType !== 'customer_user'
+      ? await getOrderScope(db as PrismaService, userId, 'order:confirm') : null
+    if (staffScope?.customerIds && !staffScope.customerIds.includes(customerId)) {
+      throw new ForbiddenException('无权为该客户创建订单')
+    }
     if (customer.status !== 'active') throw new BadRequestException({ message: '客户账号未审核通过' })
 
     const items = this.normalizeItems(dto.items)
@@ -191,6 +214,9 @@ export class OrderService {
     const available = await stockAvailability(db, skus)
     this.assertOrderQuantities(items, skus.map(sku => ({ ...sku, stockNum: available.get(sku.id) || 0, reservedNum: 0 })))
     const brandIds = [...new Set(skus.map(sku => sku.product.brandId))]
+    if (staffScope?.brandIds && brandIds.some(brandId => !staffScope.brandIds!.includes(brandId))) {
+      throw new ForbiddenException('无权为该品牌创建订单')
+    }
     if (brandIds.length !== 1) {
       throw new BadRequestException({
         message: '一个订单只能包含同一品牌的商品',
@@ -303,6 +329,7 @@ export class OrderService {
       await this.logInTransaction(tx, order, 'pending_confirm', userId)
     })
     await this.audit.write({
+      tenantId: order.tenantId,
       action: 'price_change',
       module: 'order',
       targetType: 'order',
@@ -316,9 +343,13 @@ export class OrderService {
   }
 
   // Get price history for a customer's SKUs (for auto-fill in quoting)
-  async getPriceHistory(customerId: number, skuIds: number[], tenantId = 1) {
+  async getPriceHistory(customerId: number, skuIds: number[], tenantId = 1, scope?: OrderScope) {
+    if (scope?.customerIds && !scope.customerIds.includes(customerId)) throw new NotFoundException('客户不存在或不可访问')
     const history = await this.prisma.customerPriceHistory.findMany({
-      where: { tenantId, customerId, skuId: { in: skuIds } },
+      where: {
+        tenantId, customerId, skuId: { in: skuIds },
+        ...(scope?.brandIds ? { sku: { product: { tenantId, brandId: { in: scope.brandIds } } } } : {})
+      },
       orderBy: { createdAt: 'desc' },
       distinct: ['skuId'],
       select: { skuId: true, price: true }
@@ -331,7 +362,8 @@ export class OrderService {
     id: number,
     paymentProof?: string,
     creditRequested?: boolean,
-    userId?: number
+    userId?: number,
+    expected?: { updatedAt?: string; payableAmount?: string }
   ) {
     const order = await this.prisma.order.findUnique({ where: { id } })
     if (!order || order.status !== 'pending_confirm') {
@@ -360,13 +392,17 @@ export class OrderService {
       if (!currentOrder || currentOrder.status !== 'pending_confirm') {
         throw new BadRequestException({ message: '订单状态已变化，请刷新后重试' })
       }
+      if ((expected?.updatedAt && new Date(expected.updatedAt).getTime() !== currentOrder.updatedAt.getTime())
+        || (expected?.payableAmount !== undefined && !new Prisma.Decimal(expected.payableAmount).equals(currentOrder.payableAmount))) {
+        throw new BadRequestException({ message: '报价已更新，请核对最新金额后重新提交', errorCode: 'ORD_QUOTE_CHANGED' })
+      }
 
       if (creditRequested) {
-        const creditLimit = Number(currentOrder.customer.creditLimit || 0)
-        const creditUsed = Number(currentOrder.customer.creditUsed || 0)
-        const payableAmount = Number(currentOrder.payableAmount || 0)
-        const creditRemaining = Math.max(0, creditLimit - creditUsed)
-        if (payableAmount > creditRemaining) {
+        const creditLimit = new Prisma.Decimal(currentOrder.customer.creditLimit || 0)
+        const creditUsed = new Prisma.Decimal(currentOrder.customer.creditUsed || 0)
+        const payableAmount = new Prisma.Decimal(currentOrder.payableAmount || 0)
+        const creditRemaining = Prisma.Decimal.max(0, creditLimit.minus(creditUsed))
+        if (payableAmount.gt(creditRemaining)) {
           throw new BadRequestException({
             message: `账期额度不足，当前可用 ¥${creditRemaining.toFixed(2)}`,
             errorCode: 'CREDIT_1001'
@@ -402,7 +438,7 @@ export class OrderService {
         throw new BadRequestException({ message: '订单状态已变化，请刷新后重试' })
       }
 
-      await tx.orderStatusLog.create({
+      const statusLog = await tx.orderStatusLog.create({
         data: {
           tenantId: currentOrder.tenantId,
           orderId: id,
@@ -411,11 +447,51 @@ export class OrderService {
           operatorId: userId
         }
       })
+      await this.orderNotifications?.record(tx, id, 'pending_finance', statusLog)
     })
+    await this.notifyOrderStatus(order, 'pending_finance')
     return this.detail(id)
   }
 
-  // Admin/finance approves: verifies payment, checks stock, deducts inventory (with transaction)
+  // Return payment details for correction while retaining the stock reservation.
+  async rejectFinance(id: number, reason: string, userId?: number) {
+    await this.assertStaffActor(userId)
+    const note = typeof reason === 'string' ? reason.trim() : ''
+    if (!note || note.length > 255) throw new BadRequestException('请填写1至255字的财务退回原因')
+    const order = await this.prisma.order.findUnique({ where: { id } })
+    if (!order || order.status !== 'pending_finance') throw new BadRequestException('当前状态不允许财务退回')
+    await this.prisma.$transaction(async tx => {
+      // Claim before releasing credit so concurrent approval/cancel/rejection has one winner.
+      await this.claimOrder(tx, order, 'pending_confirm')
+      const occupied = new Prisma.Decimal(order.creditAmount || 0)
+      if (order.paymentMethod === 'credit' && occupied.gt(0)) {
+        const customer = await tx.customer.findUnique({ where: { id: order.customerId }, select: { creditUsed: true } })
+        if (!customer || new Prisma.Decimal(customer.creditUsed).lt(occupied)) {
+          throw new BadRequestException('账期占用数据不一致，请联系管理员核对')
+        }
+        const released = await tx.customer.updateMany({
+          where: { id: order.customerId, creditUsed: customer.creditUsed },
+          data: { creditUsed: { decrement: occupied } }
+        })
+        if (released.count !== 1) throw new BadRequestException('账期额度已变化，请刷新后重试')
+      }
+      // Keep the private proof available for customer review/replacement and keep stock reserved.
+      await tx.order.update({ where: { id }, data: { paymentMethod: null, creditAmount: '0', confirmedAt: null } })
+      const log = await tx.orderStatusLog.create({ data: {
+        tenantId: order.tenantId, orderId: id, fromStatus: 'pending_finance', toStatus: 'pending_confirm', operatorId: userId, remark: note
+      } })
+      await this.orderNotifications?.record(tx, id, 'finance_rejected', log)
+      await tx.auditLog.create({ data: {
+        tenantId: order.tenantId, operatorId: userId, action: 'order_status_change', module: 'order',
+        targetType: 'order', targetId: String(id), beforeData: { status: 'pending_finance', creditAmount: occupied.toFixed(2) },
+        afterData: { status: 'pending_confirm', reason: note, creditAmount: '0.00' }, requestId: `finance-reject-${order.tenantId}-${log.id}`
+      } })
+    })
+    // No quote/approval WeChat template is suitable for a rejection. The transactional inbox is authoritative.
+    return this.detail(id)
+  }
+
+  // Admin/finance approves: verifies payment, checks stock, deducts inventory (with transaction).
   async approveFinance(id: number, userId?: number) {
     await this.assertStaffActor(userId)
     const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } })
@@ -546,7 +622,7 @@ export class OrderService {
         if (creditUpdate.count !== 1) throw new BadRequestException('账期额度已变化，请重试')
       }
 
-      await tx.orderStatusLog.create({
+      const cancellationLog = await tx.orderStatusLog.create({
         data: {
           tenantId: order.tenantId,
           orderId: id,
@@ -555,6 +631,7 @@ export class OrderService {
           operatorId: userId
         }
       })
+      await this.orderNotifications?.record(tx, id, 'cancelled', cancellationLog)
     })
     await this.notifyOrderStatus(order, 'cancelled')
     return this.detail(id)
@@ -592,6 +669,7 @@ export class OrderService {
     })
 
     await this.audit.write({
+      tenantId: order.tenantId,
       action: 'price_change',
       module: 'order',
       targetType: 'order',
@@ -632,6 +710,7 @@ export class OrderService {
     })
 
     await this.audit.write({
+      tenantId: order.tenantId,
       action: 'price_change',
       module: 'order',
       targetType: 'order_refund',
@@ -692,6 +771,7 @@ export class OrderService {
       await this.logInTransaction(tx, order, toStatus, userId)
     })
     await this.audit.write({
+      tenantId: order.tenantId,
       action: 'order_status_change',
       module: 'order',
       targetType: 'order',
@@ -704,40 +784,13 @@ export class OrderService {
     return this.detail(id)
   }
 
-  /** 订单状态变化时向已绑定微信的客户发送订阅消息；失败不阻断业务 */
+  /** 各关键节点使用自己的模板，普通进度仅记录站内消息。 */
   private async notifyOrderStatus(
     order: { id: number; userId?: number | null; orderNo: string },
     toStatus: string
   ): Promise<void> {
-    const templateId = this.wx.orderTemplateId
-    if (!templateId || !order.userId) return
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: order.userId },
-        select: { openid: true }
-      })
-      if (!user?.openid) return
-      const statusText: Record<string, string> = {
-        pending_quote: '待报价',
-        pending_confirm: '待确认',
-        pending_finance: '待财务审核',
-        pending_shipment: '待发货',
-        shipped: '已发货',
-        completed: '已完成',
-        cancelled: '已取消'
-      }
-      await this.wx.sendSubscribeMessage({
-        openid: user.openid,
-        templateId,
-        page: `pages/order-detail/order-detail?id=${order.id}`,
-        data: {
-          thing1: { value: order.orderNo.slice(0, 20) },
-          phrase2: { value: statusText[toStatus] || toStatus }
-        }
-      })
-    } catch {
-      // 通知失败不影响业务
-    }
+    await this.orderNotifications?.notify(order.id, toStatus)
+    if (toStatus === 'shipped' && this.wx.orderTemplateId) await this.shipmentNotification?.notify(order.id)
   }
 
   private money(value: string | number) {
@@ -756,6 +809,7 @@ export class OrderService {
   }
 
   private async logInTransaction(tx: Prisma.TransactionClient, order: { id: number; tenantId: number; status: string }, to: string, userId?: number) {
-    await tx.orderStatusLog.create({ data: { tenantId: order.tenantId, orderId: order.id, fromStatus: order.status, toStatus: to, operatorId: userId } })
+    const log = await tx.orderStatusLog.create({ data: { tenantId: order.tenantId, orderId: order.id, fromStatus: order.status, toStatus: to, operatorId: userId } })
+    await this.orderNotifications?.record(tx, order.id, to, log)
   }
 }

@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common'
 import { OrderStatus, Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 import { shanghaiDay } from '../ai/ai.metrics'
+import { productDisplayName } from '../product/product-presentation'
+import { StaffActor } from '../auth/staff-access.service'
+import { InventoryPlanningService } from '../inventory/inventory-planning.service'
 
 const PAID_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.pending_shipment,
@@ -11,14 +14,13 @@ const PAID_ORDER_STATUSES: OrderStatus[] = [
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly planning: InventoryPlanningService) {}
 
-  async getStats(scope?: { order: Prisma.OrderWhereInput; product: Prisma.ProductWhereInput; inventory: Prisma.ProductWhereInput; customer: Prisma.CustomerWhereInput }) {
+  async getStats(scope?: { order: Prisma.OrderWhereInput; product: Prisma.ProductWhereInput; inventory: Prisma.ProductWhereInput; customer: Prisma.CustomerWhereInput }, actor?: StaffActor) {
     const scoped = (filter: any, where: any) => filter ? { AND: [filter, where] } : where
     const orderWhere = (where: any = {}) => scoped(scope?.order, where)
     const customerWhere = (where: any = {}) => scoped(scope?.customer, where)
     const productWhere = (where: any = {}) => scoped(scope?.product, where)
-    const inventoryProduct = scope ? scoped(scope.inventory, { status: 'active' }) : { status: 'active' }
     const now = new Date()
     const todayStart = new Date(`${shanghaiDay(now)}T00:00:00+08:00`)
     const todayEnd = new Date(todayStart.getTime() + 86400000 - 1)
@@ -31,7 +33,7 @@ export class DashboardService {
       todayOrders, yesterdayOrders,
       todayRevenue, yesterdayRevenue,
       pendingQuotes, pendingShipments,
-      lowStockCount, lowStockItems,
+      inventory,
       orderStatuses, recentOrders, trendOrders,
       topProducts, activeCustomers, monthRevenue,
       totalCustomers, totalProducts,
@@ -42,8 +44,7 @@ export class DashboardService {
       this.prisma.order.aggregate({ where: orderWhere({ createdAt: { gte: yesterdayStart, lte: yesterdayEnd }, status: { in: PAID_ORDER_STATUSES }, sampleFlag: false }), _sum: { payableAmount: true } }),
       this.prisma.order.count({ where: orderWhere({ status: 'pending_quote' }) }),
       this.prisma.order.count({ where: orderWhere({ status: 'pending_shipment' }) }),
-      this.prisma.productSku.count({ where: { stockNum: { lte: 10 }, status: 'active', product: inventoryProduct } }),
-      this.getLowStockItems(scope?.inventory),
+      actor && (actor.superAdmin || actor.permissions.has('inventory:read')) ? this.planning.overview(actor) : null,
       this.prisma.order.groupBy({ ...(scope ? { where: orderWhere() } : {}), by: ['status'], _count: { id: true } }),
       this.prisma.order.findMany({ where: orderWhere({ createdAt: { gte: sevenDaysAgo } }), orderBy: { createdAt: 'desc' }, take: 8, select: { id: true, orderNo: true, status: true, payableAmount: true, createdAt: true, customer: { select: { customerName: true } } } }),
       this.prisma.order.groupBy({ by: ['createdAt'], where: orderWhere({ createdAt: { gte: sevenDaysAgo }, status: { in: PAID_ORDER_STATUSES }, sampleFlag: false }), _count: { id: true }, _sum: { payableAmount: true } }),
@@ -55,6 +56,7 @@ export class DashboardService {
     ])
 
     const trend = this.buildTrend(sevenDaysAgo, trendOrders)
+    const warnings = inventory?.items.filter(item => item.lowStock) || []
     const statusMap: Record<string, string> = { draft: '草稿', pending_quote: '待报价', pending_confirm: '待客户确认', pending_finance: '待财务审核', pending_shipment: '待发货', shipped: '已发货', completed: '已完成', cancelled: '已取消' }
     const statusColors: Record<string, string> = { draft: '#C0C4CC', pending_quote: '#909399', pending_confirm: '#E6A23C', pending_finance: '#F56C6C', pending_shipment: '#409EFF', shipped: '#67C23A', completed: '#67C23A', cancelled: '#F56C6C' }
 
@@ -66,8 +68,15 @@ export class DashboardService {
       pendingQuotes,
       pendingOrders: pendingQuotes,
       pendingShipments,
-      inventoryWarnings: lowStockCount,
-      lowStockItems,
+      inventoryWarnings: inventory ? warnings.length : null,
+      inventoryTruncated: inventory?.truncated ?? false,
+      inventoryScanned: inventory?.items.length ?? null,
+      inventoryTotal: inventory?.total ?? null,
+      lowStockItems: warnings.map(item => ({
+        id: item.skuId, productId: item.productId, productName: item.productName,
+        skuName: item.specText || item.skuCode || '', warehouse: '',
+        availableQty: item.availableNum, warningQty: item.threshold
+      })),
       activeCustomers, totalCustomers, totalProducts,
       orderStatuses: orderStatuses.map((s: { status: string; _count: { id: number } }) => ({ name: statusMap[s.status] || s.status, value: s._count.id, color: statusColors[s.status] || '#909399' })),
       recentOrders: recentOrders.map((o: any) => ({ id: o.id, orderNo: o.orderNo, status: o.status, payableAmount: Number(o.payableAmount), customerName: o.customer?.customerName || '', createdAt: o.createdAt })),
@@ -100,40 +109,13 @@ export class DashboardService {
     return shanghaiDay(date)
   }
 
-  private async getLowStockItems(scope?: Prisma.ProductWhereInput) {
-    try {
-      const items = await this.prisma.productSku.findMany({
-        where: { stockNum: { lte: 10 }, status: 'active', product: scope ? { AND: [scope, { status: 'active' }] } : { status: 'active' } },
-        orderBy: { stockNum: 'asc' },
-        take: 8,
-        select: {
-          id: true,
-          productId: true,
-          name: true,
-          skuCode: true,
-          stockNum: true,
-          product: { select: { name: true } }
-        }
-      })
-      return items.map(i => ({
-        id: i.id,
-        productId: i.productId,
-        productName: i.product.name,
-        skuName: i.name || i.skuCode || '',
-        warehouse: '',
-        availableQty: i.stockNum,
-        warningQty: 10
-      }))
-    } catch { return [] }
-  }
-
   private async getTopProducts(orderScope?: Prisma.OrderWhereInput, productScope?: Prisma.ProductWhereInput) {
     try {
       const items = await this.prisma.orderItem.groupBy({ where: { order: orderScope ? { AND: [orderScope, { status: { in: PAID_ORDER_STATUSES }, sampleFlag: false }] } : { status: { in: PAID_ORDER_STATUSES }, sampleFlag: false } }, by: ['productId'], _sum: { quantity: true, amount: true }, orderBy: { _sum: { amount: 'desc' } }, take: 5 })
       if (!items.length) return []
       const ids = items.map(i => i.productId).filter(Boolean) as number[]
-      const products = await this.prisma.product.findMany({ where: productScope ? { AND: [productScope, { id: { in: ids } }] } : { id: { in: ids } }, select: { id: true, name: true } })
-      const nm = new Map(products.map(p => [p.id, p.name]))
+      const products = await this.prisma.product.findMany({ where: productScope ? { AND: [productScope, { id: { in: ids } }] } : { id: { in: ids } }, select: { id: true, name: true, subtitle: true } })
+      const nm = new Map(products.map(p => [p.id, productDisplayName(p)]))
       return items.map(i => ({ id: i.productId, name: nm.get(i.productId!) || '未知', quantity: i._sum.quantity || 0, revenue: Math.round(Number(i._sum.amount || 0) * 100) / 100 }))
     } catch { return [] }
   }

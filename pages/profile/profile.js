@@ -5,12 +5,13 @@ const { getOrderOverview } = require('../../services/api/order')
 const { profileView } = require('../../utils/profile')
 const { openOrders } = require('../../utils/order-navigation')
 const { repeatOrder, showRepeatResult } = require('../../services/repeat-order')
+const { getNotifications } = require('../../services/api/notification')
 
 Page({
   data: {
     isLoggedIn: false, loading: false, error: '', hasProfile: false,
     overviewLoading: false, overviewError: '', recentOrders: [],
-    orderEntries: [], hideAmounts: true, repeatBuying: false, ...profileView({})
+    orderEntries: [], hideAmounts: true, repeatBuying: false, unreadNotices: 0, ...profileView({})
   },
   onShow() { this.refreshProfile() },
   onUnload() { this.requestId = (this.requestId || 0) + 1 },
@@ -22,7 +23,7 @@ Page({
     this.setData({
       isLoggedIn: Boolean(token), loading: Boolean(token), error: '', hasProfile: false,
       overviewError: '', overviewLoading: false, recentOrders: [], orderEntries: [],
-      hideAmounts: true, ...profileView({})
+      hideAmounts: true, unreadNotices: 0, ...profileView({})
     })
     if (!token) return
     try {
@@ -32,7 +33,7 @@ Page({
       store.auth.setProfile(profile)
       store.auth.setCustomer(profile.customer || null)
       this.setData({ ...profileView(profile), hasProfile: true })
-      if (profile.customer?.id) await this.loadOverview(requestId)
+      if (profile.customer?.id) await Promise.all([this.loadOverview(requestId), this.loadNoticeCount(requestId)])
     } catch (error) {
       if (requestId === this.requestId) this.setData({ error: error?.message || '资料加载失败' })
     } finally {
@@ -62,10 +63,23 @@ Page({
     }
   },
   retryOverview() { return this.loadOverview() },
+  async loadNoticeCount(requestId) {
+    try {
+      const response = await getNotifications(1, 1)
+      if (requestId === this.requestId && store.auth.state.token) {
+        this.setData({ unreadNotices: (response.data || response).unreadCount || 0 })
+      }
+    } catch { /* 站内消息暂不可用时不阻断门店资料。 */ }
+  },
+  goNotifications() { wx.navigateTo({ url: '/pages/notifications/notifications' }) },
   goLogin() { wx.navigateTo({ url: '/pages/login/login?mode=login' }) },
   goRegister() { wx.navigateTo({ url: '/pages/login/login?mode=register' }) },
   goSettings() { wx.navigateTo({ url: '/pages/account-settings/account-settings' }) },
   goHelp() { wx.navigateTo({ url: '/pages/help/help' }) },
+  goServiceRequests() {
+    if (!store.auth.state.token) return this.goLogin()
+    wx.navigateTo({ url: '/pages/service-requests/service-requests' })
+  },
   goOrders(e) { openOrders(e.currentTarget.dataset.status || 'all') },
   goShop() { wx.switchTab({ url: '/pages/category/category' }) },
   toggleAmounts() { this.setData({ hideAmounts: !this.data.hideAmounts }) },

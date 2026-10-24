@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { ExecutionContext, INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
@@ -10,9 +11,11 @@ import { PermissionsGuard } from '../src/auth/permissions.guard'
 import { requestIdMiddleware } from '../src/request-id.middleware'
 import { SuccessInterceptor } from '../src/success.interceptor'
 import { AppFilter } from '../src/app.filter'
+import { StaffAccessService } from '../src/auth/staff-access.service'
 
 describe('BrandController contract', () => {
   let app: INestApplication
+  const actor = { id: 1, tenantId: 1, superAdmin: true }
 
   const brandService = {
     list: jest.fn().mockResolvedValue([{ id: 4, name: '德品', code: 'DEPIN', status: 'active' }]),
@@ -27,7 +30,10 @@ describe('BrandController contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [BrandController],
       providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
         { provide: BrandService, useValue: brandService },
+        { provide: StaffAccessService, useValue: { actor: jest.fn().mockResolvedValue(actor) } },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('secret') } },
         { provide: JwtService, useValue: { verify: jest.fn() } }
       ]
@@ -54,7 +60,7 @@ describe('BrandController contract', () => {
       .set('Authorization', 'Bearer token')
       .expect(200)
 
-    expect(brandService.list).toHaveBeenCalledWith(1, 'active')
+    expect(brandService.list).toHaveBeenCalledWith(1, 'active', actor)
     expect(response.body.data[0].code).toBe('DEPIN')
   })
 
@@ -75,7 +81,7 @@ describe('BrandController contract', () => {
       .send({ name: '德品' })
       .expect(201)
 
-    expect(brandService.create).toHaveBeenCalledWith(1, { name: '德品' })
+    expect(brandService.create).toHaveBeenCalledWith(1, { name: '德品' }, actor)
   })
 
   it('DELETE /api/v1/admin/brands/:id returns safe deletion mode', async () => {
@@ -84,7 +90,7 @@ describe('BrandController contract', () => {
       .set('Authorization', 'Bearer token')
       .expect(200)
 
-    expect(brandService.delete).toHaveBeenCalledWith(1, 4)
+    expect(brandService.delete).toHaveBeenCalledWith(1, 4, actor)
     expect(response.body.data.deletionMode).toBe('disabled')
   })
 
@@ -94,6 +100,6 @@ describe('BrandController contract', () => {
       .set('Authorization', 'Bearer token')
       .expect(200)
 
-    expect(brandService.restore).toHaveBeenCalledWith(1, 4)
+    expect(brandService.restore).toHaveBeenCalledWith(1, 4, actor)
   })
 })

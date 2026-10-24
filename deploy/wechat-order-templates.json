@@ -1,0 +1,11 @@
+{
+  "appId": "wx09cca054a9642d35",
+  "quote": {
+    "templateId": "iRCVLcAD9alfLVGcsvG_XbEqGiQL88iX7FPigD5kFAM",
+    "fields": { "character_string1": "orderNo", "thing2": "productName", "amount4": "amount", "time5": "eventTime" }
+  },
+  "approved": {
+    "templateId": "fK5PEF0WvqWeXdR9P3SPtuBFNGa6k5c7MOe4H39D3yg",
+    "fields": { "character_string1": "orderNo", "time2": "eventTime", "phrase3": "state", "thing4": "remark" }
+  }
+}

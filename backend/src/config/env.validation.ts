@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer'
 import { IsIn, IsNotEmpty, IsOptional, validateSync } from 'class-validator'
 import { experienceSmsSettings } from '../auth/sms-experience.config'
+import { configuredOrderTemplate } from '../notify/order-notification-template'
 
 class EnvSchema {
   @IsIn(['development', 'test', 'production'])
@@ -68,6 +69,18 @@ class EnvSchema {
 
   @IsOptional()
   TENCENT_SMS_REGION?: string
+
+  @IsOptional()
+  WX_APPID?: string
+
+  @IsOptional()
+  WX_SECRET?: string
+
+  @IsOptional()
+  WX_SUBSCRIBE_TPL_ORDER?: string
+
+  @IsOptional()
+  WX_MINIPROGRAM_STATE?: string
 }
 
 const developmentDefaults: Record<string, string> = {
@@ -145,6 +158,18 @@ export function validateEnv(config: Record<string, unknown>) {
         !/^\d{5,20}$/.test(String(merged.TENCENT_SMS_REGISTER_TEMPLATE_ID))) {
       throw new Error('Tencent SMS template IDs must contain only digits')
     }
+  }
+
+  if (env.WX_APPID && !/^wx[a-f0-9]{16}$/.test(String(env.WX_APPID))) {
+    throw new Error('WX_APPID must be a valid mini program AppID')
+  }
+  if (env.WX_MINIPROGRAM_STATE && !['formal', 'trial', 'developer'].includes(String(env.WX_MINIPROGRAM_STATE))) {
+    throw new Error('WX_MINIPROGRAM_STATE must be formal, trial or developer')
+  }
+
+  for (const [event, suffix] of [['order.quoted', 'QUOTE'], ['order.approved', 'APPROVED']] as const) {
+    configuredOrderTemplate(event, suffix, merged[`WX_SUBSCRIBE_TPL_${suffix}`] as string,
+      merged[`WX_SUBSCRIBE_FIELDS_${suffix}`] as string)
   }
 
   return {

@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { randomUUID } from 'node:crypto'
 import { INestApplication, ValidationPipe } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -70,6 +71,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [OrderController],
     providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
       { provide: OrderService, useValue: orders },
       { provide: PrismaService, useValue: db },
       { provide: ConfigService, useValue: new ConfigService({ JWT_ACCESS_SECRET: secret }) },

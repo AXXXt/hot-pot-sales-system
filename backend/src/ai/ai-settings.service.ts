@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma.service'
 import { StaffAccessService, StaffActor } from '../auth/staff-access.service'
 
@@ -39,10 +40,14 @@ export class AiSettingsService {
     if (input.enabled && (!baseUrl || !input.textModel)) throw new BadRequestException('启用前请配置模型服务地址和文本模型')
     const apiKey = input.apiKey?.trim()
     const encryptedKey = apiKey ? this.encrypt(apiKey) : undefined
-    const previous = await this.configFor(actor.tenantId)
-    if (previous?.baseUrl && baseUrl && new URL(previous.baseUrl).hostname !== new URL(baseUrl).hostname && !encryptedKey) throw new BadRequestException('更换模型供应商时请重新输入API Key')
-    if (input.enabled && !encryptedKey && !previous?.encryptedKey) throw new BadRequestException('启用前请保存模型 API Key')
     await this.prisma.$transaction(async tx => {
+      // 配置及密钥必须一起校验和保存，避免并发管理员表单把另一供应商的新密钥带回旧地址。
+      const tenants = await tx.$queryRaw<Array<{ id: number }>>(Prisma.sql`SELECT id FROM tenants WHERE id = ${actor.tenantId} AND status = 'active' FOR UPDATE`)
+      if (!tenants.length) throw new BadRequestException('租户状态已变化，请重新登录')
+      const previous = await tx.aiConfig.findUnique({ where: { tenantId: actor.tenantId } })
+      const providerChanged = previous?.baseUrl ? Boolean(baseUrl && new URL(previous.baseUrl).hostname !== new URL(baseUrl).hostname) : Boolean(previous?.encryptedKey)
+      if (baseUrl && providerChanged && !encryptedKey) throw new BadRequestException('更换模型供应商或恢复未绑定服务地址的密钥时请重新输入API Key')
+      if (input.enabled && !encryptedKey && !previous?.encryptedKey) throw new BadRequestException('启用前请保存模型 API Key')
       const data = { enabled: input.enabled, baseUrl, textModel: input.textModel, visionModel: input.visionModel,
         allowWrites: input.allowWrites, dailyRequests: input.dailyRequests, features: { ...DEFAULT_FEATURES, ...(previous?.features as object ?? {}), ...input.features }, ...(encryptedKey ? { encryptedKey } : {}) }
       await tx.aiConfig.upsert({ where: { tenantId: actor.tenantId }, create: { tenantId: actor.tenantId, ...data }, update: data })

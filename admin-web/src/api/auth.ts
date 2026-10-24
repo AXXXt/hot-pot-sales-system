@@ -14,13 +14,23 @@ export function sendCode(phone: string, purpose: 'login' | 'register' = 'login')
   return http.post('/auth/send-code', { phone, purpose })
 }
 
-export function login(phone: string, code: string) {
-  return http.post('/auth/login', { phone, code })
+export interface LegalConsentInput { consentAccepted: boolean; consentVersion: string; consentChannel: 'admin_web' }
+
+export function login(phone: string, code: string, consent?: LegalConsentInput) {
+  return http.post('/auth/login', { phone, code, ...consent })
 }
 
 export function refreshToken(token: string) {
   return http.post('/auth/refresh-token', { refreshToken: token })
 }
+
+export function loginWithPassword(phone: string, password: string, consent?: LegalConsentInput) {
+  return http.post('/auth/password/login', { phone, password, ...consent })
+}
+export function passwordSetupInfo(token: string) { return http.post('/auth/password/setup-info', { token }) }
+export function setLoginPassword(token: string, password: string) { return http.post('/auth/password/setup', { token, password }) }
+export function createPasswordSetupLink(userId: number) { return http.post('/auth/password/setup-links', { userId }) }
+export function changeLoginPassword(currentPassword: string, password: string) { return http.post('/auth/password/change', { currentPassword, password }) }
 
 export function logout() {
   return http.post('/auth/logout')

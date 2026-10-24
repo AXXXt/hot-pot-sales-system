@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import PageTable from '../../components/PageTable.vue'
-import { getLeads, getLeadDetail, updateLead, createFollowUp, getLeadAssignees } from '../../api/lead'
+import { getLeads, getLeadDetail, updateLead, createFollowUp, getLeadAssignees, getLeadConversionCustomers } from '../../api/lead'
 
 const loading = ref(false)
 const error = ref('')
@@ -11,6 +11,39 @@ const rows = ref<any[]>([])
 const total = ref(0)
 const assignees = ref<any[]>([])
 const query = reactive({ status: 'all', keyword: '', assignedToId: null as number | null, page: 1, pageSize: 15 })
+const conversionVisible = ref(false), conversionSaving = ref(false), conversionLoading = ref(false)
+const conversionCustomers = ref<Array<{ id: number; customerName: string }>>([])
+const conversionForm = reactive({ leadId: 0, customerId: null as number | null })
+let conversionSearch = 0
+
+async function searchConversionCustomers(keyword = '') {
+  const request = ++conversionSearch
+  conversionLoading.value = true
+  try {
+    const response: any = await getLeadConversionCustomers(keyword)
+    if (request === conversionSearch) conversionCustomers.value = response?.data || []
+  } catch { if (request === conversionSearch) conversionCustomers.value = [] }
+  finally { if (request === conversionSearch) conversionLoading.value = false }
+}
+
+function openConversion(row: any) {
+  conversionForm.leadId = row.id; conversionForm.customerId = null
+  conversionCustomers.value = []; conversionVisible.value = true; searchConversionCustomers()
+}
+
+async function submitConversion() {
+  if (conversionSaving.value) return
+  if (!conversionForm.customerId) { ElMessage.warning('请选择已开户且启用的客户'); return }
+  conversionSaving.value = true
+  try {
+    await updateLead(conversionForm.leadId, { status: 'converted', customerId: conversionForm.customerId })
+    ElMessage.success('已关联客户并标记转化')
+    conversionVisible.value = false
+    if (detail.value?.id === conversionForm.leadId) await openDetail({ id: conversionForm.leadId })
+    await load()
+  } catch (error: any) { ElMessage.warning(error.message || '关联失败，请重试') }
+  finally { conversionSaving.value = false }
+}
 
 const statusMap: Record<string, { text: string; type: 'primary' | 'warning' | 'success' | 'info' }> = {
   new: { text: '新线索', type: 'primary' },
@@ -168,7 +201,7 @@ onMounted(() => { load(); loadAssignees() })
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click.stop="openFollowUp(row)">跟进</el-button>
-            <el-button v-if="row.status !== 'converted'" size="small" type="success" plain @click.stop="changeStatus(row, 'converted')">转化</el-button>
+            <el-button v-if="row.status !== 'converted' || !row.customerId" size="small" type="success" plain @click.stop="openConversion(row)">{{row.status === 'converted' ? '补关联' : '关联转化'}}</el-button>
             <el-button v-if="row.status !== 'invalid'" size="small" type="info" plain @click.stop="changeStatus(row, 'invalid')">无效</el-button>
           </template>
         </el-table-column>
@@ -197,6 +230,7 @@ onMounted(() => { load(); loadAssignees() })
           <el-descriptions-item label="规模">{{ detail.storeScale || '—' }}</el-descriptions-item>
           <el-descriptions-item label="意向商品">{{ detail.interestedItems || '—' }}</el-descriptions-item>
           <el-descriptions-item label="备注">{{ detail.remark || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="关联客户">{{ detail.customerId ? `客户编号 ${detail.customerId}` : '未关联' }}</el-descriptions-item>
           <el-descriptions-item label="跟进人">
             <el-select :model-value="detail.assignedTo?.id" placeholder="分配跟进人" size="small" style="width:160px" @change="(v: number) => assign(detail, v)">
               <el-option v-for="a in assignees" :key="a.id" :label="a.name" :value="a.id" />
@@ -224,6 +258,18 @@ onMounted(() => { load(); loadAssignees() })
         <el-button type="primary" style="width:100%;margin-top:12px" @click="openFollowUp(detail)">添加跟进记录</el-button>
       </template>
     </el-drawer>
+
+    <el-dialog v-model="conversionVisible" title="关联客户并转化" width="440px" :close-on-click-modal="!conversionSaving" @closed="conversionSearch++">
+      <p>请选择已完成开户且启用的客户。此操作只关联线索，不创建账号、不跳过短信验证或客户审核。</p>
+      <el-form label-position="top">
+        <el-form-item label="关联客户" required>
+          <el-select v-model="conversionForm.customerId" aria-label="关联客户" filterable remote :remote-method="searchConversionCustomers" :loading="conversionLoading" placeholder="输入客户名称搜索" style="width:100%">
+            <el-option v-for="customer in conversionCustomers" :key="customer.id" :label="`${customer.customerName}（${customer.id}）`" :value="customer.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button :disabled="conversionSaving" @click="conversionVisible = false">取消</el-button><el-button type="primary" :loading="conversionSaving" :disabled="!conversionForm.customerId || conversionLoading" @click="submitConversion">确认关联</el-button></template>
+    </el-dialog>
 
     <el-dialog v-model="followUpVisible" :title="`添加跟进 - ${followUpForm.phone}`" width="440px">
       <el-form label-position="top">

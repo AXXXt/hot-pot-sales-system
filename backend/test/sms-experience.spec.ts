@@ -25,7 +25,17 @@ describe('temporary experience SMS', () => {
         values.set(key, { value, expiresAt: Date.now() + ttl * 1000 })
         return 'OK' as const
       }),
-      del: jest.fn(async (key: string) => Number(values.delete(key)))
+      del: jest.fn(async (key: string) => Number(values.delete(key))),
+      eval: jest.fn(async (_script: string, _count: number, codeKey: string, attemptsKey: string, supplied: string, max: number, ttl: number) => {
+        const read = (key: string) => { const entry = values.get(key); return entry && entry.expiresAt > Date.now() ? entry.value : null }
+        const attempts = Number(read(attemptsKey) || 0)
+        if (attempts >= max) return -1
+        if (read(codeKey) !== supplied) {
+          values.set(attemptsKey, { value: String(attempts + 1), expiresAt: Date.now() + ttl * 1000 })
+          return 0
+        }
+        values.delete(codeKey); values.delete(attemptsKey); return 1
+      })
     }
     const config = new ConfigService({ ...settings, ...overrides })
     return { service: new SmsService(config, redis), redis }
@@ -101,11 +111,11 @@ describe('temporary experience SMS', () => {
     await expect(service.verifyCode(phone, '123456')).rejects.toMatchObject({ status: 429 })
   })
 
-  test.each(['get', 'set', 'del'] as const)('does not fall back to memory when Redis %s fails', async method => {
+  test.each(['get', 'set', 'eval'] as const)('does not fall back to memory when Redis %s fails', async method => {
     const { service, redis } = setup()
-    if (method === 'del') await service.sendCode(phone, '127.0.0.1')
+    if (method === 'eval') await service.sendCode(phone, '127.0.0.1')
     redis[method].mockRejectedValue(new Error('offline'))
-    const request = () => method === 'del' ? service.verifyCode(phone, '123456') : service.sendCode(phone, '127.0.0.1')
+    const request = () => method === 'eval' ? service.verifyCode(phone, '123456') : service.sendCode(phone, '127.0.0.1')
     await expect(request()).rejects.toMatchObject({ status: 503 })
     await expect(request()).rejects.toMatchObject({ status: 503 })
   })

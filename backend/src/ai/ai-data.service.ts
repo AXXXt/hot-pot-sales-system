@@ -33,7 +33,9 @@ export class AiDataService {
     this.access.require(actor, 'inventory:read')
     if (this.planning) {
       const result = await this.planning.overview(actor)
-      return { type: 'inventory', title: '库存预警', items: result.items.filter(x => x.lowStock).slice(0, 30).map(x => ({ ...x, id: x.skuId, productId: x.productId, product: { name: x.productName, subtitle: x.productName }, recentQuantity: x.sold28, salesDays: 28 })), note: result.note }
+      return { type: 'inventory', title: '库存预警', items: result.items.filter(x => x.lowStock).slice(0, 30).map(x => ({ ...x, id: x.skuId, productId: x.productId, product: { name: x.productName, subtitle: x.productName }, recentQuantity: x.sold28, salesDays: 28 })),
+        scanned: result.items.length, total: result.total, truncated: result.truncated,
+        note: `${result.note} 本卡片最多展示30条预警。${result.truncated ? `仅核对当前前${result.items.length}个可见规格（当前权限共${result.total}个），其余请在库存计划页继续加载。` : ''}` }
     }
     const items = await this.prisma.productSku.findMany({
       where: { tenantId: actor.tenantId, stockNum: { lte: 10 }, status: 'active', product: { AND: [this.access.productWhere(actor), { status: 'active' }] } },
@@ -67,9 +69,9 @@ export class AiDataService {
     return result
   }
 
-  async metrics(actor: StaffActor, period = 'week') {
+  async metrics(actor: StaffActor, period = 'week', referenceDate = new Date()) {
     this.access.require(actor, 'analytics:view', 'order:read')
-    const range = metricRange(period)
+    const range = metricRange(period, referenceDate)
     const base = this.access.orderWhere(actor)
     const where = { AND: [base, { status: { in: [...EFFECTIVE_ORDER_STATUSES] }, sampleFlag: false, createdAt: { gte: range.start, lt: range.end } }] }
     const previousWhere = { AND: [base, { status: { in: [...EFFECTIVE_ORDER_STATUSES] }, sampleFlag: false, createdAt: { gte: range.previousStart, lt: range.previousEnd } }] }

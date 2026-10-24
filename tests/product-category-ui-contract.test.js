@@ -26,7 +26,8 @@ test('分类管理与分类请求不再包含品牌关联', () => {
   assert.match(categoryView, /getManagedCategories/)
   assert.match(categoryView, /restoreCategory/)
   assert.match(categoryView, /分类已永久删除/)
-  assert.match(categoryView, /分类已有历史商品，已安全停用/)
+  assert.match(categoryView, /result\.deletionMode === 'physical'\s*\? '分类已永久删除'\s*:\s*'分类已安全停用，可随时恢复'/)
+  assert.match(categoryView, /还有子分类，删除后将安全停用且可恢复/)
   assert.doesNotMatch(categoryView, /关联商品已调整为暂无分类/)
 })
 

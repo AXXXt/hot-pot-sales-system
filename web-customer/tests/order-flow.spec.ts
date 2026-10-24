@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 async function loginFixture(page: Page) {
+  await page.route('**/api/v1/auth/profile', route => route.fulfill({ json: { code: 0, data: { user: { name: 'Test' }, tenant: { name: '测试租户' }, customer: { id: 10, customerName: '测试客户' } } } }))
   await page.addInitScript(() => {
     localStorage.setItem('webAccessToken', 'browser-test-only')
     localStorage.setItem('webProfile', JSON.stringify({ user: { name: 'Test' }, customer: { id: 10, customerName: '测试客户' } }))

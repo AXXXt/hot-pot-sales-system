@@ -1,13 +1,17 @@
-import http, { getAccessToken } from './request'
+import http, { getAccessToken, getSessionEpoch } from './request'
 
 export interface PlatformRelease { id: string; version: string; sequence: number; title: string; notes: string[]; publishedAt: string; ready: boolean; supportsControl: boolean }
 export interface PlatformOperation { id: string; type: string; source: string; target: string; status: string; phase: string; message: string; createdAt?: number; finishedAt?: number; backup?: string; auditPending?: boolean }
 export interface PlatformOverview { current: PlatformRelease; latest: PlatformRelease; releases: PlatformRelease[]; canManage: boolean; operation: PlatformOperation | null; changedAt?: number }
 export interface PlatformPlan { token: { payload: string; signature: string }; id: string; type: string; from: PlatformRelease; target: PlatformRelease; expiresAt: number; notice: string }
 async function request<T>(path: string, body?: unknown, retry = true): Promise<T> {
+  const epoch = getSessionEpoch()
+  const current = () => { if (epoch !== getSessionEpoch()) throw Object.assign(new Error('登录状态已变化，请重新检查版本'), { code: 'AUTH_SESSION_CHANGED' }) }
   const response = await fetch(`/api/v1/platform/${path}`, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${getAccessToken() || ''}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' })
-  if (response.status === 401 && retry) { await http.get('/auth/profile'); return request<T>(path, body, false) }
+  current()
+  if (response.status === 401 && retry) { await http.get('/auth/profile'); current(); return request<T>(path, body, false) }
   const result = await response.json()
+  current()
   if (!response.ok) throw new Error(result.message || '版本服务暂不可用')
   return result.data
 }

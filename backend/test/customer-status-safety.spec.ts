@@ -2,21 +2,28 @@ import { CustomerService } from '../src/customer/customer.service'
 
 describe('customer status safety', () => {
   function createService() {
+    const candidate = { id: 3, tenantId: 7, status: 'disabled', users: [{ status: 'disabled', tenantId: 7 }] }
+    const decisions = [{ targetId: '3', afterData: { action: 'submit_registration', status: 'disabled' } }]
     const transactionCustomerUpdate = jest.fn().mockResolvedValue({})
     const transactionUserUpdateMany = jest.fn().mockResolvedValue({ count: 1 })
     const transactionClient = {
-      customer: { update: transactionCustomerUpdate },
-      user: { updateMany: transactionUserUpdateMany }
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 3 }]),
+      customer: { update: transactionCustomerUpdate, findUnique: jest.fn().mockResolvedValue(candidate) },
+      user: { updateMany: transactionUserUpdateMany },
+      auditLog: { findMany: jest.fn().mockResolvedValue(decisions), create: jest.fn() }
     }
     const prisma = {
       customer: {
-        findUnique: jest.fn().mockResolvedValue({ id: 3 }),
+        findUnique: jest.fn().mockResolvedValue(candidate),
         update: jest.fn().mockResolvedValue({ id: 3 }),
         delete: jest.fn()
       },
       user: {
         updateMany: jest.fn(),
         deleteMany: jest.fn()
+      },
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue(decisions)
       },
       $transaction: jest.fn(async (callback: any) => callback(transactionClient))
     }
@@ -26,7 +33,6 @@ describe('customer status safety', () => {
 
   it('disables the customer and associated users without deleting data', async () => {
     const { service, prisma, transactionCustomerUpdate, transactionUserUpdateMany } = createService()
-    jest.spyOn(service, 'detail').mockResolvedValue({ id: 3, status: 'disabled' } as any)
 
     await service.update(3, { status: 'disabled' })
 
@@ -35,7 +41,7 @@ describe('customer status safety', () => {
       data: { status: 'disabled' }
     })
     expect(transactionUserUpdateMany).toHaveBeenCalledWith({
-      where: { customerId: 3 },
+      where: { customerId: 3, tenantId: 7 },
       data: { status: 'disabled' }
     })
     expect(prisma.customer.delete).not.toHaveBeenCalled()
@@ -52,7 +58,7 @@ describe('customer status safety', () => {
       data: { status: 'disabled' }
     })
     expect(transactionUserUpdateMany).toHaveBeenCalledWith({
-      where: { customerId: 3 },
+      where: { customerId: 3, tenantId: 7 },
       data: { status: 'disabled' }
     })
     expect(prisma.customer.delete).not.toHaveBeenCalled()
@@ -60,7 +66,7 @@ describe('customer status safety', () => {
     expect(result).toEqual({ id: 3, status: 'disabled', message: '已驳回并禁用：资料不完整' })
   })
 
-  it('re-enables the customer and associated users together', async () => {
+  it('approves an actual pending registration by enabling the customer and associated users together', async () => {
     const { service, transactionCustomerUpdate, transactionUserUpdateMany } = createService()
 
     await service.approve(3)
@@ -70,7 +76,7 @@ describe('customer status safety', () => {
       data: { status: 'active' }
     })
     expect(transactionUserUpdateMany).toHaveBeenCalledWith({
-      where: { customerId: 3 },
+      where: { customerId: 3, tenantId: 7 },
       data: { status: 'active' }
     })
   })

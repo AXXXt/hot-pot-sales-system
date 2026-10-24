@@ -20,6 +20,7 @@ async function fixture(page: Page) {
   await page.route('**/api/v1/**', route => {
     const url = new URL(route.request().url())
     let data: unknown = {}
+    if (url.pathname.endsWith('/auth/profile')) data = { user: { name: '测试用户' }, tenant: { name: '唯哆鲜' }, customer: { id: 1, customerName: '测试门店' } }
     if (url.pathname.endsWith('/product-categories')) data = [{ id: 1, name: '肉类涮品' }, { id: 2, name: '蔬菜菌菇' }]
     if (url.pathname.endsWith('/brands')) data = [{ id: 1, name: '测试品牌' }]
     if (url.pathname.endsWith('/products')) {
@@ -87,6 +88,10 @@ test('official homepage keeps its brand, working contact form and mobile navigat
   await page.locator('#leadSubmit').click()
   await expect(page.getByRole('alert')).toHaveText('请输入正确的 11 位手机号')
   await page.getByLabel('手机号').fill('13800000000')
+  await page.locator('#leadSubmit').click()
+  await expect(page.getByRole('alert')).toHaveText('请先阅读并同意用户协议和隐私政策')
+  expect(submissions).toHaveLength(0)
+  await page.locator('#leadConsent').check()
   await page.locator('#leadSubmit').click()
   await expect(page.locator('#leadSuccess')).toBeVisible()
   expect(submissions).toHaveLength(1)

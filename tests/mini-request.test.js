@@ -84,6 +84,41 @@ test('失效令牌且有刷新令牌时刷新后重试原请求', async () => {
   assert.equal(storage.get('refreshToken'), 'new-refresh-token')
 })
 
+test('a stale refresh response cannot overwrite or clear a newly logged in account', async () => {
+  let refresh
+  const { request, storage } = loadRequest({ token: 'expired-A', refreshToken: 'refresh-A' }, options => {
+    if (options.url.endsWith('/auth/refresh-token')) refresh = options
+    else { options.success({ statusCode: 401, data: { code: 401 } }); options.complete() }
+  })
+  const task = request({ url: '/api/v1/orders/2' })
+  const rejected = assert.rejects(task, error => error.code === 'AUTH_SESSION_CHANGED')
+  const auth = require('../store/modules/auth')
+  auth.clearAuth(); auth.setToken('account-B'); auth.setRefreshToken('refresh-B')
+  refresh.success({ statusCode: 200, data: { code: 0, data: { accessToken: 'stale-A', refreshToken: 'stale-refresh-A' } } })
+  refresh.complete()
+  await rejected
+  assert.equal(storage.get('token'), 'account-B')
+  assert.equal(storage.get('refreshToken'), 'refresh-B')
+})
+
+test('concurrent expired requests share one refresh and preserve their login session', async () => {
+  let refresh, refreshCount = 0
+  const { request } = loadRequest({ token: 'expired', refreshToken: 'refresh' }, options => {
+    if (options.url.endsWith('/auth/refresh-token')) { refresh = options; refreshCount++; return }
+    options.success({ statusCode: options.header.Authorization === 'Bearer expired' ? 401 : 200,
+      data: options.header.Authorization === 'Bearer expired' ? { code: 401 } : { code: 0, data: options.url } })
+    options.complete()
+  })
+  const auth = require('../store/modules/auth'), before = auth.state.sessionVersion
+  const first = request({ url: '/api/v1/orders' }), second = request({ url: '/api/v1/notifications' })
+  refresh.success({ statusCode: 200, data: { code: 0, data: { accessToken: 'fresh', refreshToken: 'next' } } })
+  refresh.complete()
+  const results = await Promise.all([first, second])
+  assert.equal(refreshCount, 1)
+  assert.equal(auth.state.sessionVersion, before)
+  assert.equal(results.length, 2)
+})
+
 for (const [errMsg, code, message] of [
   ['request:fail url not in domain list', 'SYS_DOMAIN_NOT_ALLOWED', '接口域名未配置'],
   ['request:fail ssl hand shake error', 'SYS_TLS_FAILED', 'HTTPS连接失败'],
@@ -117,3 +152,19 @@ test('服务端验证码错误提示原样保留', async () => {
   })
   await assert.rejects(request({ url: '/api/v1/auth/send-code', method: 'POST' }), error => error === payload)
 })
+
+for (const endpoint of ['login', 'register-or-login', 'registration-status', 'check-status', 'refresh-token']) {
+  test(`公开认证失败不触发access刷新或清理其他会话：${endpoint}`, async () => {
+    let calls = 0
+    const payload = { code: 401, message: '请重新验证手机号', errorCode: endpoint === 'check-status' ? 'AUTH_STATUS_TICKET_EXPIRED' : 'AUTH_3002' }
+    const { request, storage } = loadRequest({ token: 'existing-account', refreshToken: 'existing-refresh' }, options => {
+      calls++
+      options.success({ statusCode: 401, data: payload })
+      options.complete()
+    })
+    await assert.rejects(request({ url: `/api/v1/auth/${endpoint}`, method: 'POST', showLoading: false }), error => error === payload)
+    assert.equal(calls, 1)
+    assert.equal(storage.get('token'), 'existing-account')
+    assert.equal(storage.get('refreshToken'), 'existing-refresh')
+  })
+}

@@ -52,6 +52,7 @@ describe('SmsService 限流与 429', () => {
   it('验证码错误次数超限返回 429 + SMS_4292', async () => {
     const redis = makeRedis()
     redis.get.mockImplementation(async (key: string) => (key === 'sms:attempts:13800000000' ? '5' : null))
+    ;(redis as any).eval = jest.fn().mockResolvedValue(-1)
     const svc = new SmsService(makeConfig('development') as any, redis as any)
     await expect(svc.verifyCode('13800000000', '000000')).rejects.toBeInstanceOf(HttpException)
     await expect(svc.verifyCode('13800000000', '000000')).rejects.toMatchObject({

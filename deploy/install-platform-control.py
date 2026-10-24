@@ -113,6 +113,7 @@ def install(identity, mode):
       PORT: '3001'
       NODE_OPTIONS: --max-old-space-size=96
       DATABASE_URL: ${DATABASE_URL:?required}
+      REDIS_URL: ${REDIS_URL:?required}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?required}
       PLATFORM_COMMAND_KEY: ${PLATFORM_COMMAND_KEY:?required}
       PLATFORM_OWNER_TENANT_ID: '1'
@@ -121,6 +122,7 @@ def install(identity, mode):
       - ./platform/queue:/platform/queue:rw
     depends_on:
       mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
     healthcheck:
       test: ['CMD', 'node', '-e', 'fetch("http://localhost:3001/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
       interval: 20s

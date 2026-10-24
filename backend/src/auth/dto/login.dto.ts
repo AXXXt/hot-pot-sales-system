@@ -1,7 +1,8 @@
 import { IsString, Matches, Length } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
+import { ConsentInputDto } from '../../legal/consent.dto'
 
-export class LoginDto {
+export class LoginDto extends ConsentInputDto {
   @ApiProperty({ example: '13800000000', description: '手机号' })
   @IsString()
   @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' })

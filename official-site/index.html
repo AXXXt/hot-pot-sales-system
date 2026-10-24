@@ -260,6 +260,11 @@
               autocomplete="off"
               aria-hidden="true"
             />
+            <div class="lead-note lead-consent">
+              <label><input type="checkbox" name="consent" id="leadConsent" /> 我已阅读并同意</label>
+              <a href="./legal.html?type=terms" target="_blank" rel="noopener">用户协议</a>和
+              <a href="./legal.html?type=privacy" target="_blank" rel="noopener">隐私政策</a>，同意为回复本次咨询联系我。
+            </div>
             <button
               class="button primary lead-submit"
               id="leadSubmit"
@@ -268,7 +273,7 @@
               提交，获取合作方案
             </button>
             <p class="lead-note">
-              提交即视为同意我们通过电话与您联系，信息仅用于合作洽谈。
+              信息仅用于回复本次合作咨询。可随时通过联系电话申请停止联系。
             </p>
           </form>
           <div id="leadSuccess" class="lead-success" role="status" hidden>
@@ -293,6 +298,7 @@
         <p>© <span id="year"></span> 唯哆鲜食品. 保留所有权利。</p>
       </div>
     </footer>
+    <script src="./js/legal.js"></script>
     <script src="./js/main.js"></script>
   </body>
 </html>

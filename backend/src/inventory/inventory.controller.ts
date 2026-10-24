@@ -5,13 +5,14 @@ import { CreateAdjustmentDto, CreateStocktakeDto, UpdateStocktakeItemsDto, Compl
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
+import { StaffAccessService } from '../auth/staff-access.service'
 
 @ApiTags('inventory')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService) {}
+  constructor(private readonly inventory: InventoryService, private readonly access: StaffAccessService) {}
 
   @Get('stock')
   @RequirePermissions('inventory:read')
@@ -24,6 +25,7 @@ export class InventoryController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async stock(
+    @Req() req: any,
     @Query('keyword') keyword?: string,
     @Query('brandId') brandId?: string,
     @Query('categoryId') categoryId?: string,
@@ -40,7 +42,7 @@ export class InventoryController {
       lowStockThreshold: lowStockThreshold ? parseInt(lowStockThreshold, 10) : undefined,
       page,
       pageSize
-    })
+    }, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('movements')
@@ -54,6 +56,7 @@ export class InventoryController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async movements(
+    @Req() req: any,
     @Query('skuId') skuId?: string,
     @Query('type') type?: string,
     @Query('sourceType') sourceType?: string,
@@ -70,7 +73,7 @@ export class InventoryController {
       dateTo,
       page,
       pageSize
-    })
+    }, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('adjustments')
@@ -79,23 +82,25 @@ export class InventoryController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async adjustments(
+    @Req() req: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize = 10
   ) {
-    return this.inventory.adjustments(page, pageSize)
+    return this.inventory.adjustments(page, pageSize, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('adjustments/:id')
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: '手动出入库单详情' })
-  async adjustmentDetail(@Param('id', ParseIntPipe) id: number) {
-    return this.inventory.adjustmentDetail(id)
+  async adjustmentDetail(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.inventory.adjustmentDetail(id, await this.access.actor(Number(req.user.sub)))
   }
 
   @Post('adjustments')
   @RequirePermissions('inventory:adjust')
   @ApiOperation({ summary: '创建手动出入库单' })
   async createAdjustment(@Body() dto: CreateAdjustmentDto, @Req() req: any) {
+    await this.access.actor(Number(req.user.sub))
     return this.inventory.createAdjustment(dto, req.user?.sub)
   }
 
@@ -105,23 +110,25 @@ export class InventoryController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async stocktakes(
+    @Req() req: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize = 10
   ) {
-    return this.inventory.stocktakes(page, pageSize)
+    return this.inventory.stocktakes(page, pageSize, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('stocktakes/:id')
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: '盘点单详情' })
-  async stocktakeDetail(@Param('id', ParseIntPipe) id: number) {
-    return this.inventory.stocktakeDetail(id)
+  async stocktakeDetail(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.inventory.stocktakeDetail(id, await this.access.actor(Number(req.user.sub)))
   }
 
   @Post('stocktakes')
   @RequirePermissions('inventory:adjust')
   @ApiOperation({ summary: '创建盘点单' })
   async createStocktake(@Body() dto: CreateStocktakeDto, @Req() req: any) {
+    await this.access.actor(Number(req.user.sub))
     return this.inventory.createStocktake(dto, req.user?.sub)
   }
 
@@ -133,6 +140,7 @@ export class InventoryController {
     @Body() dto: UpdateStocktakeItemsDto,
     @Req() req: any
   ) {
+    await this.access.actor(Number(req.user.sub))
     return this.inventory.updateStocktakeItems(id, dto, req.user?.sub)
   }
 
@@ -144,6 +152,7 @@ export class InventoryController {
     @Body() dto: CompleteStocktakeDto,
     @Req() req: any
   ) {
+    await this.access.actor(Number(req.user.sub))
     return this.inventory.completeStocktake(id, dto, req.user?.sub)
   }
 
@@ -151,6 +160,7 @@ export class InventoryController {
   @RequirePermissions('inventory:adjust')
   @ApiOperation({ summary: '取消盘点单' })
   async cancelStocktake(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    await this.access.actor(Number(req.user.sub))
     return this.inventory.cancelStocktake(id, req.user?.sub)
   }
 }

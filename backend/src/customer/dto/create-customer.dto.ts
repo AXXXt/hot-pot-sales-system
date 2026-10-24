@@ -1,5 +1,5 @@
 import { Transform, type TransformFnParams } from 'class-transformer'
-import { IsString, IsOptional, IsInt, IsIn, Matches, MaxLength, Min } from 'class-validator'
+import { IsString, IsOptional, IsInt, IsIn, IsISO8601, Matches, MaxLength, Min } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 function toOptionalInteger({ value }: TransformFnParams) {
@@ -98,7 +98,7 @@ export class CreateCustomerLevelDto {
   name: string
 
   @ApiProperty({ description: '等级编码' })
-  @IsString() @MaxLength(64)
+  @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/)
   code: string
 
   @ApiPropertyOptional({ description: '折扣率' })
@@ -122,6 +122,10 @@ export class UpdateCustomerLevelDto {
   @ApiPropertyOptional({ description: '描述' })
   @IsOptional() @IsString() @MaxLength(255)
   description?: string
+
+  @ApiPropertyOptional({ description: '等级状态', enum: ['active', 'disabled'] })
+  @IsOptional() @IsIn(['active', 'disabled'])
+  status?: 'active' | 'disabled'
 }
 
 export class CreatePriceRuleDto {
@@ -148,6 +152,14 @@ export class CreatePriceRuleDto {
   @ApiProperty({ description: '协议价格' })
   @IsString() @Matches(/^\d+(?:\.\d{1,2})?$/)
   price: string
+
+  @ApiPropertyOptional({ description: '开始时间，含时区的ISO8601；空为立即生效', nullable: true })
+  @IsOptional() @IsISO8601({ strict: true }) @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
+  startAt?: string | null
+
+  @ApiPropertyOptional({ description: '结束时间，含时区的ISO8601；空为长期有效，含结束时刻', nullable: true })
+  @IsOptional() @IsISO8601({ strict: true }) @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
+  endAt?: string | null
 }
 
 export class CreateRepaymentDto {

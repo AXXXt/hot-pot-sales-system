@@ -162,36 +162,6 @@
   min-height: 90rpx;
   font-size: 25rpx;
 }
-.home__categories {
-  display: flex;
-  gap: 18rpx;
-  padding: 24rpx 0 10rpx;
-}
-.home .home__category {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  border-top: 1rpx solid #dce2dc;
-  position: relative;
-  min-height: 106rpx;
-  font-size: 23rpx;
-  overflow-wrap: anywhere;
-  padding-top: 14rpx;
-  padding-right: 12rpx;
-}
-.home__category-index {
-  display: block;
-  color: #43715b;
-  font-size: 20rpx;
-  margin-bottom: 8rpx;
-}
-.home__category-arrow {
-  position: absolute;
-  right: 0;
-  top: 14rpx;
-  font-size: 22rpx;
-  color: #666e68;
-}
 .home__feed-heading {
   display: flex;
   align-items: center;
@@ -266,7 +236,4 @@
 }
 .home__account {
   padding: 24rpx 0;
-}
-.home__categories {
-  padding-top: 18rpx;
 }

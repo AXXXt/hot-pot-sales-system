@@ -32,3 +32,7 @@ export function createFollowUp(id: number, data: { content: string; nextFollowUp
 export function getLeadAssignees() {
   return http.get('/leads/assignees')
 }
+
+export function getLeadConversionCustomers(keyword = '') {
+  return http.get('/leads/conversion-customers', { params: { keyword } })
+}

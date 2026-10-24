@@ -14,13 +14,7 @@
       class="home__editorial-image"
       src="/assets/brand/editorial.jpg"
       mode="aspectFill"
-    ></image><view class="home__editorial-copy"><text class="home__eyebrow">日常好食材</text><text class="home__editorial-title">鲜香好滋味</text><text class="home__editorial-sub">为每一天的餐饮经营</text><text class="home__editorial-link">去选品 →</text></view><text class="home__image-note">食材场景示意</text></view><view class="home__account"><view class="home__credit" bindtap="goProfile"><text class="home__eyebrow">可用账期</text><text class="home__amount">{{userInfo.isLogin ? '¥' + userInfo.creditRemaining : '登录后查看'}}</text><text wx:if="{{userInfo.isLogin}}" class="home__credit-term">{{userInfo.creditDays}}天账期</text></view><button size="mini" class="home__order-link" bindtap="goOrders"><view><text class="home__eyebrow">我的订单</text><text>查看采购进度</text></view><text>›</text></button></view><view class="home__categories" wx:if="{{categories.length}}"><button size="mini"
-      wx:for="{{categories}}"
-      wx:key="id"
-      class="home__category"
-      data-id="{{item.id}}"
-      bindtap="goCategory"
-    ><text class="home__category-index">0{{index + 1}}</text><text>{{item.name}}</text><text class="home__category-arrow">↗</text></button></view><view class="home__section home__feed-heading"><segmented-control
+    ></image><view class="home__editorial-copy"><text class="home__eyebrow">日常好食材</text><text class="home__editorial-title">鲜香好滋味</text><text class="home__editorial-sub">为每一天的餐饮经营</text><text class="home__editorial-link">去选品 →</text></view><text class="home__image-note">食材场景示意</text></view><view class="home__account"><view class="home__credit" bindtap="goProfile"><text class="home__eyebrow">可用账期</text><text class="home__amount">{{userInfo.isLogin ? '¥' + userInfo.creditRemaining : '登录后查看'}}</text><text wx:if="{{userInfo.isLogin}}" class="home__credit-term">{{userInfo.creditDays}}天账期</text></view><button size="mini" class="home__order-link" bindtap="goOrders"><view><text class="home__eyebrow">我的订单</text><text>查看采购进度</text></view><text>›</text></button></view><view class="home__section home__feed-heading"><segmented-control
       items="{{feedTabs}}"
       activeId="{{activeFeed}}"
       bind:change="onFeedChange"

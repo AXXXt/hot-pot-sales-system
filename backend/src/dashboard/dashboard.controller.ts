@@ -25,7 +25,7 @@ export class DashboardController {
       product: visibility.products ? this.access.productWhere(actor) : deny,
       inventory: visibility.inventory ? this.access.productWhere(actor) : deny,
       customer: visibility.customers ? this.access.customerWhere(actor) : deny
-    })
+    }, actor)
     return { ...result, visibility, metricDefinition: '有效订单金额（按下单时间、排除样品），不是实收或利润；仅统计当前账号可见范围。' }
   }
 }

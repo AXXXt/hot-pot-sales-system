@@ -366,6 +366,10 @@ textarea {
   color: var(--muted);
   margin-top: 12px;
 }
+.lead-consent { margin: 12px 0; line-height: 1.8; }
+.lead-consent label { display: inline-flex; align-items: center; min-height: 44px; gap: 8px; cursor: pointer; }
+.lead-consent input { width: 18px; height: 18px; min-height: 18px; padding: 0; flex-shrink: 0; accent-color: var(--green); }
+.lead-consent a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
 .lead-error {
   color: #b33625;
   margin: 8px 0;

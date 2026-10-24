@@ -13,8 +13,10 @@
       <view class="auth-pending__ring">
         <text class="auth-pending__icon">{{approved ? '通过' : '待审'}}</text>
       </view>
-      <text class="auth-pending__title">{{approved ? '审核已通过' : '审核中'}}</text>
-      <text class="auth-pending__desc" wx:if="{{!approved}}">您的注册信息已提交，管理员审核通过后即可使用</text>
+      <text class="auth-pending__title">{{approved ? '审核已通过' : reviewRejected ? '审核未通过' : reviewDisabled ? '账号已停用' : '审核中'}}</text>
+      <text class="auth-pending__desc" wx:if="{{reviewRejected}}">请核对注册资料，修改后重新提交申请</text>
+      <text class="auth-pending__desc" wx:elif="{{reviewDisabled}}">请联系管理员核实账号状态</text>
+      <text class="auth-pending__desc" wx:elif="{{!approved}}">您的注册信息已提交，管理员审核通过后即可使用</text>
       <text class="auth-pending__desc" wx:else>您的申请已通过审核，请重新获取验证码完成登录</text>
 
       <view wx:if="{{pendingCustomer && !approved}}" class="auth-pending__info">
@@ -26,7 +28,10 @@
         <view class="auth-pending__login-btn" bindtap="onApprovedLogin">验证码登录</view>
       </view>
 
-      <view wx:else class="auth-pending__hint">
+      <view wx:elif="{{reviewRejected}}" class="auth-pending__action">
+        <view class="auth-pending__login-btn" bindtap="onEditApplication">修改资料并重新提交</view>
+      </view>
+      <view wx:elif="{{!reviewDisabled}}" class="auth-pending__hint">
         <text class="auth-pending__hint-text">下拉刷新检查审核状态</text>
         <text class="auth-pending__arrow">↓</text>
       </view>
@@ -37,8 +42,8 @@
   <view wx:elif="{{step === 'login'}}" class="auth-form">
     <view class="auth-form__card">
       <image style="width:180rpx;height:140rpx;margin-bottom:24rpx" src="/assets/brand/logo.jpg" mode="aspectFit" aria-label="唯哆鲜"></image>
-      <text class="auth-form__title">手机号登录</text>
-      <text class="auth-form__subtitle">输入手机号获取验证码即可登录</text>
+      <text class="auth-form__title">{{statusVerification ? '验证申请状态' : '手机号登录'}}</text>
+      <text class="auth-form__subtitle">{{statusVerification ? '验证本人手机号后查看审核结果，不会新建账号' : '输入手机号获取验证码即可登录'}}</text>
 
       <view class="auth-form__field">
         <text class="auth-form__label">手机号</text>
@@ -68,7 +73,7 @@
         <text class="auth-form__agree-link" catchtap="openPrivacy">隐私政策</text>
       </view>
 
-      <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onLoginSubmit">{{submitting ? '登录中…' : '登录'}}</view>
+      <view class="auth-form__submit {{submitting ? 'auth-form__submit--loading' : ''}}" bindtap="onLoginSubmit">{{submitting ? '处理中…' : statusVerification ? '验证并查看' : '登录'}}</view>
 
       <view class="auth-form__switch" bindtap="goRegister">还没有账号？立即注册</view>
     </view>

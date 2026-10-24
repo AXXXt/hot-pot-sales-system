@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { Test } from '@nestjs/testing'
 import { ExecutionContext, INestApplication } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -44,6 +45,8 @@ describe('product HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ProductController],
       providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
         { provide: ProductService, useValue: mockProduct },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('secret') } },
         { provide: JwtService, useValue: { sign: jest.fn(), verify: jest.fn() } },
@@ -170,9 +173,9 @@ describe('product HTTP contract', () => {
       .set('Authorization', 'Bearer mock-token')
       .expect(200)
 
-    expect(mockProduct.createCategory).toHaveBeenCalledWith({ name: '鸭血', code: '鸭血' }, 1)
-    expect(mockProduct.updateCategory).toHaveBeenCalledWith(1, { name: '鲜鸭血' }, 1)
-    expect(mockProduct.deleteCategory).toHaveBeenCalledWith(1, 1)
+    expect(mockProduct.createCategory).toHaveBeenCalledWith({ name: '鸭血', code: '鸭血' }, 1, 1)
+    expect(mockProduct.updateCategory).toHaveBeenCalledWith(1, { name: '鲜鸭血' }, 1, 1)
+    expect(mockProduct.deleteCategory).toHaveBeenCalledWith(1, 1, 1)
   })
 
   it('PATCH /api/v1/admin/product-categories/:id/restore restores a category', async () => {
@@ -181,7 +184,7 @@ describe('product HTTP contract', () => {
       .set('Authorization', 'Bearer mock-token')
       .expect(200)
 
-    expect(mockProduct.restoreCategory).toHaveBeenCalledWith(1, 1)
+    expect(mockProduct.restoreCategory).toHaveBeenCalledWith(1, 1, 1)
     expect(res.body.data.status).toBe('active')
   })
 

@@ -18,7 +18,14 @@ export class AiModelService {
     if (!config?.enabled || !config.encryptedKey) throw new BadRequestException('AI模型尚未启用，请由管理员在AI助手配置中连接模型')
     if (images && !config.visionModel) throw new BadRequestException('尚未配置视觉模型，请先配置或使用文字建品')
     const rateKey = `ai:quota:${actor.tenantId}:${actor.id}:${shanghaiDay()}`
-    const count = await this.redis.eval("local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],172800) end; return n", 1, rateKey) as number
+    let count: number
+    try {
+      const reply = await this.redis.eval("-- ai-daily-quota\nlocal n=redis.call('INCR',KEYS[1]); if redis.call('TTL',KEYS[1]) < 0 then if redis.call('EXPIRE',KEYS[1],172800) ~= 1 then return redis.error_reply('quota expiry unavailable') end end; return n", 1, rateKey)
+      count = typeof reply === 'number' || (typeof reply === 'string' && /^\d+$/.test(reply)) ? Number(reply) : NaN
+      if (!Number.isSafeInteger(count) || count < 1) throw new Error('invalid quota counter')
+    } catch {
+      throw new ServiceUnavailableException({ message: 'AI调用额度暂不可核验，请稍后重试；本次未调用模型', errorCode: 'AI_QUOTA_UNAVAILABLE' })
+    }
     if (count > config.dailyRequests) throw new BadRequestException('已达到今日模型调用上限')
     const model = images ? config.visionModel : config.textModel
     const usage = await this.prisma.aiUsageRecord.create({ data: { tenantId: actor.tenantId, ownerId: actor.id, model, images } })

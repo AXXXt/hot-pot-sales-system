@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { UserService } from './user.service'
 import { CreateUserDto, UpdateUserDto, CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto/user.dto'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
+import { StaffAccessService } from '../auth/staff-access.service'
 
 @ApiTags('users')
 @Controller()
@@ -12,7 +13,7 @@ import { RequirePermissions } from '../auth/require-permissions.decorator'
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class UserController {
-  constructor(private readonly service: UserService) {}
+  constructor(private readonly service: UserService, private readonly access: StaffAccessService) {}
 
   @Get('users')
   @ApiOperation({ summary: '用户列表' })
@@ -20,40 +21,41 @@ export class UserController {
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async listUsers(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
-    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10
-  ) { return this.service.listUsers(page, pageSize) }
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10,
+    @Req() req: any
+  ) { return this.service.listUsers(page, pageSize, await this.access.actor(Number(req.user.sub))) }
 
   @Post('users')
   @ApiOperation({ summary: '创建用户' })
-  async createUser(@Body() dto: CreateUserDto) { return this.service.createUser(dto) }
+  async createUser(@Body() dto: CreateUserDto, @Req() req: any) { return this.service.createUser(dto, await this.access.actor(Number(req.user.sub))) }
 
   @Get('users/:id')
   @ApiOperation({ summary: '用户详情' })
-  async getUser(@Param('id', ParseIntPipe) id: number) { return this.service.getUser(id) }
+  async getUser(@Param('id', ParseIntPipe) id: number, @Req() req: any) { return this.service.getUser(id, await this.access.actor(Number(req.user.sub))) }
 
   @Patch('users/:id')
   @ApiOperation({ summary: '更新用户' })
-  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) { return this.service.updateUser(id, dto) }
+  async updateUser(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto, @Req() req: any) { return this.service.updateUser(id, dto, await this.access.actor(Number(req.user.sub))) }
 
   @Get('roles')
   @ApiOperation({ summary: '角色列表' })
-  async listRoles() { return this.service.listRoles() }
+  async listRoles(@Req() req: any) { return this.service.listRoles(await this.access.actor(Number(req.user.sub))) }
 
   @Post('roles')
   @ApiOperation({ summary: '创建角色' })
-  async createRole(@Body() dto: CreateRoleDto) { return this.service.createRole(dto) }
+  async createRole(@Body() dto: CreateRoleDto, @Req() req: any) { return this.service.createRole(dto, await this.access.actor(Number(req.user.sub))) }
 
   @Patch('roles/:id')
   @ApiOperation({ summary: '更新角色' })
-  async updateRole(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) { return this.service.updateRole(id, dto) }
+  async updateRole(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRoleDto, @Req() req: any) { return this.service.updateRole(id, dto, await this.access.actor(Number(req.user.sub))) }
 
   @Post('roles/:id/permissions')
   @ApiOperation({ summary: '分配权限' })
-  async assignPermissions(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignPermissionsDto) {
-    return this.service.assignPermissions(id, dto)
+  async assignPermissions(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignPermissionsDto, @Req() req: any) {
+    return this.service.assignPermissions(id, dto, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('permissions')
   @ApiOperation({ summary: '权限列表' })
-  async listPermissions() { return this.service.listPermissions() }
+  async listPermissions(@Req() req: any) { await this.access.actor(Number(req.user.sub)); return this.service.listPermissions() }
 }

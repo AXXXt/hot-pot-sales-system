@@ -17,7 +17,8 @@ describe('Tencent Cloud SMS', () => {
     return {
       get: jest.fn().mockResolvedValue(null),
       set: jest.fn().mockResolvedValue('OK'),
-      del: jest.fn().mockResolvedValue(1)
+      del: jest.fn().mockResolvedValue(1),
+      eval: jest.fn().mockResolvedValue(0)
     }
   }
 

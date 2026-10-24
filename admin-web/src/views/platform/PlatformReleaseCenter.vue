@@ -2,31 +2,43 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPlatformOverview, planPlatformChange, executePlatformPlan, getPlatformOperation, type PlatformOverview, type PlatformRelease, type PlatformOperation } from '../../api/platform'
+import { getSessionEpoch } from '../../api/request'
 const state = ref<PlatformOverview | null>(null); const loading = ref(true); const error = ref(''); const pending = ref(false); const operation = ref<PlatformOperation | null>(null)
 let timer: ReturnType<typeof setInterval> | undefined
+let ownerEpoch = getSessionEpoch()
+const ensureSession = (epoch: number) => { if (epoch !== getSessionEpoch()) throw Object.assign(new Error('登录状态已变化，请重新检查版本'), { code: 'AUTH_SESSION_CHANGED' }) }
+function clearStaleState() { if (ownerEpoch !== getSessionEpoch()) { state.value = null; operation.value = null; ownerEpoch = getSessionEpoch() } }
 const terminal = (value: string) => ['succeeded', 'failed', 'rolled_back'].includes(value)
 const working = computed(() => pending.value || !!operation.value && !terminal(operation.value.status))
 const date = (value: string | number) => new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
 async function load() {
-  try { state.value = await getPlatformOverview(); if (state.value.operation) operation.value = state.value.operation; error.value = '' }
-  catch (e: any) { error.value = e.message || '版本信息加载失败' } finally { loading.value = false }
+  clearStaleState()
+  const epoch = getSessionEpoch()
+  try { const result = await getPlatformOverview(); ensureSession(epoch); state.value = result; if (state.value.operation) operation.value = state.value.operation; error.value = '' }
+  catch (e: any) { clearStaleState(); error.value = e.message || '版本信息加载失败' } finally { loading.value = false }
 }
 async function poll() {
   if (document.hidden) return
+  clearStaleState()
+  const epoch = getSessionEpoch()
   if (operation.value && !terminal(operation.value.status)) {
-    try { const job = await getPlatformOperation(operation.value.id); operation.value = job; if (terminal(job.status)) { await load(); if (job.status === 'succeeded') ElMessage.success('版本切换已完成') } }
-    catch (e: any) { error.value = e.message || '正在重新连接版本服务' }
+    try { const job = await getPlatformOperation(operation.value.id); ensureSession(epoch); operation.value = job; if (terminal(job.status)) { await load(); ensureSession(epoch); if (job.status === 'succeeded') ElMessage.success('版本切换已完成') } }
+    catch (e: any) { clearStaleState(); error.value = e.message || '正在重新连接版本服务' }
   } else await load()
 }
 async function change(release: PlatformRelease) {
   if (!state.value?.canManage || working.value) return
   pending.value = true; error.value = ''
+  const epoch = getSessionEpoch()
   try {
     const type = release.sequence > state.value.current.sequence ? 'update' : 'rollback'
     const plan = await planPlatformChange(type, release.id, state.value.current.id)
+    ensureSession(epoch)
     await ElMessageBox.confirm(`将从 v${plan.from.version}${type === 'update' ? '更新' : '回滚'}到 v${plan.target.version}。${plan.notice}`, '确认平台版本切换', { type: 'warning', confirmButtonText: type === 'update' ? '确认更新' : '确认回滚', cancelButtonText: '返回检查', closeOnClickModal: false })
-    operation.value = await executePlatformPlan(plan)
-  } catch (e: any) { if (e !== 'cancel' && e !== 'close') error.value = e.message || '版本操作未完成，请刷新检查当前状态' }
+    ensureSession(epoch)
+    const result = await executePlatformPlan(plan)
+    ensureSession(epoch); operation.value = result
+  } catch (e: any) { clearStaleState(); if (e !== 'cancel' && e !== 'close') error.value = e.message || '版本操作未完成，请刷新检查当前状态' }
   finally { pending.value = false }
 }
 onMounted(() => { void load(); timer = setInterval(poll, 3000) })

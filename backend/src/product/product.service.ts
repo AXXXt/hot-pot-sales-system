@@ -14,6 +14,7 @@ import { imageUpdate } from './product-images'
 import { nextSkuCode } from './sku-code'
 import { skuOptions } from './sku-options'
 import { stockAvailability } from '../inventory/stock-availability'
+import { writeCatalogAudit } from '../audit/catalog-audit'
 
 const PRODUCT_LIST_INCLUDE = Prisma.validator<Prisma.ProductInclude>()({
   category: { select: { id: true, name: true } },
@@ -122,6 +123,7 @@ export class ProductService {
     }
 
     const product = await this.prisma.$transaction(async (transaction) => {
+      await this.assertUnit(transaction, tenantId, dto.unitId)
       const identity = await this.allocateProductIdentity(transaction, tenantId, dto.brandId!, dto.categoryId)
       return transaction.product.create({
         data: {
@@ -147,6 +149,7 @@ export class ProductService {
     })
 
     await this.audit.write({
+      tenantId: product.tenantId,
       action: 'create',
       module: 'product',
       targetType: 'product',
@@ -218,7 +221,7 @@ export class ProductService {
 
   async update(id: number, dto: UpdateProductDto, userId?: number) {
     const subtitle = normalizeProductTitle(dto.subtitle)
-    await this.prisma.$transaction(async (transaction) => {
+    const current = await this.prisma.$transaction(async (transaction) => {
       const current = await transaction.product.findUnique({
         where: { id },
         select: { id: true, tenantId: true, brandId: true, categoryId: true, images: true, mainImageUrl: true }
@@ -226,6 +229,7 @@ export class ProductService {
       if (!current) {
         throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
       }
+      await this.assertUnit(transaction, current.tenantId, dto.unitId)
 
       const nextBrandId = dto.brandId ?? current.brandId
       const nextCategoryId = dto.categoryId ?? current.categoryId
@@ -253,8 +257,10 @@ export class ProductService {
 
       await transaction.product.update({ where: { id }, data: updateData })
       if (Array.isArray(updateData.images)) await transaction.productSku.updateMany({ where: { productId: id, imageUrl: { notIn: updateData.images as string[] } }, data: { imageUrl: null } })
+      return current
     })
     await this.audit.write({
+      tenantId: current.tenantId,
       action: 'update',
       module: 'product',
       targetType: 'product',
@@ -269,8 +275,9 @@ export class ProductService {
     if (!['active', 'disabled'].includes(status)) {
       throw new BadRequestException({ message: '无效状态', errorCode: 'PRO_1002' })
     }
-    await this.prisma.product.update({ where: { id }, data: { status: status as any } })
+    const product = await this.prisma.product.update({ where: { id }, data: { status: status as any }, select: { tenantId: true } })
     await this.audit.write({
+      tenantId: product.tenantId,
       action: 'update',
       module: 'product',
       targetType: 'product',
@@ -289,11 +296,13 @@ export class ProductService {
     }
 
     const uniqueProductIds = [...new Set(productIds)]
+    const tenantId = await this.batchTenantId(uniqueProductIds)
     const result = await this.prisma.product.updateMany({
-      where: { id: { in: uniqueProductIds } },
+      where: { tenantId, id: { in: uniqueProductIds } },
       data: { status: status as any }
     })
     await this.audit.write({
+      tenantId,
       action: 'update',
       module: 'product',
       targetType: 'product',
@@ -314,12 +323,12 @@ export class ProductService {
 
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { id: true, status: true }
+      select: { id: true, tenantId: true, status: true }
     })
     if (!product) {
       throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
     }
-    if (product.status === 'archived') return product
+    if (product.status === 'archived') return { id: product.id, status: product.status }
 
     const updated = await this.prisma.product.update({
       where: { id },
@@ -327,6 +336,7 @@ export class ProductService {
       select: { id: true, status: true }
     })
     await this.audit.write({
+      tenantId: product.tenantId,
       action: 'delete',
       module: 'product',
       targetType: 'product',
@@ -343,11 +353,13 @@ export class ProductService {
     }
 
     const uniqueProductIds = [...new Set(productIds)]
+    const tenantId = await this.batchTenantId(uniqueProductIds)
     const result = await this.prisma.product.updateMany({
-      where: { id: { in: uniqueProductIds }, status: { not: 'archived' } },
+      where: { tenantId, id: { in: uniqueProductIds }, status: { not: 'archived' } },
       data: { status: 'archived' }
     })
     await this.audit.write({
+      tenantId,
       action: 'delete',
       module: 'product',
       targetType: 'product',
@@ -359,6 +371,14 @@ export class ProductService {
       status: 'archived',
       updatedCount: result.count
     }
+  }
+
+  private async batchTenantId(productIds: number[]) {
+    const products = await this.prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, tenantId: true } })
+    if (products.length !== productIds.length) throw new NotFoundException('部分商品不存在或不可访问')
+    const tenantId = products[0].tenantId
+    if (products.some(product => product.tenantId !== tenantId)) throw new BadRequestException('不能跨租户批量操作商品')
+    return tenantId
   }
 
   async skus(productId: number, userId?: number) {
@@ -414,7 +434,7 @@ export class ProductService {
     }
   }
 
-  async createSku(productId: number, dto: CreateSkuDto) {
+  async createSku(productId: number, dto: CreateSkuDto, userId?: number) {
     return this.prisma.$transaction(async tx => {
       // 同一商品并发新增规格时串行分配，不采用客户端预览值。
       await tx.$queryRaw(Prisma.sql`SELECT id FROM products WHERE id = ${productId} FOR UPDATE`)
@@ -428,7 +448,7 @@ export class ProductService {
         codes.push(skuCode)
         skuCode = nextSkuCode(product.code, codes)
       }
-      return tx.productSku.create({ data: {
+      const created = await tx.productSku.create({ data: {
         tenantId: product.tenantId,
         productId,
         skuCode,
@@ -439,10 +459,12 @@ export class ProductService {
         minOrderQty: dto.minOrderQty,
         ...skuOptions(dto, product)
       } })
+      await writeCatalogAudit(tx, { kind: 'product_sku', tenantId: product.tenantId, operatorId: userId, action: 'create', id: created.id, after: created })
+      return created
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted })
   }
 
-  async updateSku(id: number, dto: UpdateSkuDto) {
+  async updateSku(id: number, dto: UpdateSkuDto, userId?: number) {
     await this.prisma.$transaction(async tx => {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM product_skus WHERE id = ${id} FOR UPDATE`)
       const current = await tx.productSku.findUnique({ where: { id }, include: { product: true } })
@@ -450,17 +472,25 @@ export class ProductService {
       const data = { ...dto }
       delete data.stockNum
       if (dto.stockNum !== undefined) throw new BadRequestException('库存必须通过出入库或盘点调整')
-      await tx.productSku.update({ where: { id }, data: { ...data, ...skuOptions(dto, current.product, current) } })
+      const updated = await tx.productSku.update({ where: { id }, data: { ...data, ...skuOptions(dto, current.product, current) } })
       if (!current.batchTracking && dto.batchTracking && current.stockNum > 0) await tx.stockBatch.create({ data: { tenantId: current.tenantId, skuId: current.id, batchNo: '__LEGACY__', quantity: current.stockNum } })
+      await writeCatalogAudit(tx, { kind: 'product_sku', tenantId: current.tenantId, operatorId: userId, action: 'update', id, before: current, after: updated })
     })
     return this.prisma.productSku.findUnique({ where: { id } })
   }
 
-  async updateSkuStatus(id: number, status: string) {
+  async updateSkuStatus(id: number, status: string, userId?: number) {
     if (!['active', 'disabled'].includes(status)) {
       throw new BadRequestException({ message: '无效状态', errorCode: 'PRO_1002' })
     }
-    return this.prisma.productSku.update({ where: { id }, data: { status: status as any } })
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM product_skus WHERE id = ${id} FOR UPDATE`)
+      const current = await tx.productSku.findUnique({ where: { id } })
+      if (!current) throw new NotFoundException('规格不存在')
+      const updated = await tx.productSku.update({ where: { id }, data: { status: status as any } })
+      await writeCatalogAudit(tx, { kind: 'product_sku', tenantId: current.tenantId, operatorId: userId, action: 'update', id, before: current, after: updated })
+      return updated
+    })
   }
 
   private async catalogTenantId(userId?: number) {
@@ -511,10 +541,16 @@ export class ProductService {
     }))
   }
 
-  async createCategory(dto: CreateCategoryDto, tenantId = 1) {
+  async createCategory(dto: CreateCategoryDto, tenantId = 1, userId?: number) {
+    this.assertCategoryText(dto)
     try {
-      return await this.prisma.productCategory.create({
-        data: { tenantId, code: dto.code, name: dto.name, sortOrder: dto.sortOrder || 0, parentId: dto.parentId }
+      return await this.prisma.$transaction(async transaction => {
+        await this.assertCategoryParent(transaction, tenantId, dto.parentId)
+        const created = await transaction.productCategory.create({
+          data: { tenantId, code: dto.code.trim(), name: dto.name.trim(), sortOrder: dto.sortOrder || 0, parentId: dto.parentId }
+        })
+        await writeCatalogAudit(transaction, { kind: 'product_category', tenantId, operatorId: userId, action: 'create', id: created.id, after: created })
+        return created
       })
     } catch (error: unknown) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
@@ -524,25 +560,31 @@ export class ProductService {
     }
   }
 
-  async updateCategory(id: number, dto: UpdateCategoryDto, tenantId: number) {
+  async updateCategory(id: number, dto: UpdateCategoryDto, tenantId: number, userId?: number) {
+    this.assertCategoryText(dto)
     try {
       return await this.prisma.$transaction(async (transaction) => {
+        // 所有父级改动先锁本租户分类树，防止并发 A→B、B→A 形成环。
+        await transaction.$queryRaw(Prisma.sql`SELECT id FROM product_categories WHERE tenant_id = ${tenantId} ORDER BY id FOR UPDATE`)
         const current = await transaction.productCategory.findFirst({ where: { id, tenantId } })
         if (!current) {
           throw new NotFoundException({ message: '分类不存在', errorCode: 'CAT_1001' })
         }
 
-        const updated = await transaction.productCategory.update({ where: { id }, data: dto })
-        if (dto.name !== undefined && dto.name !== current.name) {
+        await this.assertCategoryParent(transaction, tenantId, dto.parentId, id, true)
+        const data = { ...dto, ...(dto.name !== undefined ? { name: dto.name.trim() } : {}), ...(dto.code !== undefined ? { code: dto.code.trim() } : {}) }
+        const updated = await transaction.productCategory.update({ where: { id }, data })
+        if (data.name !== undefined && data.name !== current.name) {
           const products = await transaction.product.findMany({
-            where: { categoryId: id },
+            where: { tenantId, categoryId: id },
             select: { id: true, brand: { select: { name: true } } }
           })
           await Promise.all(products.map((product) => transaction.product.update({
             where: { id: product.id },
-            data: { name: `${product.brand.name}${dto.name}` }
+            data: { name: `${product.brand.name}${data.name}` }
           })))
         }
+        await writeCatalogAudit(transaction, { kind: 'product_category', tenantId, operatorId: userId, action: 'update', id, before: current, after: updated })
         return updated
       })
     } catch (error: unknown) {
@@ -553,35 +595,72 @@ export class ProductService {
     }
   }
 
-  async deleteCategory(id: number, tenantId: number) {
+  async deleteCategory(id: number, tenantId: number, userId?: number) {
     return this.prisma.$transaction(async (transaction) => {
-      const category = await transaction.productCategory.findFirst({ where: { id, tenantId } })
+      await transaction.$queryRaw(Prisma.sql`SELECT id FROM product_categories WHERE tenant_id = ${tenantId} ORDER BY id FOR UPDATE`)
+      const category = await transaction.productCategory.findFirst({ where: { id, tenantId }, include: { _count: { select: { children: true } } } })
       if (!category) {
         throw new NotFoundException({ message: '分类不存在', errorCode: 'CAT_1001' })
       }
 
-      const linkedProductCount = await transaction.product.count({ where: { categoryId: id } })
-      if (linkedProductCount === 0) {
+      const linkedProductCount = await transaction.product.count({ where: { tenantId, categoryId: id } })
+      if (linkedProductCount === 0 && !category._count?.children) {
         await transaction.productCategory.delete({ where: { id } })
+        await writeCatalogAudit(transaction, { kind: 'product_category', tenantId, operatorId: userId, action: 'delete', id, before: category })
         return { id, deletionMode: 'physical' as const, linkedProductCount }
       }
 
-      await transaction.productCategory.update({ where: { id }, data: { status: 'disabled' } })
+      const updated = await transaction.productCategory.update({ where: { id }, data: { status: 'disabled' } })
+      await writeCatalogAudit(transaction, { kind: 'product_category', tenantId, operatorId: userId, action: 'update', id, before: category, after: updated })
       return { id, deletionMode: 'disabled' as const, linkedProductCount }
     })
   }
 
-  async restoreCategory(id: number, tenantId: number) {
-    const category = await this.prisma.productCategory.findFirst({ where: { id, tenantId } })
-    if (!category) {
-      throw new NotFoundException({ message: '分类不存在', errorCode: 'CAT_1001' })
+  async restoreCategory(id: number, tenantId: number, userId?: number) {
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM product_categories WHERE tenant_id = ${tenantId} ORDER BY id FOR UPDATE`)
+      const category = await tx.productCategory.findFirst({ where: { id, tenantId } })
+      if (!category) throw new NotFoundException({ message: '分类不存在', errorCode: 'CAT_1001' })
+      const updated = await tx.productCategory.update({ where: { id }, data: { status: 'active' } })
+      await writeCatalogAudit(tx, { kind: 'product_category', tenantId, operatorId: userId, action: 'update', id, before: category, after: updated })
+      return updated
+    })
+  }
+
+  private async assertUnit(transaction: Prisma.TransactionClient, tenantId: number, unitId?: number | null) {
+    if (unitId == null) return
+    const unit = await transaction.unit.findFirst({ where: { id: unitId, tenantId, status: 'active' }, select: { id: true } })
+    if (!unit) throw new BadRequestException('计量单位不存在或已停用')
+  }
+
+  private assertCategoryText(dto: CreateCategoryDto | UpdateCategoryDto) {
+    for (const [key, max] of [['name', 100], ['code', 64]] as const) {
+      const value = dto[key]
+      if (value !== undefined && (typeof value !== 'string' || !value.trim() || value.length > max)) throw new BadRequestException(`分类${key === 'name' ? '名称' : '编码'}格式不正确`)
     }
-    return this.prisma.productCategory.update({ where: { id }, data: { status: 'active' } })
+  }
+
+  private async assertCategoryParent(transaction: Prisma.TransactionClient, tenantId: number, parentId?: number | null, categoryId?: number, locked = false) {
+    if (parentId == null) return
+    if (!locked) await transaction.$queryRaw(Prisma.sql`SELECT id FROM product_categories WHERE tenant_id = ${tenantId} FOR UPDATE`)
+    const visited = new Set<number>(categoryId === undefined ? [] : [categoryId])
+    let nextId: number | null = parentId
+    while (nextId != null) {
+      if (visited.has(nextId)) throw new BadRequestException('分类父级不能指向自身或下级分类')
+      visited.add(nextId)
+      const parent: { id: number; parentId: number | null } | null = await transaction.productCategory.findFirst({ where: { id: nextId, tenantId, status: 'active' }, select: { id: true, parentId: true } })
+      if (!parent) throw new BadRequestException('父级分类不存在或已停用')
+      nextId = parent.parentId
+    }
   }
 
   async brands(userId?: number) {
+    const user = userId ? await this.prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true, userType: true } }) : null
+    if (userId && !user) return []
+    const tenantId = user?.tenantId ?? 1
+    const restrictedStaff = user && user.userType !== 'customer_user' && user.userType !== 'super_admin'
     return this.prisma.brand.findMany({
-      where: { tenantId: await this.catalogTenantId(userId), status: 'active' },
+      where: { tenantId, status: 'active', ...(restrictedStaff ? { userAccess: { some: { tenantId, userId } } } : {}) },
       select: { id: true, name: true, code: true, logoUrl: true, description: true },
       orderBy: { sortOrder: 'asc' }
     })

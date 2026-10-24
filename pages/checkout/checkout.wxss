@@ -1,6 +1,6 @@
 .checkout-page {
   min-height: 100vh;
-  padding-bottom: calc(192rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(260rpx + env(safe-area-inset-bottom));
   background: var(--brand-soft-gradient);
 }
 
@@ -326,3 +326,6 @@
   font-size: 25rpx;
   font-weight: 600;
 }
+.checkout-bar__btn { margin: 0 0 0 20rpx; padding: 0 28rpx; }
+.checkout-bar__btn::after { border: 0; }
+.checkout-bar__btn[disabled] { background: #222625; color: #fff; opacity: 0.5; }

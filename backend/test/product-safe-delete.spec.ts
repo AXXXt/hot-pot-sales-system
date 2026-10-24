@@ -33,7 +33,8 @@ describe('ProductService safe delete', () => {
 
   it('deduplicates IDs and archives products in one update', async () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 2 })
-    const service = new ProductService({ product: { updateMany } } as any, {} as any, {} as any, { write: jest.fn() } as any)
+    const findMany = jest.fn().mockResolvedValue([{ id: 3, tenantId: 1 }, { id: 7, tenantId: 1 }])
+    const service = new ProductService({ product: { updateMany, findMany } } as any, {} as any, {} as any, { write: jest.fn() } as any)
 
     await expect(service.batchArchiveProducts([3, 3, 7])).resolves.toEqual({
       productIds: [3, 7],
@@ -41,7 +42,7 @@ describe('ProductService safe delete', () => {
       updatedCount: 2
     })
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: { in: [3, 7] }, status: { not: 'archived' } },
+      where: { tenantId: 1, id: { in: [3, 7] }, status: { not: 'archived' } },
       data: { status: 'archived' }
     })
   })

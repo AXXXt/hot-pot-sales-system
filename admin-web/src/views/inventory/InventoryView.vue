@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { showRequestError } from '../../api/request'
+import { downloadExport } from '../../api/export'
 import PageTable from '../../components/PageTable.vue'
 import { getBrands, getCategories } from '../../api/product'
 import {
@@ -19,6 +21,14 @@ import {
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
+const exporting = ref(false)
+async function exportStock() {
+  if (exporting.value) return
+  exporting.value = true
+  try { await downloadExport('/exports/inventory') }
+  catch (error: any) { ElMessage.warning(error.message || '库存导出失败，请稍后重试') }
+  finally { exporting.value = false }
+}
 const canAdjust = computed(() => auth.can('inventory:adjust'))
 const dataOf = (response: any) => response.data?.data ?? response.data
 
@@ -174,7 +184,7 @@ async function submitAdjustment() {
     await loadStock()
     await loadMovements()
   } catch (e: any) {
-    ElMessage.error(e.message || '创建失败')
+    showRequestError(e, '创建失败')
   } finally {
     adjusting.value = false
   }
@@ -244,7 +254,7 @@ async function submitStocktake() {
     stocktakeDialog.value = false
     await loadStocktakes()
   } catch (e: any) {
-    ElMessage.error(e.message || '创建失败')
+    showRequestError(e, '创建失败')
   } finally {
     creatingStocktake.value = false
   }
@@ -273,7 +283,17 @@ function rowDiff(row: any): number | null {
 
 async function saveStocktake(action: 'save' | 'complete') {
   if (detailReadonly.value || !stocktakeDetail.value) return
-  const items = detailRows.value.map((row) => ({
+  const filledRows = detailRows.value.filter(row => row.countedQty !== null &&
+    row.countedQty !== undefined && row.countedQty !== '')
+  if (action === 'complete' && filledRows.length !== detailRows.value.length) {
+    ElMessage.warning('请填写所有规格的实盘数，未清点不能按0处理')
+    return
+  }
+  if (!filledRows.length) {
+    ElMessage.warning('请至少填写一个规格的实盘数')
+    return
+  }
+  const items = filledRows.map((row) => ({
     skuId: row.skuId,
     countedQty: Number(row.countedQty),
     batchNo: row.batchNo || undefined, productionDate: row.productionDate || undefined, expiryDate: row.expiryDate || undefined,
@@ -297,21 +317,24 @@ async function saveStocktake(action: 'save' | 'complete') {
     await loadStock()
     await loadMovements()
   } catch (e: any) {
-    ElMessage.error(e.message || '保存失败')
+    showRequestError(e, '保存失败')
   } finally {
     savingStocktake.value = false
   }
 }
 
+const cancellingStocktake = ref<number | null>(null)
 async function handleCancelStocktake(id: number) {
+  if (cancellingStocktake.value !== null) return
+  cancellingStocktake.value = id
   try {
-    await ElMessageBox.confirm('确认取消该盘点单？已填写的实盘数将不会生效。', '取消盘点', { type: 'warning' })
+    await ElMessageBox.confirm('确认取消该盘点单？已填写的实盘数将不会生效。', '取消盘点', { type: 'warning', confirmButtonText: '确认取消', cancelButtonText: '保留盘点' })
     await cancelStocktake(id)
     ElMessage.success('盘点单已取消')
     await loadStocktakes()
   } catch (e) {
-    if (e !== 'cancel' && e !== 'close') ElMessage.error((e as any).message || '取消失败')
-  }
+    if (e !== 'cancel' && e !== 'close') showRequestError(e, '取消失败')
+  } finally { cancellingStocktake.value = null }
 }
 
 onMounted(async () => {
@@ -337,7 +360,9 @@ onMounted(async () => {
               <el-input-number v-model="stockQuery.lowStockThreshold" :min="0" :max="1000" />
             </el-form-item>
             <el-button type="primary" @click="searchStock">查询</el-button>
+            <el-button v-if="auth.can('inventory:read')" :loading="exporting" @click="exportStock">导出已上架库存</el-button>
           </el-form>
+          <p class="export-scope">导出当前账号可见的已上架商品及启用规格的账面库存，不随本页搜索、品牌或低库存筛选变化。</p>
           <PageTable :loading="stockLoading" :error="stockError" :empty="!stockItems.length" @retry="loadStock">
             <el-table :data="stockItems">
               <el-table-column prop="skuCode" label="SKU编码" width="160" />
@@ -422,7 +447,7 @@ onMounted(async () => {
               <el-table-column label="操作" width="170">
                 <template #default="{ row }">
                   <el-button link type="primary" @click="openStocktakeDetail(row.id, row.status !== 'draft')">{{ row.status === 'draft' ? '录入盘点' : '查看' }}</el-button>
-                  <el-button v-if="row.status === 'draft' && canAdjust" link type="danger" @click="handleCancelStocktake(row.id)">取消</el-button>
+                  <el-button v-if="row.status === 'draft' && canAdjust" link type="danger" :loading="cancellingStocktake === row.id" @click="handleCancelStocktake(row.id)">取消</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -527,6 +552,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.export-scope { margin: 0 0 16px; color: var(--brand-text-soft); font-size: 13px; line-height: 1.6; }
 .tab-actions { display: flex; justify-content: flex-end; margin-bottom: 14px; }
 .adj-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .adj-row { display: flex; align-items: center; gap: 10px; flex-wrap:wrap; border-bottom:1px solid var(--brand-border); padding-bottom:12px; }

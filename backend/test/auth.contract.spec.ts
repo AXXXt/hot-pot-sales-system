@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { Test } from '@nestjs/testing'
 import { INestApplication, ValidationPipe, ExecutionContext } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -48,6 +49,8 @@ describe('auth HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
         { provide: AuthService, useValue: mockAuthService },
         { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('test-secret') } },
         { provide: JwtService, useValue: { sign: jest.fn(), verify: jest.fn() } },

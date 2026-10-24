@@ -52,20 +52,24 @@ function getProfile() {
   })
 }
 
-function checkStatus(phone) {
+function checkStatus(phone, statusTicket) {
   return request({
     url: '/api/v1/auth/check-status',
     method: 'POST',
-    data: { phone },
+    data: { phone, ...(statusTicket ? { statusTicket } : {}) },
     showLoading: false
   })
 }
 
-function bindOpenid(code) {
+function verifyRegistrationStatus(data) {
+  return request({ url: '/api/v1/auth/registration-status', method: 'POST', data, showLoading: false })
+}
+
+function bindOpenid(code, confirmTransfer = false) {
   return request({
     url: '/api/v1/auth/bind-openid',
     method: 'POST',
-    data: { code },
+    data: { code, confirmTransfer },
     showLoading: false
   })
 }
@@ -86,6 +90,7 @@ module.exports = {
   logout,
   getProfile,
   checkStatus,
+  verifyRegistrationStatus,
   bindOpenid,
   getSubscribeTemplate
 }

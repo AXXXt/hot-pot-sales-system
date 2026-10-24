@@ -28,10 +28,10 @@ test('审核通过后必须进入短信验证码登录', () => {
 
 test('客户禁用与驳回只更新状态并保留数据', () => {
   const service = read('backend/src/customer/customer.service.ts')
-  const statusSection = service.slice(
-    service.indexOf('async update(id: number, dto: UpdateCustomerDto)'),
-    service.indexOf('async levels(')
-  )
+  const start = service.indexOf('async update(')
+  const end = service.indexOf('async levels(')
+  assert.ok(start >= 0 && end > start, '应定位到客户状态管理方法')
+  const statusSection = service.slice(start, end)
 
   assert.match(statusSection, /tx\.customer\.update/)
   assert.match(statusSection, /tx\.user\.updateMany/)

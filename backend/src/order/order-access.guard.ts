@@ -2,8 +2,27 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, NotFound
 import { Reflector } from '@nestjs/core'
 import { PrismaService } from '../prisma.service'
 import { PERMISSIONS_KEY } from '../auth/require-permissions.decorator'
+import { StaffAccessService } from '../auth/staff-access.service'
+import { Prisma } from '@prisma/client'
 
-export async function getOrderScope(prisma: PrismaService, userId: number, permission = 'order:read') {
+export interface OrderScope {
+  tenantId: number
+  customerId?: number
+  brandIds?: number[]
+  customerIds?: number[]
+}
+
+/** Keep row assignments separate from optional client filters so a filter cannot widen access. */
+export function orderScopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
+  return {
+    tenantId: scope.tenantId,
+    ...(scope.brandIds ? { brandId: { in: scope.brandIds } } : {}),
+    ...(scope.customerId ? { customerId: scope.customerId }
+      : scope.customerIds ? { customerId: { in: scope.customerIds } } : {})
+  }
+}
+
+export async function getOrderScope(prisma: PrismaService, userId: number, permission = 'order:read'): Promise<OrderScope> {
   const actor = await prisma.user.findUnique({
     where: { id: userId },
     select: { tenantId: true, customerId: true, userType: true }
@@ -21,6 +40,14 @@ export async function getOrderScope(prisma: PrismaService, userId: number, permi
       }
     })
     if (!role) throw new ForbiddenException('当前账号没有执行此操作的权限')
+    // The existing helper is also used by storage operations outside the HTTP guard.
+    const access = new StaffAccessService(prisma)
+    const staff = await access.actor(userId)
+    access.require(staff, permission)
+    return {
+      tenantId: staff.tenantId, brandIds: staff.brandIds,
+      ...(staff.customerIds === null ? {} : { customerIds: staff.customerIds })
+    }
   }
   return { tenantId: actor.tenantId }
 }
@@ -38,7 +65,7 @@ export class OrderAccessGuard implements CanActivate {
     if (req.params.id) {
       const id = Number(req.params.id)
       if (!Number.isSafeInteger(id) || id <= 0) throw new NotFoundException('订单不存在')
-      const order = await this.prisma.order.findFirst({ where: { ...scope, id }, select: { id: true } })
+      const order = await this.prisma.order.findFirst({ where: { ...orderScopeWhere(scope), id }, select: { id: true } })
       if (!order) throw new NotFoundException('订单不存在')
     }
     req.orderScope = scope

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { Workbook } from 'exceljs'
 import { PrismaService } from '../prisma.service'
 import { productDisplayName } from '../product/product-presentation'
+import { Prisma } from '@prisma/client'
 
 const ORDER_STATUS_TEXT: Record<string, string> = {
   draft: '草稿',
@@ -19,17 +20,19 @@ const PAYMENT_METHOD_TEXT: Record<string, string> = {
   transfer: '转账'
 }
 
+const shanghaiTime = (date: Date) => new Date(date.getTime() + 8 * 3600_000).toISOString().slice(0, 19).replace('T', ' ')
+
 @Injectable()
 export class ExportService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async exportOrders(query: { status?: string; customerId?: number }) {
-    const where: any = { tenantId: 1 }
-    if (query.status && query.status !== 'all') where.status = query.status
-    if (query.customerId) where.customerId = query.customerId
+  async exportOrders(query: { status?: string; customerId?: number }, scope: Prisma.OrderWhereInput = { tenantId: 1 }) {
+    const filters: Prisma.OrderWhereInput = {}
+    if (query.status && query.status !== 'all') filters.status = query.status as Prisma.OrderWhereInput['status']
+    if (query.customerId) filters.customerId = query.customerId
 
     const orders = await this.prisma.order.findMany({
-      where,
+      where: { AND: [scope, filters] },
       include: {
         customer: { select: { customerName: true } },
         items: { select: { quantity: true } }
@@ -47,7 +50,7 @@ export class ExportService {
       { header: '订单金额', key: 'totalAmount', width: 14 },
       { header: '应付金额', key: 'payableAmount', width: 14 },
       { header: '支付方式', key: 'paymentMethod', width: 12 },
-      { header: '创建时间', key: 'createdAt', width: 20 }
+      { header: '创建时间（北京时间）', key: 'createdAt', width: 22 }
     ]
     for (const order of orders) {
       sheet.addRow({
@@ -58,15 +61,15 @@ export class ExportService {
         totalAmount: Number(order.totalAmount),
         payableAmount: Number(order.payableAmount),
         paymentMethod: PAYMENT_METHOD_TEXT[order.paymentMethod || ''] || '',
-        createdAt: order.createdAt.toISOString().slice(0, 19).replace('T', ' ')
+        createdAt: shanghaiTime(order.createdAt)
       })
     }
     sheet.getRow(1).font = { bold: true }
     return this.toBuffer(workbook)
   }
 
-  async exportCustomers(query: { keyword?: string; status?: string }) {
-    const where: any = { tenantId: 1 }
+  async exportCustomers(query: { keyword?: string; status?: string }, scope: Prisma.CustomerWhereInput = { tenantId: 1 }) {
+    const where: Prisma.CustomerWhereInput = {}
     if (query.keyword) {
       where.OR = [
         { customerName: { contains: query.keyword } },
@@ -74,10 +77,10 @@ export class ExportService {
         { contactName: { contains: query.keyword } }
       ]
     }
-    if (query.status && query.status !== 'all') where.status = query.status
+    if (query.status && query.status !== 'all') where.status = query.status as Prisma.CustomerWhereInput['status']
 
     const customers = await this.prisma.customer.findMany({
-      where,
+      where: { AND: [scope, where] },
       include: { level: { select: { name: true } } },
       orderBy: { createdAt: 'desc' }
     })
@@ -94,7 +97,7 @@ export class ExportService {
       { header: '信用额度', key: 'creditLimit', width: 14 },
       { header: '已用额度', key: 'creditUsed', width: 14 },
       { header: '账期天数', key: 'creditDays', width: 12 },
-      { header: '注册时间', key: 'createdAt', width: 20 }
+      { header: '注册时间（北京时间）', key: 'createdAt', width: 22 }
     ]
     for (const c of customers) {
       sheet.addRow({
@@ -107,16 +110,16 @@ export class ExportService {
         creditLimit: Number(c.creditLimit || 0),
         creditUsed: Number(c.creditUsed || 0),
         creditDays: c.creditDays || 0,
-        createdAt: c.createdAt.toISOString().slice(0, 19).replace('T', ' ')
+        createdAt: shanghaiTime(c.createdAt)
       })
     }
     sheet.getRow(1).font = { bold: true }
     return this.toBuffer(workbook)
   }
 
-  async exportInventory() {
+  async exportInventory(scope: Prisma.ProductWhereInput = { tenantId: 1 }) {
     const skus = await this.prisma.productSku.findMany({
-      where: { status: 'active', product: { status: 'active' } },
+      where: { status: 'active', product: { AND: [scope, { status: 'active' }] } },
       include: {
         product: { select: { id: true, name: true, subtitle: true, code: true, brand: { select: { name: true } } } }
       },

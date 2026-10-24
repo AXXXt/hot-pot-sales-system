@@ -91,6 +91,10 @@
   font-size: 24rpx;
 }
 
+.od-price-record + .od-price-record {
+  margin-top: 20rpx;
+}
+
 .od-item {
   display: flex;
   align-items: center;
@@ -175,3 +179,6 @@
 .od-btn--danger {
   color: var(--status-danger);
 }
+button.od-btn { width: 100%; margin: 0; padding: 0 24rpx; }
+button.od-btn::after { border: 0; }
+button.od-btn[disabled] { background: #222625; color: #fff; opacity: 0.5; }

@@ -5,6 +5,7 @@ import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
 import { BrandService } from './brand.service'
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto'
+import { StaffAccessService } from '../auth/staff-access.service'
 
 @ApiTags('brand-management')
 @ApiBearerAuth()
@@ -12,15 +13,16 @@ import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto'
 @Controller('admin/brands')
 @RequirePermissions('brand:manage')
 export class BrandController {
-  constructor(private readonly brands: BrandService) {}
+  constructor(private readonly brands: BrandService, private readonly access: StaffAccessService) {}
 
   @Get()
   @ApiOperation({ summary: '品牌管理列表' })
-  list(@Req() request: any, @Query('status') status?: string) {
+  async list(@Req() request: any, @Query('status') status?: string) {
     if (status && !['active', 'disabled'].includes(status)) {
       throw new BadRequestException({ message: '无效品牌状态', errorCode: 'BRD_1003' })
     }
-    return this.brands.list(request.user?.tenantId || 1, status as 'active' | 'disabled' | undefined)
+    const actor = await this.access.actor(Number(request.user?.sub))
+    return this.brands.list(actor.tenantId, status as 'active' | 'disabled' | undefined, actor)
   }
 
   @Get('code-suggestion')
@@ -31,25 +33,29 @@ export class BrandController {
 
   @Post()
   @ApiOperation({ summary: '创建品牌' })
-  create(@Req() request: any, @Body() dto: CreateBrandDto) {
-    return this.brands.create(request.user?.tenantId || 1, dto)
+  async create(@Req() request: any, @Body() dto: CreateBrandDto) {
+    const actor = await this.access.actor(Number(request.user?.sub))
+    return this.brands.create(actor.tenantId, dto, actor)
   }
 
   @Patch(':id')
   @ApiOperation({ summary: '编辑品牌' })
-  update(@Req() request: any, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBrandDto) {
-    return this.brands.update(request.user?.tenantId || 1, id, dto)
+  async update(@Req() request: any, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBrandDto) {
+    const actor = await this.access.actor(Number(request.user?.sub))
+    return this.brands.update(actor.tenantId, id, dto, actor)
   }
 
   @Delete(':id')
   @ApiOperation({ summary: '安全删除品牌' })
-  delete(@Req() request: any, @Param('id', ParseIntPipe) id: number) {
-    return this.brands.delete(request.user?.tenantId || 1, id)
+  async delete(@Req() request: any, @Param('id', ParseIntPipe) id: number) {
+    const actor = await this.access.actor(Number(request.user?.sub))
+    return this.brands.delete(actor.tenantId, id, actor)
   }
 
   @Patch(':id/restore')
   @ApiOperation({ summary: '恢复品牌' })
-  restore(@Req() request: any, @Param('id', ParseIntPipe) id: number) {
-    return this.brands.restore(request.user?.tenantId || 1, id)
+  async restore(@Req() request: any, @Param('id', ParseIntPipe) id: number) {
+    const actor = await this.access.actor(Number(request.user?.sub))
+    return this.brands.restore(actor.tenantId, id, actor)
   }
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageTable from '../../components/PageTable.vue'
+import { useAuthStore } from '../../stores/auth'
 import {
   createBrand,
   deleteBrand,
@@ -12,6 +13,8 @@ import {
 } from '../../api/product'
 
 const loading = ref(false)
+const auth = useAuthStore()
+const canCreateBrand = computed(() => auth.profile?.user.userType === 'super_admin')
 const error = ref('')
 const rows = ref<any[]>([])
 const status = ref('')
@@ -19,6 +22,7 @@ const visible = ref(false)
 const saving = ref(false)
 const suggesting = ref(false)
 const codeManuallyEdited = ref(false)
+let suggestionVersion = 0
 const form = reactive<any>({
   id: null,
   name: '',
@@ -44,6 +48,8 @@ async function load() {
 }
 
 function openEditor(row?: any) {
+  suggestionVersion += 1
+  suggesting.value = false
   Object.assign(form, row
     ? {
         id: row.id,
@@ -60,6 +66,8 @@ function openEditor(row?: any) {
 }
 
 function normalizeCode() {
+  suggestionVersion += 1
+  suggesting.value = false
   form.code = String(form.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   codeManuallyEdited.value = true
 }
@@ -67,13 +75,17 @@ function normalizeCode() {
 async function generateCode(force = false) {
   const name = String(form.name || '').trim()
   if (!name || (!force && codeManuallyEdited.value)) return
+  const requestVersion = ++suggestionVersion
   suggesting.value = true
   try {
     const response: any = await suggestBrandCode(name)
+    if (requestVersion !== suggestionVersion || !visible.value || name !== String(form.name || '').trim()) return
     form.code = dataOf(response).code || ''
     codeManuallyEdited.value = force
+  } catch {
+    if (requestVersion === suggestionVersion) ElMessage.warning('编码生成失败，请手动填写或重试')
   } finally {
-    suggesting.value = false
+    if (requestVersion === suggestionVersion) suggesting.value = false
   }
 }
 
@@ -98,8 +110,8 @@ async function save() {
       name,
       code: form.code,
       sortOrder: Number(form.sortOrder) || 0,
-      logoUrl: String(form.logoUrl || '').trim() || undefined,
-      description: String(form.description || '').trim() || undefined
+      logoUrl: String(form.logoUrl || '').trim() || null,
+      description: String(form.description || '').trim() || null
     }
     if (form.id) await updateBrand(form.id, body)
     else await createBrand(body)
@@ -155,7 +167,7 @@ onMounted(load)
         <h1>品牌管理</h1>
         <p>维护商品品牌、编码前缀及品牌生命周期</p>
       </div>
-      <el-button type="primary" @click="openEditor()">新建品牌</el-button>
+      <el-button v-if="canCreateBrand" type="primary" @click="openEditor()">新建品牌</el-button>
     </div>
 
     <el-card shadow="never">

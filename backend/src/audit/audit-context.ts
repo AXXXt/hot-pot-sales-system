@@ -5,6 +5,7 @@ export interface AuditRequestContext {
   ip?: string
   userAgent?: string
   userId?: number
+  tenantId?: number
 }
 
 export const auditStorage = new AsyncLocalStorage<AuditRequestContext>()
@@ -14,6 +15,15 @@ export function getAuditContext(): AuditRequestContext | undefined {
 }
 
 export function setAuditUserId(userId: number): void {
+  setAuditIdentity(userId)
+}
+
+/** Only authentication code supplies the current database tenant; never a request header. */
+export function setAuditIdentity(userId?: number, tenantId?: number): void {
   const ctx = auditStorage.getStore()
-  if (ctx) ctx.userId = userId
+  if (!ctx) return
+  if (Number.isSafeInteger(userId) && userId! > 0) ctx.userId = userId
+  else delete ctx.userId
+  if (Number.isSafeInteger(tenantId) && tenantId! > 0) ctx.tenantId = tenantId
+  else delete ctx.tenantId
 }

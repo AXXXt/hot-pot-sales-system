@@ -1,0 +1,23 @@
+<view class="service-page">
+  <view class="heading"><text class="title">服务申请与进度</text><button wx:if="{{mode === 'list'}}" class="primary" bindtap="onCreate">提交申请</button><button wx:else class="text-button" disabled="{{submitting}}" bindtap="onBack">返回列表</button></view>
+  <text class="notice">由工作人员人工核实处理。注销申请不会立即删除账号，售后申请不会自动退款；请在本页查看进度。</text>
+  <view wx:if="{{mode === 'list'}}">
+    <view wx:if="{{error}}" class="state"><text>{{error}}</text><button bindtap="onRetry">重新加载</button></view>
+    <view wx:elif="{{loading && !items.length}}" class="state">正在加载申请…</view>
+    <view wx:elif="{{!items.length}}" class="state">暂无服务申请</view>
+    <button wx:for="{{items}}" wx:key="id" class="request-row" data-id="{{item.id}}" bindtap="onOpen"><view><text class="subject">{{item.subject}}</text><text class="meta">{{item.typeText}} · {{item.dateText}}</text></view><text>{{item.statusText}} ›</text></button>
+    <text wx:if="{{loading && items.length}}" class="state">正在加载更多…</text>
+  </view>
+  <view wx:elif="{{mode === 'compose'}}" class="form">
+    <text class="label">申请类型</text><picker range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange"><view class="field">{{types[typeIndex].label}} ›</view></picker>
+    <text class="label">事项（必填）</text><input class="field" value="{{form.subject}}" data-field="subject" bindinput="onFieldInput" maxlength="120" placeholder="简要说明需要处理的事项" />
+    <text class="label">关联订单（可选）</text><view class="order-search"><input class="field" value="{{orderKeyword}}" bindinput="onOrderKeyword" placeholder="可输入订单号查找" maxlength="64" /><button disabled="{{ordersLoading}}" bindtap="onSearchOrders">查找</button></view>
+    <picker range="{{orderLabels}}" value="{{orderIndex}}" bindchange="onOrderChange"><view class="field">{{orderLabels[orderIndex]}} ›</view></picker><text class="hint">显示最近30笔匹配订单。资料更正和注销可不关联订单。</text>
+    <text class="label">详细说明（必填）</text><textarea class="description-input" value="{{form.description}}" data-field="description" bindinput="onFieldInput" maxlength="2000" placeholder="描述问题或需要更正的内容，请勿填写密码、验证码或银行卡完整号码" />
+    <button class="primary submit" loading="{{submitting}}" disabled="{{submitting || !form.subject || !form.description}}" bindtap="onSubmit">提交申请</button>
+  </view>
+  <view wx:else>
+    <view wx:if="{{loading}}" class="state">正在加载进度…</view><view wx:elif="{{error}}" class="state"><text>{{error}}</text><button bindtap="onRetry">重新加载</button></view>
+    <view wx:elif="{{detail}}" class="detail"><text class="subject">{{detail.subject}}</text><text class="meta">{{detail.typeText}} · {{detail.statusText}}</text><text class="meta">申请编号：{{detail.requestNo}}</text><text wx:if="{{detail.order}}" class="meta">关联订单：{{detail.order.orderNo}}</text><text class="description">{{detail.description}}</text><view wx:for="{{detail.events}}" wx:key="eventKey" class="event"><text class="subject">{{item.statusText}}</text><text class="meta">{{item.dateText}}</text><text class="description">{{item.message}}</text></view><button class="text-button" bindtap="onRefreshDetail">刷新处理进度</button></view>
+  </view>
+</view>

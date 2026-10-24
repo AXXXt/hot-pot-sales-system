@@ -1,6 +1,7 @@
 const { setStorage, getStorage, removeStorage } = require('../../utils/storage')
 
 const state = {
+  sessionVersion: 0,
   token: getStorage('token', ''),
   refreshToken: getStorage('refreshToken', ''),
   userInfo: getStorage('userInfo', null),
@@ -8,7 +9,8 @@ const state = {
   customer: getStorage('customer', null)
 }
 
-function setToken(token) {
+function setToken(token, options = {}) {
+  if (state.token !== token && !options.refresh) state.sessionVersion++
   state.token = token
   setStorage('token', token)
 }
@@ -34,6 +36,7 @@ function setCustomer(customer) {
 }
 
 function clearAuth() {
+  state.sessionVersion++
   state.token = ''
   state.refreshToken = ''
   state.userInfo = null
@@ -44,6 +47,9 @@ function clearAuth() {
   removeStorage('userInfo')
   removeStorage('profile')
   removeStorage('customer')
+  removeStorage('pendingPhone')
+  removeStorage('pendingStep')
+  removeStorage('pendingStatusTicket')
 }
 
 module.exports = {

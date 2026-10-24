@@ -13,9 +13,20 @@ jobs:
         options: >-
           --health-cmd="mysqladmin ping -h localhost -pci-test-only"
           --health-interval=10s --health-timeout=5s --health-retries=15
+      redis:
+        image: redis:7.4.1-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=10
     env:
       DATABASE_URL: mysql://root:ci-test-only@127.0.0.1:3306/miniprogram_ci_test
       TEST_DATABASE_URL: mysql://root:ci-test-only@127.0.0.1:3306/miniprogram_ci_test
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+      MINIO_ENDPOINT: 127.0.0.1
+      MINIO_PORT: '9000'
+      MINIO_ACCESS_KEY: ci-minio-test
+      MINIO_SECRET_KEY: ci-minio-test-password
     defaults:
       run:
         working-directory: backend
@@ -32,6 +43,17 @@ jobs:
       - run: npm run lint
       - run: npm test -- --silent
       - run: npx prisma migrate deploy
+      - name: Start isolated object storage for real upload tests
+        run: |
+          docker run --detach --name ci-minio --publish 127.0.0.1:9000:9000 \
+            --env MINIO_ROOT_USER="$MINIO_ACCESS_KEY" --env MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            minio/minio:RELEASE.2025-01-20T14-49-07Z server /data
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready; then exit 0; fi
+            sleep 1
+          done
+          docker logs ci-minio
+          exit 1
       - run: npm run test:integration
       - run: npm run build
   runtime:

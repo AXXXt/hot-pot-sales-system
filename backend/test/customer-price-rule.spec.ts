@@ -41,7 +41,9 @@ describe('customer price rules', () => {
         skuId: 11,
         priceType: 'agreement',
         price: '80.00',
-        status: 'active'
+        status: 'active',
+        startAt: null,
+        endAt: null
       }
     })
   })

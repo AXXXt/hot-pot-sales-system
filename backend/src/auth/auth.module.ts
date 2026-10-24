@@ -8,11 +8,16 @@ import { PermissionsGuard } from './permissions.guard'
 import { NotifyModule } from '../notify/notify.module'
 import { redisProvider } from '../redis.provider'
 import { StaffAccessService } from './staff-access.service'
+import { PasswordController } from './password.controller'
+import { PasswordService } from './password.service'
+import { AuditService } from '../audit/audit.service'
+import { NotificationController } from '../notify/notification.controller'
+import { AuthSessionService } from './auth-session.service'
 
 @Module({
   imports: [JwtModule.register({}), NotifyModule],
-  controllers: [AuthController],
-  providers: [AuthService, SmsService, JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, StaffAccessService, redisProvider],
-  exports: [JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, StaffAccessService, AuthService, SmsService, JwtModule]
+  controllers: [AuthController, PasswordController, NotificationController],
+  providers: [AuthService, AuthSessionService, SmsService, PasswordService, AuditService, JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, StaffAccessService, redisProvider],
+  exports: [JwtAuthGuard, OptionalJwtAuthGuard, PermissionsGuard, StaffAccessService, AuthService, SmsService, AuthSessionService, JwtModule]
 })
 export class AuthModule {}

@@ -1,4 +1,4 @@
-import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator'
+import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateProductDto {
@@ -45,7 +45,7 @@ export class CreateProductDto {
   deliveryText?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt()
+  @IsOptional() @IsInt() @Min(1)
   unitId?: number
 
   @ApiPropertyOptional({ description: '是否为工厂自产商品' })
@@ -103,11 +103,11 @@ export class UpdateProductDto {
   deliveryText?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt()
+  @ValidateIf((_, value) => value !== undefined) @IsInt() @Min(1)
   categoryId?: number
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt()
+  @IsOptional() @IsInt() @Min(1)
   unitId?: number
 
   @ApiPropertyOptional()
@@ -115,23 +115,23 @@ export class UpdateProductDto {
   code?: string
 
   @ApiPropertyOptional({ description: '是否为工厂自产商品' })
-  @IsOptional() @IsBoolean()
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean()
   isFactoryProduct?: boolean
 
   @ApiPropertyOptional({ description: '是否支持样品申请' })
-  @IsOptional() @IsBoolean()
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean()
   supportSample?: boolean
 
   @ApiPropertyOptional()
-  @IsOptional() @IsBoolean()
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean()
   isRecommended?: boolean
 
   @ApiPropertyOptional({ description: '是否在首页新品分组展示' })
-  @IsOptional() @IsBoolean()
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean()
   isNew?: boolean
 
   @ApiPropertyOptional({ description: '是否在首页热销分组展示' })
-  @IsOptional() @IsBoolean()
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean()
   isHot?: boolean
 }
 

@@ -90,6 +90,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const leadSuccess = document.getElementById('leadSuccess')
   const leadSubmit = document.getElementById('leadSubmit')
   if (leadForm && leadSuccess && leadSubmit) {
+    let submissionId = '', submissionFingerprint = ''
+    const newSubmissionId = () => {
+      if (typeof window.crypto?.randomUUID === 'function') return window.crypto.randomUUID()
+      if (typeof window.crypto?.getRandomValues !== 'function') return ''
+      const bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes)
+      bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128
+      const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('')
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+    }
     const showError = (msg) => {
       let tip = leadForm.querySelector('.lead-error')
       if (!tip) {
@@ -110,6 +119,15 @@ document.addEventListener('DOMContentLoaded', () => {
         leadForm.querySelector('[name="phone"]')?.focus()
         return
       }
+      if (data.consent !== 'on') {
+        showError('请先阅读并同意用户协议和隐私政策')
+        leadForm.querySelector('[name="consent"]')?.focus()
+        return
+      }
+      if (!window.WDQ_LEGAL?.version) { showError('协议加载失败，请刷新页面后重试'); return }
+      const fingerprint = JSON.stringify([data.phone, data.name || '', data.storeName || '', data.storeScale || '', data.interestedItems || '', window.WDQ_LEGAL.version])
+      if (!submissionId || submissionFingerprint !== fingerprint) { submissionId = newSubmissionId(); submissionFingerprint = fingerprint }
+      if (!submissionId) { showError('当前浏览器无法安全提交，请更换浏览器或电话联系'); return }
       leadForm.querySelector('.lead-error')?.remove()
 
       leadSubmit.disabled = true
@@ -120,6 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phone: data.phone,
+            requestId: submissionId,
+            consentAccepted: true,
+            consentVersion: window.WDQ_LEGAL.version,
+            consentChannel: 'official_site',
             name: data.name || undefined,
             storeName: data.storeName || undefined,
             storeScale: data.storeScale || undefined,
@@ -133,13 +155,22 @@ document.addEventListener('DOMContentLoaded', () => {
           showError('提交过于频繁，请稍后再试或直接拨打 13937802005')
           return
         }
-        if (!res.ok) throw new Error('network')
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null)
+          if (payload?.errorCode === 'LEGAL_VERSION_CHANGED') throw new Error('legal-version')
+          if (payload?.errorCode === 'LEAD_IDEMPOTENCY_CONFLICT') throw new Error('submission-conflict')
+          throw new Error('network')
+        }
         leadForm.hidden = true
         leadSuccess.hidden = false
       } catch (err) {
         leadSubmit.disabled = false
         leadSubmit.textContent = '提交，获取合作方案'
-        if (err instanceof TypeError) {
+        if (err?.message === 'legal-version') {
+          showError('协议版本已更新，请刷新页面，重新阅读并同意后提交')
+        } else if (err?.message === 'submission-conflict') {
+          showError('本次提交内容已变化，请刷新页面后重新提交')
+        } else if (err instanceof TypeError) {
           showError('网络异常，请稍后重试或直接拨打 13937802005')
         } else if (err?.message === 'network') {
           showError('提交失败，请稍后重试或直接拨打 13937802005')

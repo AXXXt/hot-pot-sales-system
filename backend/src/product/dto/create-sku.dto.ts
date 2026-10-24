@@ -1,13 +1,13 @@
-import { IsString, IsInt, IsOptional, IsIn, IsBoolean, IsArray, Matches, MaxLength, Min, Max } from 'class-validator'
+import { IsString, IsInt, IsOptional, IsIn, IsBoolean, IsArray, Matches, MaxLength, Min, Max, ValidateIf } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 class SkuOptionsDto {
   @IsOptional() @IsString() @MaxLength(500) imageUrl?: string
   @IsOptional() @IsArray() packagingUnits?: Array<{ unit: string; factor: number }>
-  @IsOptional() @IsInt() @Min(0) @Max(2147483647) lowStockThreshold?: number
-  @IsOptional() @IsInt() @Min(1) @Max(365) leadTimeDays?: number
-  @IsOptional() @IsInt() @Min(0) @Max(2147483647) safetyStock?: number
-  @IsOptional() @IsBoolean() batchTracking?: boolean
+  @ValidateIf((_, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647) lowStockThreshold?: number
+  @ValidateIf((_, value) => value !== undefined) @IsInt() @Min(1) @Max(365) leadTimeDays?: number
+  @ValidateIf((_, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647) safetyStock?: number
+  @ValidateIf((_, value) => value !== undefined) @IsBoolean() batchTracking?: boolean
 }
 
 export class CreateSkuDto extends SkuOptionsDto {
@@ -41,10 +41,11 @@ export class CreateSkuDto extends SkuOptionsDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   @Min(1)
+  @Max(2147483647)
   minOrderQty: number
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional() @IsInt() @Min(0) @Max(2147483647)
   stockNum?: number
 }
 
@@ -54,24 +55,24 @@ export class UpdateSkuDto extends SkuOptionsDto {
   name?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString() @Matches(/\S/) @MaxLength(255)
+  @ValidateIf((_, value) => value !== undefined) @IsString() @Matches(/\S/) @MaxLength(255)
   specText?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString() @Matches(/\S/) @MaxLength(50)
+  @ValidateIf((_, value) => value !== undefined) @IsString() @Matches(/\S/) @MaxLength(50)
   saleUnit?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsString()
+  @ValidateIf((_, value) => value !== undefined) @IsString()
   @Matches(/^(0|[1-9]\d{0,15})(\.\d{1,2})?$/, { message: '售价必须为非负金额，最多两位小数' })
   basePrice?: string
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt() @Min(1)
+  @ValidateIf((_, value) => value !== undefined) @IsInt() @Min(1) @Max(2147483647)
   minOrderQty?: number
 
   @ApiPropertyOptional()
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional() @IsInt() @Min(0) @Max(2147483647)
   stockNum?: number
 }
 

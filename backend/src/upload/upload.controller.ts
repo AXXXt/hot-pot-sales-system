@@ -25,7 +25,7 @@ import {
   PRODUCT_IMAGE_MAX_BYTES,
   ProductImageFile,
   validatePaymentProof,
-  validateProductImage
+  validateProductImageContent
 } from './product-image.validation'
 
 @ApiTags('Uploads')
@@ -62,7 +62,7 @@ export class UploadController {
     limits: { fileSize: PRODUCT_IMAGE_MAX_BYTES }
   }))
   async uploadPaymentProof(@Req() req: any, @UploadedFile() file?: ProductImageFile) {
-    const image = validatePaymentProof(file)
+    const image = await validatePaymentProof(file)
     return this.storage.uploadPaymentProof(file!.buffer, image.mimetype, image.extension, Number(req.user.sub))
   }
 
@@ -88,7 +88,7 @@ export class UploadController {
     limits: { fileSize: PRODUCT_IMAGE_MAX_BYTES }
   }))
   async uploadProductImage(@UploadedFile() file?: ProductImageFile) {
-    const image = validateProductImage(file)
+    const image = await validateProductImageContent(file)
     return this.storage.uploadProductImage(file!.buffer, image.mimetype, image.extension)
   }
 }

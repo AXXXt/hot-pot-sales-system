@@ -22,7 +22,9 @@
         <button class="text-button" data-type="company" bindtap="onProtectedTap">企业资料 ›</button>
       </view>
     </view>
+    <shipment-reminder id="shipment-reminder" />
     <block wx:if="{{hasCustomer}}">
+      <button class="service-row" bindtap="goNotifications"><text>站内消息{{unreadNotices ? ' · ' + unreadNotices + '条未读' : ''}}</text><text class="chevron">›</text></button>
       <view class="account-section">
         <view class="section-heading"><text>我的订单</text><button class="text-button" bindtap="goOrders">全部订单 ›</button></view>
         <view wx:if="{{overviewLoading}}" class="inline-state">正在加载订单…</view>
@@ -55,6 +57,7 @@
       </view>
       <view class="account-section service-section">
         <view class="section-heading"><text>采购服务</text></view>
+        <button class="service-row" bindtap="goServiceRequests"><text>服务申请与进度</text><text class="chevron">›</text></button>
         <button class="service-row" data-type="prices" bindtap="onProtectedTap"><text>协议价格</text><text class="chevron">›</text></button>
         <button class="service-row" data-type="address" bindtap="onProtectedTap"><text>收货信息</text><text class="chevron">›</text></button>
       </view>

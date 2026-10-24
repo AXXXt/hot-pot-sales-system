@@ -1,5 +1,6 @@
 <script setup lang="ts">
-defineProps<{ action: string; form: any; saved: any }>()
+defineProps<{ action: string; saved: any }>()
+const form = defineModel<any>('form', { required: true })
 function selectSku(line: any, id: number) {
   const item = line.candidates?.find((x: any) => x.skuId === id)
   if (item) { line.specText = item.specText; line.unit = item.saleUnit }

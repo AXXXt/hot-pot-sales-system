@@ -17,7 +17,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'checkout', name: 'checkout', component: () => import('../views/checkout/CheckoutView.vue'), meta: { title: '确认下单' } },
       { path: 'orders', name: 'orders', component: () => import('../views/orders/OrderListView.vue'), meta: { title: '我的订单' } },
       { path: 'orders/:id', name: 'order-detail', component: () => import('../views/orders/OrderDetailView.vue'), meta: { title: '订单详情' } },
-      { path: 'profile', name: 'profile', component: () => import('../views/user/ProfileView.vue'), meta: { title: '我的' } }
+      { path: 'profile', name: 'profile', component: () => import('../views/user/ProfileView.vue'), meta: { title: '我的' } },
+      { path: 'service-requests', name: 'service-requests', component: () => import('../views/user/ServiceRequestsView.vue'), meta: { title: '服务申请' } }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/home' }
@@ -35,12 +36,10 @@ router.beforeEach(async (to) => {
   if (!getAccessToken()) return { path: '/login', query: { redirect: to.fullPath } }
 
   const auth = useAuthStore()
-  if (!auth.profile) {
-    try {
-      await auth.loadProfile()
-    } catch {
-      return { path: '/login', query: { redirect: to.fullPath } }
-    }
+  try {
+    await auth.loadProfile()
+  } catch {
+    if (!getAccessToken()) return { path: '/login', query: { redirect: to.fullPath } }
   }
   return true
 })

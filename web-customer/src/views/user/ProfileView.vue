@@ -34,6 +34,7 @@ async function signOut() {
         <div class="quick">
           <router-link to="/orders"><el-button>我的订单</el-button></router-link>
           <router-link to="/cart"><el-button>进货单 ({{ cart.totalCount }})</el-button></router-link>
+          <router-link to="/service-requests"><el-button>服务申请与进度</el-button></router-link>
         </div>
         <el-button class="logout" size="large" @click="signOut">退出登录</el-button>
       </el-card>

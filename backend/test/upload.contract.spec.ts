@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { ConfigService } from '@nestjs/config'
 import { INestApplication } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
@@ -10,10 +11,12 @@ import { UploadController } from '../src/upload/upload.controller'
 import { requestIdMiddleware } from '../src/request-id.middleware'
 import { SuccessInterceptor } from '../src/success.interceptor'
 import { PrismaService } from '../src/prisma.service'
+import sharp from 'sharp'
 
 describe('product image upload HTTP contract', () => {
   let app: INestApplication
   let token: string
+  let paymentImage: Buffer
 
   const storage = {
     uploadProductImage: jest.fn().mockResolvedValue({
@@ -27,11 +30,13 @@ describe('product image upload HTTP contract', () => {
   }
 
   beforeAll(async () => {
+    paymentImage = await sharp({ create: { width: 4, height: 3, channels: 3, background: '#b85127' } }).jpeg().toBuffer()
     const jwt = new JwtService()
     token = jwt.sign({ sub: 1, tenantId: 1 }, { secret: 'upload-test-secret' })
     const moduleRef = await Test.createTestingModule({
       controllers: [UploadController],
       providers: [
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
         JwtAuthGuard,
         {
           provide: PrismaService,
@@ -86,7 +91,7 @@ describe('product image upload HTTP contract', () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/uploads/product-image')
       .set('Authorization', `Bearer ${token}`)
-      .attach('file', Buffer.from([0xff, 0xd8, 0xff, 0x00]), {
+      .attach('file', paymentImage, {
         filename: 'product.jpg',
         contentType: 'image/jpeg'
       })
@@ -101,11 +106,36 @@ describe('product image upload HTTP contract', () => {
     )
   })
 
+  it('does not store a damaged product image containing only a supported format header', async () => {
+    await request(app.getHttpServer()).post('/api/v1/uploads/product-image')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from([0xff, 0xd8, 0xff, 0x00]), { filename: 'broken.jpg', contentType: 'image/jpeg' })
+      .expect(400)
+    expect(storage.uploadProductImage).not.toHaveBeenCalled()
+  })
+
+  it.each(['png', 'webp'] as const)('accepts a decodable %s product image with its declared type', async format => {
+    const buffer = await sharp({ create: { width: 4, height: 3, channels: 3, background: '#b85127' } })[format]().toBuffer()
+    await request(app.getHttpServer()).post('/api/v1/uploads/product-image')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', buffer, { filename: `product.${format}`, contentType: `image/${format}` })
+      .expect(201)
+    expect(storage.uploadProductImage).toHaveBeenCalledWith(buffer, `image/${format}`, format)
+  })
+
+  it('rejects oversized product uploads before storage', async () => {
+    await request(app.getHttpServer()).post('/api/v1/uploads/product-image')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.alloc(5 * 1024 * 1024 + 1), { filename: 'oversized.png', contentType: 'image/png' })
+      .expect(413)
+    expect(storage.uploadProductImage).not.toHaveBeenCalled()
+  })
+
   it('uploads a valid payment proof', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/uploads/payment-proof')
       .set('Authorization', `Bearer ${token}`)
-      .attach('file', Buffer.from([0xff, 0xd8, 0xff, 0x00]), {
+      .attach('file', paymentImage, {
         filename: 'proof.jpg',
         contentType: 'image/jpeg'
       })
@@ -118,6 +148,23 @@ describe('product image upload HTTP contract', () => {
       'jpg',
       1
     )
+  })
+
+  it('accepts a valid PNG payment proof labeled JPEG and passes its actual PNG type to storage', async () => {
+    const png = await sharp({ create: { width: 4, height: 3, channels: 3, background: '#b85127' } }).png().toBuffer()
+    await request(app.getHttpServer()).post('/api/v1/uploads/payment-proof')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', png, { filename: 'wx-temp.jpg', contentType: 'image/jpeg' })
+      .expect(201)
+    expect(storage.uploadPaymentProof).toHaveBeenCalledWith(png, 'image/png', 'png', 1)
+  })
+
+  it('does not store a payment proof containing only forged image magic bytes', async () => {
+    await request(app.getHttpServer()).post('/api/v1/uploads/payment-proof')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from([0xff, 0xd8, 0xff, 0x00]), { filename: 'proof.jpg', contentType: 'image/jpeg' })
+      .expect(400)
+    expect(storage.uploadPaymentProof).not.toHaveBeenCalled()
   })
 
   it('rejects an image whose signature does not match its MIME type', async () => {

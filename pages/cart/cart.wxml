@@ -12,23 +12,31 @@
   </view>
 
   <view wx:else class="cart-body">
+    <!-- 校验失败不能沿用旧的可购买状态，数量和商品保留供用户调整。 -->
+    <view wx:if="{{loading}}" class="cart-validation">正在核对库存与起订量…</view>
+    <view wx:elif="{{loggedIn && (validationError || needsValidation)}}" class="cart-validation is-error">
+      <text>{{validationError || '进货单已更新，请重新校验商品信息'}}</text>
+      <button class="cart-validation__retry" size="mini" bindtap="onRetryValidation">重新校验</button>
+    </view>
     <view wx:if="{{hasMultipleBrands}}" class="cart-brand-notice">
       不同品牌可一起结算，系统会自动拆分为多个订单
     </view>
     <view class="cart-items">
-      <view wx:for="{{items}}" wx:key="skuId" class="cart-item {{item.available ? '' : 'is-unavailable'}}">
+      <view wx:for="{{items}}" wx:key="skuId" class="cart-item {{item.available || item.canAdjust ? '' : 'is-unavailable'}}">
         <view class="cart-item__info">
           <text class="cart-item__brand">{{item.brandText}}</text>
           <text class="cart-item__name">{{item.name}}</text>
           <text class="cart-item__spec" wx:if="{{item.spec}}">{{item.spec}}</text>
           <text class="cart-item__price">¥{{item.priceText}} / {{item.unit}}</text>
+          <text class="cart-item__spec" wx:if="{{!item.canAdjust}}">已选{{item.quantityText}}{{item.unit}}</text>
+          <text class="cart-item__spec" wx:if="{{item.boundsKnown}}">{{item.minOrderQty}}{{item.unit}}起订 · 可用库存{{item.stockNum}}{{item.unit}}</text>
           <text class="cart-item__error" wx:if="{{!item.available}}">{{item.unavailableReason}}</text>
         </view>
-        <view class="cart-item__actions" wx:if="{{item.available}}">
+        <view class="cart-item__actions" wx:if="{{item.canAdjust}}">
           <view class="cart-item__qty">
-            <view class="qty-btn" data-index="{{index}}" bindtap="onDecrease">-</view>
-            <text class="qty-val">{{item.quantity}}</text>
-            <view class="qty-btn" data-index="{{index}}" bindtap="onIncrease">+</view>
+            <view class="qty-btn {{loading ? 'is-disabled' : ''}}" data-index="{{index}}" bindtap="onDecrease">-</view>
+            <text class="qty-val">{{item.quantityText}}</text>
+            <view class="qty-btn {{loading || item.quantity >= item.stockNum ? 'is-disabled' : ''}}" data-index="{{index}}" bindtap="onIncrease">+</view>
           </view>
           <text class="cart-item__amount">¥{{item.amount}}</text>
         </view>
@@ -42,6 +50,6 @@
       <text class="cart-bar__label">合计</text>
       <text class="cart-bar__amount">¥{{totalAmount}}</text>
     </view>
-    <view class="cart-bar__btn {{checkoutDisabled ? 'disabled' : ''}}" bindtap="onCheckout">去结算</view>
+    <view class="cart-bar__btn {{loggedIn && checkoutDisabled ? 'disabled' : ''}}" bindtap="onCheckout">{{!loggedIn ? '登录后结算' : loading ? '校验中' : '去结算'}}</view>
   </view>
 </view>

@@ -61,6 +61,7 @@ async function doCreate() {
 }
 
 async function doApprove(row: any) {
+  if (reviewState(row) !== 'pending') { ElMessage.warning('仅待审核申请可进行注册审核'); return }
   try {
     await ElMessageBox.confirm(`确认通过「${row.customerName}」的注册申请？`, '审核通过', { type: 'info' })
     await approveCustomer(row.id)
@@ -70,6 +71,7 @@ async function doApprove(row: any) {
 }
 
 async function doReject(row: any) {
+  if (reviewState(row) !== 'pending') { ElMessage.warning('仅待审核申请可进行注册审核'); return }
   let reason = ''
   try {
     const result = await ElMessageBox.prompt(
@@ -89,7 +91,13 @@ async function doReject(row: any) {
 
 function goDetail(id: number) { router.push(`/customers/${id}`) }
 
-const statusTag = (s: string) => s === 'active' ? 'success' : 'danger'
+type ReviewState = 'approved' | 'pending' | 'rejected' | 'disabled'
+function reviewState(row: any): ReviewState {
+  return ['approved', 'pending', 'rejected', 'disabled'].includes(row.reviewStatus)
+    ? row.reviewStatus : row.status === 'active' ? 'approved' : 'disabled'
+}
+const reviewText = (row: any) => ({ approved: '已通过', pending: '待审核', rejected: '已驳回', disabled: '已停用' })[reviewState(row)]
+const statusTag = (row: any): 'success' | 'warning' | 'danger' | 'info' => ({ approved: 'success' as const, pending: 'warning' as const, rejected: 'danger' as const, disabled: 'info' as const })[reviewState(row)]
 
 onMounted(load)
 </script>
@@ -107,7 +115,7 @@ onMounted(load)
       </el-input>
       <el-select v-model="statusFilter" @change="load" style="width:130px;margin-left:10px">
         <el-option label="全部状态" value="all" />
-        <el-option label="待审核" value="disabled" />
+        <el-option label="未启用" value="disabled" />
         <el-option label="已通过" value="active" />
       </el-select>
       <el-button :loading="exporting" style="margin-left:10px" @click="handleExport">导出 Excel</el-button>
@@ -126,10 +134,10 @@ onMounted(load)
           <div class="card-row"><el-icon :size="14"><Location /></el-icon> {{ extractCity(c.address) }}</div>
         </div>
         <div class="card-footer">
-          <el-tag :type="statusTag(c.status)" size="small">{{ c.status === 'active' ? '已通过' : '待审核' }}</el-tag>
+          <el-tag :type="statusTag(c)" size="small">{{ reviewText(c) }}</el-tag>
           <span class="card-level"><el-icon :size="13"><Star /></el-icon> {{ levelName(c.customerLevelId) }}</span>
         </div>
-        <div v-if="c.status === 'disabled'" class="card-actions" @click.stop>
+        <div v-if="reviewState(c) === 'pending'" class="card-actions" @click.stop>
           <el-button size="small" type="success" :icon="Check" @click="doApprove(c)">通过</el-button>
           <el-button size="small" type="danger" :icon="Close" @click="doReject(c)">驳回</el-button>
         </div>

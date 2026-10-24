@@ -1,7 +1,9 @@
+// 个人中心业务详情：展示企业、收货、账期和协议价，并在返回时刷新。
 const store = require('../../store/index')
 const { getProfile } = require('../../services/api/auth')
 const { getMyPriceRules } = require('../../services/api/customer')
 const { money, profileView } = require('../../utils/profile')
+const { captureSession, isCurrentSession } = require('../../utils/auth-session')
 
 const TYPE_CONFIG = {
   company: { title: '企业资料' },
@@ -33,23 +35,52 @@ Page({
   },
 
   onLoad(options) {
+    this._active = true
+    this._hasShown = false
     const type = TYPE_CONFIG[options.type] ? options.type : 'company'
     this.setData({ type, title: TYPE_CONFIG[type].title })
     wx.setNavigationBarTitle({ title: TYPE_CONFIG[type].title })
     this.loadData()
   },
 
+  onShow() {
+    this._active = true
+    if (this._hasShown) return this.loadData()
+    this._hasShown = true
+  },
+
+  onHide() {
+    this._active = false
+    this.requestId = (this.requestId || 0) + 1
+    this.clearPrivateData()
+  },
+
+  clearPrivateData(error = '') {
+    this.setData({
+      loading: false, error, companyRows: [], addressRows: [], addressText: '',
+      priceItems: [], filteredPrices: [], creditRows: [], creditEnabled: false
+    })
+  },
+
+  isActiveRequest(requestId, session) {
+    if (requestId !== this.requestId || this._active === false) return false
+    if (isCurrentSession(store.auth, session)) return true
+    this.clearPrivateData(store.auth.state.token ? '登录状态已变化，请重新进入' : '请先登录')
+    return false
+  },
+
   async loadData() {
     const requestId = this.requestId = (this.requestId || 0) + 1
+    const session = captureSession(store.auth)
     if (!store.auth.state.token) {
-      this.setData({ loading: false, error: '请先登录' })
+      this.clearPrivateData('请先登录')
       return
     }
 
     this.setData({ loading: true, error: '' })
     try {
       const profileResponse = await getProfile()
-      if (requestId !== this.requestId || !store.auth.state.token) return
+      if (!this.isActiveRequest(requestId, session)) return
       const profile = profileResponse?.data || profileResponse || {}
       store.auth.setProfile(profile)
       store.auth.setCustomer(profile.customer || null)
@@ -84,11 +115,11 @@ Page({
           validity: rule.endAt ? `有效至 ${String(rule.endAt).slice(0, 10)}` : '当前生效'
         }))
       }
-      if (requestId !== this.requestId || !store.auth.state.token) return
+      if (!this.isActiveRequest(requestId, session)) return
       this.setData(nextData)
       this.filterPrices()
     } catch (error) {
-      if (requestId === this.requestId) this.setData({ loading: false, error: error?.message || '加载失败' })
+      if (this.isActiveRequest(requestId, session)) this.clearPrivateData(error?.message || '加载失败')
     }
   },
 
@@ -112,7 +143,10 @@ Page({
     ]
   },
 
-  onUnload() { this.requestId = (this.requestId || 0) + 1 },
+  onUnload() {
+    this._active = false
+    this.requestId = (this.requestId || 0) + 1
+  },
   onSearch(e) { this.setData({ keyword: e.detail.value }); this.filterPrices() },
   clearSearch() { this.setData({ keyword: '' }); this.filterPrices() },
   filterPrices() {

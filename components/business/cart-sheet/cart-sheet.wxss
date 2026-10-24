@@ -240,3 +240,24 @@
   background: #d5dbd6;
   box-shadow: none;
 }
+
+.cart-sheet-validation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 18rpx;
+  background: #f4f6f4;
+  color: var(--text-secondary);
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+.cart-sheet-validation.is-error { color: var(--status-danger); }
+.cart-sheet-validation__retry {
+  flex-shrink: 0;
+  margin: 0;
+  background: #FFFFFF;
+  color: var(--brand-primary);
+  font-size: 23rpx;
+}
+.cs-qty-btn.is-disabled { color: var(--text-secondary); opacity: 0.45; }

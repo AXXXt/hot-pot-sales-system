@@ -1,0 +1,20 @@
+<view wx:if="{{eligible && noticeOptions.length}}" class="shipment-reminder">
+  <view class="shipment-reminder__heading">
+    <text class="shipment-reminder__title">订单提醒</text>
+    <button wx:if="{{!checkout && !automatic}}" class="shipment-reminder__button" bindtap="onSubscribe"
+      disabled="{{busy || !selectedCount}}" loading="{{busy}}">接收所选提醒</button>
+  </view>
+  <view wx:if="{{automatic}}" class="shipment-reminder__summary">
+    <text wx:for="{{noticeOptions}}" wx:key="event" class="shipment-reminder__tag">{{item.title}}</text>
+  </view>
+  <view wx:else class="shipment-reminder__choices">
+    <view wx:for="{{noticeOptions}}" wx:key="event" class="shipment-reminder__choice"
+      data-index="{{index}}" bindtap="onToggle" role="checkbox" aria-checked="{{item.selected}}">
+      <text class="shipment-reminder__check {{item.selected ? 'is-selected' : ''}}">{{item.selected ? '✓' : ''}}</text>
+      <text>{{item.title}}</text>
+    </view>
+  </view>
+  <text wx:if="{{automatic}}" class="shipment-reminder__note">点击“{{actionText}}”时一并申请提醒，无需另外点击订阅。微信若提供“总是保持以上选择”，可勾选以减少后续确认。</text>
+  <text class="shipment-reminder__note">每种提醒每次同意可发送一条，多品牌订单共用次数。拒绝不影响办理，进度仍可在站内消息查看。</text>
+  <text wx:if="{{message}}" class="shipment-reminder__result">{{message}}</text>
+</view>

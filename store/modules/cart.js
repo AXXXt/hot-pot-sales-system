@@ -1,3 +1,4 @@
+// 进货单按最新规格范围核对数量；不自动改量或删除用户选中的商品。
 const { setStorage, getStorage } = require('../../utils/storage')
 
 const storedItems = getStorage('cartItems', [])
@@ -31,8 +32,27 @@ function persist() {
   setStorage('cartItems', state.cartItems)
 }
 
+function quantityStatus(item) {
+  if (typeof item.skuAvailable !== 'boolean') return item
+  if (!item.skuAvailable) return {
+    ...item, available: false, quantityError: '', unavailableReason: item.skuUnavailableReason
+  }
+  const quantity = Number(item.quantity), snapshot = item.snapshot || {}
+  const min = Number(snapshot.minOrderQty), stock = Number(snapshot.stockNum)
+  let quantityError = ''
+  if (!Number.isSafeInteger(quantity) || quantity < 1) quantityError = '请调整为有效的整数数量'
+  else if (quantity < min) quantityError = `${min}${snapshot.priceUnit || '件'}起订，请增加数量`
+  else if (quantity > stock) quantityError = `当前可用库存${stock}${snapshot.priceUnit || '件'}，请减少数量`
+  return {
+    ...item,
+    quantityError,
+    available: item.skuAvailable && !quantityError,
+    unavailableReason: item.skuAvailable ? quantityError : item.skuUnavailableReason
+  }
+}
+
 function setCartItems(cartItems) {
-  state.cartItems = Array.isArray(cartItems) ? cartItems : []
+  state.cartItems = Array.isArray(cartItems) ? cartItems.map(quantityStatus) : []
   persist()
 }
 
@@ -45,6 +65,9 @@ function addItem(item) {
     state.cartItems[targetIndex].snapshot = item.snapshot || state.cartItems[targetIndex].snapshot
     state.cartItems[targetIndex].available = true
     state.cartItems[targetIndex].unavailableReason = ''
+    delete state.cartItems[targetIndex].skuAvailable
+    delete state.cartItems[targetIndex].skuUnavailableReason
+    delete state.cartItems[targetIndex].quantityError
   } else {
     state.cartItems = [
       ...state.cartItems,
@@ -64,9 +87,11 @@ function addItem(item) {
 }
 
 function updateQuantity({ productId, skuId, quantity }) {
+  quantity = Number(quantity)
+  if (!Number.isSafeInteger(quantity) || quantity < 0) return
   const next = state.cartItems.map((item) => {
-    if (item.productId === productId && item.skuId === skuId) {
-      return { ...item, quantity }
+    if (Number(item.productId) === Number(productId) && Number(item.skuId) === Number(skuId)) {
+      return quantityStatus({ ...item, quantity })
     }
     return item
   })
@@ -79,8 +104,16 @@ function getCount() {
 }
 
 function applyValidation(result) {
-  const validItems = Array.isArray(result && result.items) ? result.items : []
-  const invalidIds = new Set((result && result.invalidSkuIds || []).map(Number))
+  if (!Array.isArray(result && result.items)) throw new Error('商品校验结果无效，请重试')
+  const validItems = result.items
+  for (const item of validItems) {
+    const stock = Number(item.stockNum), min = Number(item.minOrderQty)
+    if (item.stockNum == null || item.stockNum === '' || !Number.isSafeInteger(stock) || stock < 0 ||
+      item.minOrderQty == null || item.minOrderQty === '' || !Number.isSafeInteger(min) || min < 1) {
+      throw new Error('商品库存信息校验失败，请重试')
+    }
+  }
+  const invalidIds = new Set((Array.isArray(result.invalidSkuIds) ? result.invalidSkuIds : []).map(Number))
   const validationBySku = new Map(validItems.map(item => [Number(item.skuId), item]))
 
   state.cartItems = state.cartItems.map((item) => {
@@ -89,17 +122,25 @@ function applyValidation(result) {
       return {
         ...item,
         available: false,
+        skuAvailable: false,
+        quantityError: '',
+        skuUnavailableReason: invalidIds.has(Number(item.skuId))
+          ? '商品已下架或不在当前可见范围'
+          : '商品暂不可购买',
         unavailableReason: invalidIds.has(Number(item.skuId))
           ? '商品已下架或不在当前可见范围'
           : '商品暂不可购买'
       }
     }
 
-    return {
+    return quantityStatus({
       ...item,
       productId: validated.productId,
       brandId: normalizeBrandId(validated.brandId) || getItemBrandId(item),
       available: validated.available !== false,
+      skuAvailable: validated.available !== false &&
+        Number(validated.stockNum) >= Number(validated.minOrderQty),
+      skuUnavailableReason: validated.unavailableReason || '当前库存不足起订量',
       unavailableReason: validated.unavailableReason || '',
       snapshot: {
         ...(item.snapshot || {}),
@@ -112,7 +153,7 @@ function applyValidation(result) {
         stockNum: validated.stockNum,
         minOrderQty: validated.minOrderQty
       }
-    }
+    })
   })
   persist()
 }

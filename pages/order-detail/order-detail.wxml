@@ -9,11 +9,19 @@
   </view>
 
   <view wx:else class="od-body">
+    <shipment-reminder id="shipment-reminder" eligible="{{canSubscribeShipment}}" status="{{noticeStatus}}"
+      automatic="{{canSubmitDraft || canSubmitFinance}}" action-text="{{canSubmitDraft ? '继续提交订单' : '确认报价并支付'}}" />
     <!-- Status header -->
     <view class="od-header">
       <text class="od-header__status od-header__status--{{statusVariant}}">{{statusText}}</text>
       <text class="od-header__no">订单号 {{orderNo}}</text>
       <text class="od-header__time" wx:if="{{orderTime}}">{{orderTime}}</text>
+    </view>
+
+    <view class="od-card od-card--rejected" wx:if="{{financeRejectionReason}}">
+      <text class="od-card__title">付款审核已退回</text>
+      <text class="od-card__text">{{financeRejectionReason}}</text>
+      <text class="od-card__sub">请核对后使用原凭证、重新上传凭证或重新选择账期提交。</text>
     </view>
 
     <!-- Items -->
@@ -42,9 +50,22 @@
         <text class="od-item__label">优惠</text>
         <text>-¥{{discountAmount}}</text>
       </view>
+      <view class="od-item" wx:if="{{adjustAmount != '0.00'}}">
+        <text class="od-item__label">应付金额调整</text>
+        <text>¥{{adjustAmount}}</text>
+      </view>
       <view class="od-item">
         <text class="od-item__label">应付金额</text>
         <text class="od-item__total">¥{{payableAmount}}</text>
+      </view>
+    </view>
+
+    <view class="od-card" wx:if="{{priceAdjustments.length}}">
+      <text class="od-card__title">应付金额调整记录</text>
+      <view wx:for="{{priceAdjustments}}" wx:key="id" class="od-price-record">
+        <text class="od-card__text">¥{{item.beforeAmount}} → ¥{{item.afterAmount}}</text>
+        <text class="od-card__text">{{item.reason}}</text>
+        <text class="od-card__sub">{{item.time}}</text>
       </view>
     </view>
 
@@ -79,9 +100,10 @@
     <view class="od-actions">
       <button wx:if="{{canSubmitDraft}}" class="od-btn od-btn--primary" loading="{{submittingDraft}}" disabled="{{submittingDraft}}" bindtap="onSubmitDraft">继续提交订单</button>
       <view wx:if="{{canCancel}}" class="od-btn od-btn--danger" bindtap="onCancel">取消订单</view>
-      <view wx:if="{{canSubmitFinance}}" class="od-btn od-btn--primary" bindtap="onSubmitFinance">
-        {{submittingFinance ? '提交中…' : '确认报价并支付'}}
-      </view>
+      <button wx:if="{{canSubmitFinance}}" class="od-btn od-btn--primary" bindtap="onSubmitFinance"
+        loading="{{submittingFinance}}" disabled="{{submittingFinance || submittingDraft}}">
+        {{submittingFinance ? '提交中…' : (financeRejectionReason ? '重新提交付款信息' : '确认报价并支付')}}
+      </button>
       <view wx:if="{{canConfirm}}" class="od-btn od-btn--primary" bindtap="onConfirmReceipt">确认收货</view>
     </view>
   </view>

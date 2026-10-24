@@ -243,6 +243,22 @@ describe('OrderService customer finance flow', () => {
     expect(tx.order.updateMany).not.toHaveBeenCalled()
   })
 
+  it('accepts the exact remaining ten cents without binary floating point rounding', async () => {
+    const { service, tx } = createFinanceSubject({ creditLimit: '100.00', creditUsed: '99.90', payableAmount: '0.10' })
+    await service.submitFinance(100, undefined, true, 9)
+    expect(tx.customer.updateMany).toHaveBeenCalledWith({ where: { id: 3, creditUsed: '99.90' }, data: { creditUsed: { increment: '0.10' } } })
+    expect(tx.order.updateMany).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects eleven cents with ten cents remaining before any claim, credit change or notification', async () => {
+    const { service, tx } = createFinanceSubject({ creditLimit: '100.00', creditUsed: '99.90', payableAmount: '0.11' })
+    await expect(service.submitFinance(100, undefined, true, 9)).rejects.toMatchObject({ response: {
+      errorCode: 'CREDIT_1001', message: '账期额度不足，当前可用 ¥0.10'
+    } })
+    expect(tx.customer.updateMany).not.toHaveBeenCalled(); expect(tx.order.updateMany).not.toHaveBeenCalled()
+    expect(tx.orderStatusLog.create).not.toHaveBeenCalled(); expect(tx.productSku.update).not.toHaveBeenCalled()
+  })
+
   it('rejects admin attempts to confirm a customer quote', async () => {
     const { service, prisma } = createFinanceSubject({
       actorType: 'admin',

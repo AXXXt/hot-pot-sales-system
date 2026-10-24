@@ -73,7 +73,7 @@ function selectInventorySku(id: number) {
       </div>
       <p class="draft-note">商品名称用于客户展示，可直接修改；管理标签和编码由系统生成。创建后下架、库存为0；商品主图在编辑页上传。</p>
     </el-form>
-    <el-form v-else-if="['inventory.batch', 'order.create'].includes(draft.action)" label-position="top" :disabled="completed || busy" size="small"><AiWorkflowFields :action="draft.action" :form="form" :saved="draft.payload" /></el-form>
+    <el-form v-else-if="['inventory.batch', 'order.create'].includes(draft.action)" label-position="top" :disabled="completed || busy" size="small"><AiWorkflowFields v-model:form="form" :action="draft.action" :saved="draft.payload" /></el-form>
     <el-form v-else-if="draft.action === 'inventory.adjust'" label-position="top" :disabled="completed || busy" size="small">
       <el-form-item label="商品名称或规格编码"><el-input v-model="form.keyword" aria-label="库存商品关键词" @input="form.skuId = null" /></el-form-item>
       <el-form-item label="规格描述"><el-input v-model="form.specText" aria-label="库存规格描述" placeholder="多规格时填写，例如500克/袋" @input="form.skuId = null" /></el-form-item>

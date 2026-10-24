@@ -243,6 +243,9 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private errorMessage(error: unknown) {
-    return error instanceof Error ? error.message : String(error)
+    const code = (error as any)?.code
+    return typeof code === 'string' && /^(?:E[A-Z0-9_]{2,30}|P\d{4})$/.test(code)
+      ? `依赖服务不可用（${code}）`
+      : '依赖服务不可用'
   }
 }

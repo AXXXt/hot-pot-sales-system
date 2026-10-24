@@ -2,8 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, shipOrder, cancelOrder, completeOrder, submitOrder, refundOrder, getOrderLogistics } from '../../api/order'
+import { getOrderDetail, quoteOrder, getPriceHistory, approveFinance, rejectFinance, shipOrder, cancelOrder, completeOrder, submitOrder, refundOrder, getOrderLogistics, adjustOrderPrice } from '../../api/order'
 import { getPaymentProofUrl } from '../../api/upload'
+import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +15,11 @@ const order = ref<any>({})
 const actionLoading = ref('')
 const quoteVisible = ref(false)
 const shipVisible = ref(false)
+const rejectVisible = ref(false)
+const rejectReason = ref('')
+const auth = useAuthStore()
+const adjustmentVisible = ref(false)
+const adjustment = reactive({ amount: 0, reason: '' })
 const historyPrices = ref<any[]>([])
 const quoteItems = ref<any[]>([])
 const quoteNote = ref('')
@@ -104,6 +110,27 @@ const stTag = (s: string) => {
 }
 
 const canCancel = computed(() => ['draft', 'pending_quote', 'pending_confirm', 'pending_finance', 'pending_shipment'].includes(order.value.status))
+const canAdjust = computed(() => auth.can('order:confirm') && order.value.status === 'pending_confirm')
+
+function openAdjustment() {
+  if (!canAdjust.value || actionLoading.value) return
+  adjustment.amount = Number(order.value.payableAmount)
+  adjustment.reason = ''
+  adjustmentVisible.value = true
+}
+async function saveAdjustment() {
+  if (!canAdjust.value || actionLoading.value) return
+  if (!Number.isFinite(adjustment.amount) || adjustment.amount <= 0) { ElMessage.warning('请输入大于0的应付金额'); return }
+  if (!adjustment.reason.trim()) { ElMessage.warning('请填写客户可见的调整原因'); return }
+  actionLoading.value = 'adjust'
+  try {
+    await adjustOrderPrice(id, { afterAmount: adjustment.amount.toFixed(2), reason: adjustment.reason.trim() })
+    adjustmentVisible.value = false
+    ElMessage.success('应付金额已调整，客户确认付款前需核对最新金额')
+    await fetch()
+  } catch (e: any) { ElMessage.warning(e.message || '调价失败，请刷新订单后重试') }
+  finally { actionLoading.value = '' }
+}
 
 // draft -> pending_quote
 async function doSubmit() {
@@ -160,6 +187,20 @@ async function doApproveFinance() {
 }
 
 // pending_shipment -> shipped
+async function doRejectFinance() {
+  if (actionLoading.value) return
+  const reason = rejectReason.value.trim()
+  if (!reason || reason.length > 255) { ElMessage.warning('请填写1至255字的退回原因'); return }
+  actionLoading.value = 'reject'
+  try {
+    await rejectFinance(id, reason)
+    rejectVisible.value = false
+    ElMessage.success('已退回客户处理，账期占用已释放，商品预占保留')
+    await fetch()
+  } catch (e: any) { ElMessage.warning(e.message || '退回失败') }
+  finally { actionLoading.value = '' }
+}
+
 function openShip() {
   const info = order.value.logisticsInfo || {}
   shipForm.logisticsType = order.value.logisticsType || 'tricycle'
@@ -221,6 +262,7 @@ onMounted(fetch)
     </div>
 
     <el-alert v-if="error" type="error" :title="error" show-icon style="margin-bottom:16px" />
+    <el-alert v-if="!loading && order.financeRejection" title="付款审核已退回" type="warning" :description="order.financeRejection.reason" :closable="false" show-icon style="margin-bottom:16px" />
 
     <div v-if="loading" style="text-align:center;padding:60px 0">
       <el-icon class="is-loading" :size="28"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#e5e8e5" stroke-width="3" fill="none"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#43715b" stroke-width="3" fill="none" stroke-linecap="round"/></svg></el-icon>
@@ -236,9 +278,9 @@ onMounted(fetch)
           <el-descriptions-item label="客户">{{ order.customer?.customerName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="类型"><el-tag v-if="order.sampleFlag" type="warning" size="small">样品单</el-tag><span v-else>普通订单</span></el-descriptions-item>
           <el-descriptions-item label="订单金额">¥{{ Number(order.totalAmount || 0).toFixed(2) }}</el-descriptions-item>
-          <el-descriptions-item label="报价金额" v-if="order.quotedAmount">¥{{ Number(order.quotedAmount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item v-if="order.quotedAmount" label="报价金额">¥{{ Number(order.quotedAmount || 0).toFixed(2) }}</el-descriptions-item>
           <el-descriptions-item label="应付金额"><b>¥{{ Number(order.payableAmount || 0).toFixed(2) }}</b></el-descriptions-item>
-          <el-descriptions-item label="支付方式" v-if="order.paymentMethod">{{ order.paymentMethod === 'credit' ? '账期支付' : '转账凭证' }}</el-descriptions-item>
+          <el-descriptions-item v-if="order.paymentMethod" label="支付方式">{{ order.paymentMethod === 'credit' ? '账期支付' : '转账凭证' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ new Date(order.createdAt).toLocaleString('zh-CN') }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ order.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
@@ -279,14 +321,26 @@ onMounted(fetch)
       <el-card v-if="order.statusLogs?.length" shadow="never" style="margin-bottom:16px">
         <template #header><strong>状态流转</strong></template>
         <el-timeline>
-          <el-timeline-item v-for="log in order.statusLogs" :key="log.id"
+          <el-timeline-item
+            v-for="log in order.statusLogs" :key="log.id"
             :timestamp="new Date(log.createdAt).toLocaleString('zh-CN')"
-            :color="log.toStatus === 'completed' ? '#34A853' : log.toStatus === 'cancelled' ? '#C43737' : '#43715b'">
+            :color="log.toStatus === 'completed' ? '#34A853' : log.toStatus === 'cancelled' ? '#C43737' : '#43715b'"
+          >
             {{ st(log.fromStatus) }} → {{ st(log.toStatus) }}
+            <p v-if="log.remark">{{ log.remark }}</p>
           </el-timeline-item>
         </el-timeline>
       </el-card>
 
+      <el-card v-if="order.priceAdjustments?.length" shadow="never" style="margin-bottom:16px">
+        <template #header><strong>应付金额调整记录</strong></template>
+        <el-table :data="order.priceAdjustments" size="small">
+          <el-table-column label="时间" width="170"><template #default="{row}">{{ new Date(row.createdAt).toLocaleString('zh-CN') }}</template></el-table-column>
+          <el-table-column label="调整前" width="120"><template #default="{row}">¥{{ Number(row.beforeAmount).toFixed(2) }}</template></el-table-column>
+          <el-table-column label="调整后" width="120"><template #default="{row}">¥{{ Number(row.afterAmount).toFixed(2) }}</template></el-table-column>
+          <el-table-column prop="reason" label="原因（客户可见）" min-width="180" />
+        </el-table>
+      </el-card>
       <el-card v-if="order.refunds?.length" shadow="never" style="margin-bottom:16px">
         <template #header><strong>退款记录</strong></template>
         <el-table :data="order.refunds" size="small" stripe>
@@ -307,7 +361,9 @@ onMounted(fetch)
         <el-button v-if="order.status === 'draft'" type="primary" :loading="actionLoading==='submit'" @click="doSubmit">提交订单</el-button>
         <el-button v-if="order.status === 'pending_quote'" type="primary" :loading="actionLoading==='quote'" @click="openQuote">填写报价</el-button>
         <el-tag v-if="order.status === 'pending_confirm'" type="warning" size="large">等待客户确认报价并选择支付方式</el-tag>
+        <el-button v-if="canAdjust" type="warning" plain :disabled="!!actionLoading" @click="openAdjustment">调整应付金额</el-button>
         <el-button v-if="order.status === 'pending_finance'" type="success" :loading="actionLoading==='approve'" @click="doApproveFinance">财务审核通过（扣库存）</el-button>
+        <el-button v-if="order.status === 'pending_finance'" type="warning" plain :disabled="!!actionLoading" @click="rejectReason=''; rejectVisible=true">财务退回</el-button>
         <el-button v-if="order.status === 'pending_shipment'" type="primary" :loading="actionLoading==='ship'" @click="openShip">录入物流并发货</el-button>
         <el-button v-if="order.status === 'shipped'" type="success" :loading="actionLoading==='complete'" @click="doComplete">确认收货</el-button>
         <el-tag v-if="order.status === 'completed'" type="success" size="large">订单已完成</el-tag>
@@ -316,6 +372,24 @@ onMounted(fetch)
         <el-button v-if="canCancel" type="danger" plain :loading="actionLoading==='cancel'" @click="doCancel">取消订单</el-button>
       </div>
     </template>
+
+    <el-dialog v-model="adjustmentVisible" title="调整应付金额" width="min(500px, 94vw)" :close-on-click-modal="false" :show-close="actionLoading !== 'adjust'" :close-on-press-escape="actionLoading !== 'adjust'">
+      <p>调整订单应付总额，保留商品报价单价。调整原因将展示给客户，确认付款后不能再改价。</p>
+      <el-form label-position="top" :disabled="actionLoading === 'adjust'">
+        <el-form-item label="调整后应付金额" required><el-input-number v-model="adjustment.amount" :min="0.01" :max="999999999999" :precision="2" :controls="false" /></el-form-item>
+        <el-form-item label="调整原因（客户可见）" required><el-input v-model="adjustment.reason" type="textarea" :rows="3" maxlength="255" show-word-limit /></el-form-item>
+      </el-form>
+      <template #footer><el-button :disabled="actionLoading === 'adjust'" @click="adjustmentVisible = false">取消</el-button><el-button type="primary" :loading="actionLoading === 'adjust'" @click="saveAdjustment">确认调价</el-button></template>
+    </el-dialog>
+    <el-dialog v-model="rejectVisible" title="财务退回" width="min(500px, 94vw)" :close-on-click-modal="false" :show-close="actionLoading !== 'reject'" :close-on-press-escape="actionLoading !== 'reject'">
+      <p>退回后客户可查看原因并重新提交付款信息。商品预占保留；已占用的账期额度会释放，不扣库存。</p>
+      <el-form label-position="top">
+        <el-form-item label="退回原因（客户可见）" required>
+          <el-input v-model="rejectReason" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="例如：凭证金额与应付金额不一致，请核对后重新提交" />
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button :disabled="actionLoading==='reject'" @click="rejectVisible=false">取消</el-button><el-button type="warning" :loading="actionLoading==='reject'" @click="doRejectFinance">确认退回</el-button></template>
+    </el-dialog>
 
     <el-dialog v-model="quoteVisible" title="填写报价" width="650" @close="quoteVisible=false">
       <div v-if="!quoteItems.length" class="inline-empty">无商品明细</div>
@@ -366,42 +440,42 @@ onMounted(fetch)
         <el-button type="primary" :loading="actionLoading==='ship'" @click="submitShip">确认发货</el-button>
       </template>
     </el-dialog>
-  <!-- Refund Dialog -->
-  <el-dialog v-model="refundVisible" title="退款登记" width="440">
-    <p>剩余可登记退款：¥{{ refundableAmount.toFixed(2) }}</p>
-    <el-form label-width="90">
-      <el-form-item label="退款金额" required>
-        <el-input-number v-model="refundForm.amount" :min="0.01" :max="refundableAmount" :precision="2" :controls="false" style="width:100%" />
-      </el-form-item>
-      <el-form-item label="退款方式">
-        <el-select v-model="refundForm.method" style="width:100%">
-          <el-option label="转账" value="transfer" />
-          <el-option label="现金" value="cash" />
-          <el-option label="其他" value="other" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="退款原因">
-        <el-input v-model="refundForm.reason" type="textarea" :rows="2" placeholder="可选" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="refundVisible=false">取消</el-button>
-      <el-button type="primary" :loading="refundSaving" @click="submitRefund">确认退款</el-button>
-    </template>
-  </el-dialog>
-  <!-- Logistics Track Dialog -->
-  <el-dialog v-model="trackVisible" title="物流轨迹" width="520">
-    <div v-if="trackLoading" class="detail-loading">加载中…</div>
-    <template v-else>
-      <el-tag size="small" style="margin-bottom:12px">{{ trackData.provider === 'lalamove' ? '货拉拉配送' : '手动物流' }}</el-tag>
-      <el-timeline v-if="trackData.track?.length">
-        <el-timeline-item v-for="(p, idx) in trackData.track" :key="idx" :timestamp="p.time || undefined" placement="top">
-          {{ p.text }}
-        </el-timeline-item>
-      </el-timeline>
-      <div v-else class="inline-empty">暂无轨迹信息</div>
-    </template>
-  </el-dialog>
+    <!-- Refund Dialog -->
+    <el-dialog v-model="refundVisible" title="退款登记" width="440">
+      <p>剩余可登记退款：¥{{ refundableAmount.toFixed(2) }}</p>
+      <el-form label-width="90">
+        <el-form-item label="退款金额" required>
+          <el-input-number v-model="refundForm.amount" :min="0.01" :max="refundableAmount" :precision="2" :controls="false" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="退款方式">
+          <el-select v-model="refundForm.method" style="width:100%">
+            <el-option label="转账" value="transfer" />
+            <el-option label="现金" value="cash" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="退款原因">
+          <el-input v-model="refundForm.reason" type="textarea" :rows="2" placeholder="可选" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="refundVisible=false">取消</el-button>
+        <el-button type="primary" :loading="refundSaving" @click="submitRefund">确认退款</el-button>
+      </template>
+    </el-dialog>
+    <!-- Logistics Track Dialog -->
+    <el-dialog v-model="trackVisible" title="物流轨迹" width="520">
+      <div v-if="trackLoading" class="detail-loading">加载中…</div>
+      <template v-else>
+        <el-tag size="small" style="margin-bottom:12px">{{ trackData.provider === 'lalamove' ? '货拉拉配送' : '手动物流' }}</el-tag>
+        <el-timeline v-if="trackData.track?.length">
+          <el-timeline-item v-for="(p, idx) in trackData.track" :key="idx" :timestamp="p.time || undefined" placement="top">
+            {{ p.text }}
+          </el-timeline-item>
+        </el-timeline>
+        <div v-else class="inline-empty">暂无轨迹信息</div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 

@@ -53,13 +53,28 @@ async function repeatOrder(id) {
 }
 
 function showRepeatResult(result) {
-  const openCart = () => wx.navigateTo({ url: '/pages/cart/cart' })
+  const cancelled = error => typeof error?.errMsg === 'string' && /(?:^|\s)cancel(?:led|ed)?(?:\s|$)/i.test(error.errMsg)
+  const showCartHint = () => {
+    try { wx.showToast({ title: '商品已加入购物车，请稍后进入查看', icon: 'none', duration: 3000 }) } catch { /* Keep the existing cart even if native feedback is unavailable. */ }
+  }
+  const openCart = () => {
+    try { wx.navigateTo({ url: '/pages/cart/cart', fail: error => { if (!cancelled(error)) showCartHint() } }) }
+    catch { showCartHint() }
+  }
   if (result.skipped || result.adjusted) {
-    wx.showModal({
-      title: '已更新购物车', showCancel: false,
-      content: `已加入 ${result.added} 个规格，${result.skipped} 个无法加入，${result.adjusted} 个已调整数量。`,
-      success: openCart
-    })
+    const recover = error => {
+      if (cancelled(error)) return
+      showCartHint()
+      openCart()
+    }
+    try {
+      wx.showModal({
+        title: '已更新购物车', showCancel: false,
+        content: `已加入 ${result.added} 个规格，${result.skipped} 个无法加入，${result.adjusted} 个已调整数量。`,
+        success: res => { if (res?.confirm) openCart() },
+        fail: recover
+      })
+    } catch { recover() }
   } else openCart()
 }
 

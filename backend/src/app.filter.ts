@@ -18,10 +18,9 @@ export class AppFilter implements ExceptionFilter {
       message = Array.isArray(msg) ? msg.join('; ') : String(msg)
     } else if (typeof response === 'string') {
       message = response
-    } else if (exception instanceof Error) {
-      message = exception.message
     } else {
-      message = 'Internal server error'
+      // Unexpected driver/provider errors can include SQL, credentials or internal paths.
+      message = '服务暂不可用，请稍后重试'
     }
 
     const errorCode = typeof response === 'object' && response && 'errorCode' in response

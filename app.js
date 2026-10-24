@@ -1,4 +1,5 @@
-const env = require('./config')
+// 小程序启动与微信身份绑定，网络请求统一经过Services层。
+const { bindCurrentWechat } = require('./services/wechat')
 
 App({
   globalData: {
@@ -28,22 +29,11 @@ App({
 
     // 静默绑定微信 openid（用于订阅消息通知）
     if (token) {
-      this.bindOpenidSilently(token)
+      bindCurrentWechat().catch(() => {})
     }
   },
 
-  bindOpenidSilently(token) {
-    wx.login({
-      success: (res) => {
-        if (!res.code) return
-        wx.request({
-          url: env.baseUrl + '/api/v1/auth/bind-openid',
-          method: 'POST',
-          data: { code: res.code },
-          header: { 'content-type': 'application/json', Authorization: 'Bearer ' + token },
-          success: () => {}
-        })
-      }
-    })
+  onShow() {
+    bindCurrentWechat().catch(() => {})
   }
 })

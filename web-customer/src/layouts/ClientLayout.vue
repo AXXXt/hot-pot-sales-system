@@ -26,6 +26,9 @@ async function handleCommand(command: string) {
     await router.replace("/login");
   }
 }
+async function retryProfile() {
+  try { await auth.loadProfile() } catch { /* 保留账户资料错误和重试入口。 */ }
+}
 </script>
 
 <template>
@@ -82,7 +85,11 @@ async function handleCommand(command: string) {
         </div>
       </div>
     </header>
-    <main><router-view /></main>
+    <main>
+      <el-alert v-if="auth.profileLoading" title="正在更新账户资料" type="info" :closable="false" />
+      <el-alert v-else-if="auth.profileError" :title="auth.profileError" type="error" :closable="false"><el-button @click="retryProfile">重试账户资料</el-button></el-alert>
+      <router-view v-else />
+    </main>
     <footer class="site-footer">
       <div class="footer-inner">
         <div>

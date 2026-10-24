@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 const root = path.resolve(__dirname, '..')
+const { requestOrderReminders } = require('../services/order-reminders')
 
 test('mini release targets the HTTPS production API', () => {
   const config = require('../config')
@@ -15,12 +16,14 @@ function detailPage(submitOrder) {
   let page
   vm.runInNewContext(fs.readFileSync(path.join(root, 'pages/order-detail/order-detail.js'), 'utf8'), {
     Page: definition => { page = definition },
-    require: () => ({ submitOrder }),
+    require: id => id.endsWith('logistics') ? require('../utils/logistics') : id.endsWith('auth-session') ? require('../utils/auth-session') : id.includes('store/modules/auth') ? { state: { token: 'A' } }
+      : id.endsWith('order-reminders') ? { requestOrderReminders } : { submitOrder },
     wx: { showToast() {} }
   })
   page.data = { ...page.data, orderId: '100', canSubmitDraft: true }
   page.setData = data => Object.assign(page.data, data)
   page.loadDetail = async () => {}
+  page._active = true
   return page
 }
 
@@ -31,6 +34,7 @@ test('mini draft submission suppresses overlapping requests', async () => {
   const page = detailPage(async () => { calls++; await pending })
   const first = page.onSubmitDraft()
   await page.onSubmitDraft()
+  await Promise.resolve()
   assert.equal(calls, 1)
   resolve()
   await first

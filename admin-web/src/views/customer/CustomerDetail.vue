@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Edit } from '@element-plus/icons-vue'
-import { getCustomerDetail, updateCustomer, getCustomerLevels, getPriceRules, createPriceRule, deletePriceRule, getRepayments, createRepayment } from '../../api/customer'
+import { getCustomerDetail, updateCustomer, getCustomerLevels, getPriceRules, createPriceRule, deletePriceRule, getRepayments, createRepayment, getSalesOwners } from '../../api/customer'
 import { getProducts } from '../../api/product'
 import ProductVisibilityCard from './components/ProductVisibilityCard.vue'
 
@@ -13,6 +13,7 @@ const id = Number(route.params.id)
 const loading = ref(true)
 const customer = ref<any>({})
 const levels = ref<any[]>([])
+const salesOwners = ref<any[]>([]), canAssignSales = ref(false)
 const priceRules = ref<any[]>([])
 const products = ref<any[]>([])
 const editVisible = ref(false)
@@ -22,10 +23,12 @@ type PriceRuleForm = {
   id: number | null
   skuId: number | null
   price: number | null
+  startAt: string
+  endAt: string
 }
 
 const ruleVisible = ref(false)
-const ruleForm = ref<PriceRuleForm>({ id: null, skuId: null, price: null })
+const ruleForm = ref<PriceRuleForm>({ id: null, skuId: null, price: null, startAt: '', endAt: '' })
 const ruleSaving = ref(false)
 const deletingRuleId = ref<number | null>(null)
 const skuOptions = computed(() => products.value.flatMap((product: any) =>
@@ -40,6 +43,8 @@ const skuOptions = computed(() => products.value.flatMap((product: any) =>
   })
 ))
 const ruleDialogTitle = computed(() => ruleForm.value.id ? '编辑协议价' : '添加协议价')
+const chinaDateTime = (value: string) => value ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(value)).replace(' ', 'T') : ''
+const ruleTime = (value: string) => value ? chinaDateTime(value).replace('T', ' ') : '不限'
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 const repayments = ref<any[]>([])
@@ -77,14 +82,17 @@ async function submitRepay() {
 async function load() {
   loading.value = true
   try {
-    const [cRes, lRes, pRes]: any = await Promise.all([
+    const [cRes, lRes, pRes, ownersRes]: any = await Promise.all([
       getCustomerDetail(id),
       getCustomerLevels(),
-      getPriceRules(id)
+      getPriceRules(id),
+      getSalesOwners()
     ])
     customer.value = dataOf(cRes)
     levels.value = dataOf(lRes) || []
     priceRules.value = dataOf(pRes) || []
+    salesOwners.value = dataOf(ownersRes)?.items || []
+    canAssignSales.value = dataOf(ownersRes)?.canAssign === true
     await loadRepayments()
   } catch (e: any) {
     const status = e?.response?.status
@@ -95,12 +103,14 @@ async function load() {
 }
 
 function openEdit() {
+  if (loading.value || !customer.value.id) return
   editForm.value = {
     customerName: customer.value.customerName,
     contactName: customer.value.contactName || '',
     contactPhone: customer.value.contactPhone || '',
     address: customer.value.address || '',
     customerLevelId: customer.value.customerLevelId || null,
+    ...(canAssignSales.value ? { salesOwnerId: customer.value.salesOwnerId || null } : {}),
     creditLimit: customer.value.creditLimit != null ? String(customer.value.creditLimit) : '',
     creditDays: customer.value.creditDays != null ? Number(customer.value.creditDays) : null,
     status: customer.value.status || 'active'
@@ -109,6 +119,7 @@ function openEdit() {
 }
 
 async function saveEdit() {
+  if (loading.value || !customer.value.id || saving.value) return
   saving.value = true
   try {
     await updateCustomer(id, editForm.value)
@@ -120,6 +131,7 @@ async function saveEdit() {
 }
 
 async function toggleStatus() {
+  if (loading.value || !customer.value.id) return
   try {
     const newStatus = customer.value.status === 'active' ? 'disabled' : 'active'
     const message = newStatus === 'disabled'
@@ -147,8 +159,8 @@ async function loadProducts() {
 async function openRule(rule?: any) {
   await loadProducts()
   ruleForm.value = rule
-    ? { id: Number(rule.id), skuId: Number(rule.skuId), price: Number(rule.price) }
-    : { id: null, skuId: null, price: null }
+    ? { id: Number(rule.id), skuId: Number(rule.skuId), price: Number(rule.price), startAt: chinaDateTime(rule.startAt), endAt: chinaDateTime(rule.endAt) }
+    : { id: null, skuId: null, price: null, startAt: '', endAt: '' }
   ruleVisible.value = true
 }
 
@@ -156,6 +168,9 @@ async function saveRule() {
   if (!ruleForm.value.skuId) { ElMessage.warning('请选择商品规格'); return }
   const price = Number(ruleForm.value.price)
   if (!Number.isFinite(price) || price <= 0) { ElMessage.warning('请输入大于 0 的协议价'); return }
+  const startAt = ruleForm.value.startAt ? `${ruleForm.value.startAt}+08:00` : null
+  const endAt = ruleForm.value.endAt ? `${ruleForm.value.endAt}+08:00` : null
+  if (startAt && endAt && new Date(endAt) <= new Date(startAt)) { ElMessage.warning('结束时间必须晚于开始时间'); return }
 
   const existingRule = priceRules.value.find((rule: any) => (
     Number(rule.skuId) === Number(ruleForm.value.skuId) && Number(rule.id) !== Number(ruleForm.value.id)
@@ -178,7 +193,7 @@ async function saveRule() {
     await createPriceRule({
       customerId: id,
       skuId: ruleForm.value.skuId,
-      price: price.toFixed(2)
+      price: price.toFixed(2), startAt, endAt
     })
     ElMessage.success(ruleForm.value.id || existingRule ? '协议价已更新' : '协议价已添加')
     ruleVisible.value = false
@@ -218,10 +233,10 @@ onMounted(load)
         <div><h1>{{ customer.customerName || '加载中…' }}</h1><p>客户详情</p></div>
       </div>
       <div style="display:flex;gap:8px">
-        <el-button :type="customer.status === 'active' ? 'danger' : 'success'" plain @click="toggleStatus">
+        <el-button :disabled="loading || !customer.id" :type="customer.status === 'active' ? 'danger' : 'success'" plain @click="toggleStatus">
           {{ customer.status === 'active' ? '禁用客户' : '启用客户' }}
         </el-button>
-        <el-button type="primary" :icon="Edit" @click="openEdit">编辑信息</el-button>
+        <el-button type="primary" :icon="Edit" :disabled="loading || !customer.id" @click="openEdit">编辑信息</el-button>
       </div>
     </div>
 
@@ -250,7 +265,7 @@ onMounted(load)
             <el-descriptions-item label="当前等级">
               <el-tag type="warning">{{ levelName(customer.customerLevelId) }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="折扣率">{{ customer.level?.discountRate ? (Number(customer.level.discountRate) * 100).toFixed(0) + '%' : '无折扣' }}</el-descriptions-item>
+            <el-descriptions-item label="等级记录折扣率（不参与计价）">{{ customer.level?.discountRate ? (Number(customer.level.discountRate) * 100).toFixed(0) + '%' : '未记录' }}</el-descriptions-item>
             <el-descriptions-item label="信用额度">¥ {{ (customer.creditLimit || 0).toLocaleString() }}</el-descriptions-item>
             <el-descriptions-item label="账期天数">{{ customer.creditDays || 0 }} 天</el-descriptions-item>
             <el-descriptions-item label="已用额度">¥ {{ (customer.creditUsed || 0).toLocaleString() }}</el-descriptions-item>
@@ -291,6 +306,7 @@ onMounted(load)
               <el-button link type="danger" :loading="deletingRuleId === row.id" @click="removeRule(row)">删除</el-button>
             </template>
           </el-table-column>
+          <el-table-column label="有效期（北京时间）" min-width="270"><template #default="{row}">{{ ruleTime(row.startAt) }} 至 {{ ruleTime(row.endAt) }}</template></el-table-column>
         </el-table>
         <div v-else class="inline-empty">暂无协议价格</div>
       </el-card>
@@ -321,6 +337,7 @@ onMounted(load)
         <el-form-item label="联系人"><el-input v-model="editForm.contactName" maxlength="100" /></el-form-item>
         <el-form-item label="联系电话"><el-input v-model="editForm.contactPhone" maxlength="20" /></el-form-item>
         <el-form-item label="地址"><el-input v-model="editForm.address" maxlength="255" /></el-form-item>
+        <el-form-item v-if="canAssignSales" label="负责业务员"><el-select v-model="editForm.salesOwnerId" clearable placeholder="未分配"><el-option v-for="owner in salesOwners" :key="owner.id" :label="owner.name" :value="owner.id" /></el-select></el-form-item>
         <el-form-item label="客户等级">
           <el-select v-model="editForm.customerLevelId" clearable style="width:100%">
             <el-option v-for="lv in levels" :key="lv.id" :label="lv.name" :value="lv.id" />
@@ -370,6 +387,9 @@ onMounted(load)
             style="width:100%"
           />
         </el-form-item>
+        <el-form-item label="开始时间"><el-date-picker v-model="ruleForm.startAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" placeholder="留空立即生效" style="width:100%" /></el-form-item>
+        <el-form-item label="结束时间"><el-date-picker v-model="ruleForm.endAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" placeholder="留空长期有效" style="width:100%" /></el-form-item>
+        <p class="inline-hint">时间均按北京时间，含结束时刻；到期后自动恢复基础价。</p>
       </el-form>
       <template #footer>
         <el-button @click="ruleVisible = false">取消</el-button>

@@ -1,0 +1,41 @@
+.shipment-reminder {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--border-default);
+}
+.shipment-reminder__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+.shipment-reminder__title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.shipment-reminder__button {
+  margin: 0;
+  padding: 14rpx 20rpx;
+  flex-shrink: 0;
+  border-radius: 8rpx;
+  background: #f4f6f4;
+  color: #43715b;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+.shipment-reminder__button::after { border: 0; }
+.shipment-reminder__note,
+.shipment-reminder__result {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.shipment-reminder__result { color: #43715b; }
+.shipment-reminder__choices { display: flex; flex-wrap: wrap; gap: 24rpx; margin-top: 20rpx; }
+.shipment-reminder__choice { display: flex; align-items: center; gap: 10rpx; font-size: 25rpx; padding: 10rpx 0; }
+.shipment-reminder__check { width: 30rpx; height: 30rpx; border: 1rpx solid #a7afa9; border-radius: 5rpx; text-align: center; line-height: 30rpx; }
+.shipment-reminder__check.is-selected { background: #43715b; color: #fff; border-color: #43715b; }
+.shipment-reminder__summary { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; }
+.shipment-reminder__tag { padding: 6rpx 14rpx; background: #f4f6f4; color: #43715b; font-size: 24rpx; border-radius: 6rpx; }

@@ -20,6 +20,17 @@ const RATE_TTL_DEV = 5
 const IP_RATE_TTL = 60
 const IP_RATE_TTL_DEV = 10
 const MAX_ATTEMPTS = 5
+const verifyScript = `-- sms-verify-once
+local attempts = tonumber(redis.call('GET', KEYS[2]) or '0')
+if attempts >= tonumber(ARGV[2]) then return -1 end
+local stored = redis.call('GET', KEYS[1])
+if not stored or stored ~= ARGV[1] then
+  local count = redis.call('INCR', KEYS[2])
+  redis.call('EXPIRE', KEYS[2], ARGV[3])
+  return 0
+end
+redis.call('DEL', KEYS[1], KEYS[2])
+return 1`
 
 @Injectable()
 export class SmsService {
@@ -30,7 +41,7 @@ export class SmsService {
 
   constructor(
     private readonly config: ConfigService,
-    @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null>; del: (key: string) => Promise<number> }
+    @Inject(REDIS) private readonly redis: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, mode?: string, ttl?: number) => Promise<'OK' | null>; del: (key: string) => Promise<number>; eval?: (...args: any[]) => Promise<unknown> }
   ) {}
 
   private isExperience() {
@@ -108,14 +119,6 @@ export class SmsService {
     }
   }
 
-  private async redisDel(key: string): Promise<void> {
-    if (this.redisDown) { this.memoryStore.delete(key); return }
-    try { await this.redis.del(key) } catch {
-      if (this.requiresSharedStore()) throw this.unavailable()
-      this.memoryStore.delete(key)
-    }
-  }
-
   async sendCode(phone: string, ip: string, purpose: SmsPurpose = 'login'): Promise<void> {
     const provider = this.config.get<string>('SMS_PROVIDER', 'development')
     if (provider === 'disabled') {
@@ -175,27 +178,45 @@ export class SmsService {
     ])
   }
 
+  private verificationResult(result: number) {
+    if (result === -1) throw new HttpException({ message: '验证码错误次数过多，请稍后再试', errorCode: 'SMS_4292' }, HttpStatus.TOO_MANY_REQUESTS)
+    if (result !== 0 && result !== 1) throw this.unavailable()
+    return result === 1
+  }
+
+  /** Development-only fallback executes synchronously, with the same one-use and attempt-cap semantics. */
+  private verifyMemory(codeKey: string, attemptsKey: string, supplied: string) {
+    const now = Date.now()
+    const attemptEntry = this.memoryStore.get(attemptsKey)
+    const attempts = attemptEntry && attemptEntry.expiresAt > now ? Number(attemptEntry.value) : 0
+    if (attempts >= MAX_ATTEMPTS) return this.verificationResult(-1)
+    const stored = this.memoryStore.get(codeKey)
+    if (stored && stored.expiresAt > now && stored.value === supplied) {
+      this.memoryStore.delete(codeKey); this.memoryStore.delete(attemptsKey)
+      return true
+    }
+    this.memoryStore.set(attemptsKey, { value: String(attempts + 1), expiresAt: now + CODE_TTL * 1000 })
+    return false
+  }
+
   async verifyCode(phone: string, code: string): Promise<boolean> {
     if (this.config.get<string>('SMS_PROVIDER') === 'disabled') return false
     if (this.isExperience()) this.assertExperienceAccess(phone)
-    const attemptsKey = `${ATTEMPTS_PREFIX}${phone}`
-    const attempts = parseInt((await this.redisGet(attemptsKey)) || '0', 10)
-    if (attempts >= MAX_ATTEMPTS) {
-      throw new HttpException(
-        { message: '验证码错误次数过多，请稍后再试', errorCode: 'SMS_4292' },
-        HttpStatus.TOO_MANY_REQUESTS
-      )
+    const codeKey = this.codeKey(phone), attemptsKey = `${ATTEMPTS_PREFIX}${phone}`
+    if (this.redisDown) {
+      if (this.requiresSharedStore()) throw this.unavailable()
+      return this.verifyMemory(codeKey, attemptsKey, code)
     }
-
-    const codeKey = this.codeKey(phone)
-    const stored = await this.redisGet(codeKey)
-    if (!stored || stored !== code) {
-      await this.redisSet(attemptsKey, String(attempts + 1), CODE_TTL)
-      return false
+    let result: number
+    try {
+      if (typeof this.redis.eval !== 'function') throw this.unavailable()
+      result = Number(await this.redis.eval(verifyScript, 2, codeKey, attemptsKey, code, MAX_ATTEMPTS, CODE_TTL))
+    } catch {
+      if (this.requiresSharedStore()) throw this.unavailable()
+      this.redisDown = true
+      this.logger.warn('Redis unavailable, falling back to in-memory store')
+      return this.verifyMemory(codeKey, attemptsKey, code)
     }
-
-    await this.redisDel(codeKey)
-    await this.redisDel(attemptsKey)
-    return true
+    return this.verificationResult(result)
   }
 }

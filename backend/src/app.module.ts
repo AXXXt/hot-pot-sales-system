@@ -22,6 +22,8 @@ import { MetricsModule } from './monitor/monitor.module'
 import { InventoryModule } from './inventory/inventory.module'
 import { LeadModule } from './lead/lead.module'
 import { AiModule } from './ai/ai.module'
+import { LegalModule } from './legal/legal.module'
+import { ServiceRequestModule } from './service-request/service-request.module'
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { AiModule } from './ai/ai.module'
     InventoryModule,
     LeadModule,
     AiModule,
+    LegalModule,
+    ServiceRequestModule,
   ],
   controllers: [AppController, HealthController],
   providers: [redisProvider, minioProvider]

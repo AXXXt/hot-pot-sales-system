@@ -14,17 +14,17 @@ describe('CustomerService product visibility', () => {
       customerVisibleProduct: {
         findMany: jest.fn().mockResolvedValue([{
           productId: 7,
-          product: { id: 7, name: '鸭血', status: 'active', category: { id: 2, name: '鸭副' } }
+          product: { id: 7, name: '管理标签', subtitle: '鸭血', status: 'active', category: { id: 2, name: '鸭副' } }
         }])
       },
       product: { count: jest.fn().mockResolvedValue(1) }
     }
     const service = new CustomerService(prisma as any, { write: jest.fn() } as any)
 
-    await expect(service.getProductVisibility(3)).resolves.toEqual({
+    await expect(service.getProductVisibility(3)).resolves.toMatchObject({
       mode: 'custom',
       productIds: [7],
-      products: [{ id: 7, name: '鸭血', status: 'active', category: { id: 2, name: '鸭副' } }],
+      products: [{ id: 7, name: '鸭血', managementLabel: '管理标签', status: 'active', category: { id: 2, name: '鸭副' } }],
       visibleProductCount: 1
     })
   })

@@ -1,5 +1,6 @@
 import { OrderService } from '../src/order/order.service'
 import { AuthService } from '../src/auth/auth.service'
+import { currentLegalPolicy } from '../src/legal/legal-policy'
 
 describe('customer purchase overview', () => {
   function subject() {
@@ -53,6 +54,6 @@ describe('profile identity and credit', () => {
     expect(result.customer?.customerLevelName).toBe(status === 'active' ? '普通客户' : null)
     expect(result.customer?.creditRemaining).toBe('80.00')
     expect(result.customer).not.toHaveProperty('level')
-    expect(result.support).toEqual({ phone: '', hours: '' })
+    expect(result.support).toEqual({ phone: currentLegalPolicy.phone, hours: '' })
   })
 })

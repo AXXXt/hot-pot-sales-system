@@ -1,11 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { AuditAction, Prisma } from '@prisma/client'
 import { changeStock, receiptInput } from './stock-ledger'
+import { stockAvailability } from './stock-availability'
 import { convertQuantity } from './packaging'
 import { customAlphabet } from 'nanoid'
 import { PrismaService } from '../prisma.service'
 import { AuditService } from '../audit/audit.service'
-import { productDisplayName } from '../product/product-presentation'
+import { StaffActor } from '../auth/staff-access.service'
+import { presentProduct, productDisplayName } from '../product/product-presentation'
 import {
   CompleteStocktakeDto,
   CreateAdjustmentDto,
@@ -64,7 +66,7 @@ export class InventoryService {
     if (!userId) return
     const actor = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { userType: true, tenantId: true, brandAccess: { select: { brandId: true } } }
+      select: { userType: true, tenantId: true, brandAccess: { where: { brand: { status: 'active' } }, select: { brandId: true } } }
     })
     if (!actor || actor.userType === 'customer_user') {
       throw new ForbiddenException({
@@ -81,14 +83,20 @@ export class InventoryService {
     if (document.tenantId !== actor.tenantId) throw new ForbiddenException('库存单据不在当前租户范围')
     if (actor.userType !== 'super_admin') {
       const ids = [...new Set(document.items.map((x: any) => x.skuId))] as number[]
-      const count = await this.prisma.productSku.count({ where: { id: { in: ids }, tenantId: actor.tenantId, product: { brandId: { in: actor.brandAccess.map((x: any) => x.brandId) } } } })
+      const brandIds = actor.brandIds ?? actor.brandAccess.map((x: any) => x.brandId)
+      const count = await this.prisma.productSku.count({ where: { id: { in: ids }, tenantId: actor.tenantId, product: { brandId: { in: brandIds } } } })
       if (count !== ids.length) throw new ForbiddenException('库存单据包含未授权品牌')
     }
   }
 
-  async stock(query: StockQuery) {
+  private skuScope(actor?: StaffActor) {
+    return { tenantId: actor?.tenantId || 1, ...(actor && !actor.superAdmin
+      ? { product: { tenantId: actor.tenantId, brandId: { in: actor.brandIds } } } : {}) }
+  }
+
+  async stock(query: StockQuery, actor?: StaffActor) {
     const { keyword, brandId, categoryId, lowStock, lowStockThreshold, page, pageSize } = query
-    const where: any = { tenantId: 1 }
+    const where: any = this.skuScope(actor)
     if (keyword) {
       where.OR = [
         { skuCode: { contains: keyword } },
@@ -97,7 +105,7 @@ export class InventoryService {
         { product: { code: { contains: keyword } } }
       ]
     }
-    if (brandId) where.product = { ...(where.product || {}), brandId }
+    if (brandId) where.AND = [{ product: { brandId } }]
     if (categoryId) where.product = { ...(where.product || {}), categoryId }
     if (lowStock) where.stockNum = { lte: lowStockThreshold ?? 10 }
 
@@ -111,6 +119,7 @@ export class InventoryService {
       }),
       this.prisma.productSku.count({ where })
     ])
+    const available = await stockAvailability(this.prisma, skus)
 
     return {
       items: skus.map((sku: any) => ({
@@ -119,7 +128,7 @@ export class InventoryService {
         skuCode: sku.skuCode,
         specText: sku.specText,
         saleUnit: sku.saleUnit,
-        stockNum: sku.stockNum, reservedNum: sku.reservedNum || 0, availableNum: Math.max(0, sku.stockNum - (sku.reservedNum || 0)), packagingUnits: sku.packagingUnits || [], batchTracking: sku.batchTracking,
+        stockNum: sku.stockNum, reservedNum: sku.reservedNum || 0, availableNum: available.get(sku.id) || 0, packagingUnits: sku.packagingUnits || [], batchTracking: sku.batchTracking,
         minOrderQty: sku.minOrderQty,
         status: sku.status,
         productId: sku.productId,
@@ -136,9 +145,9 @@ export class InventoryService {
     }
   }
 
-  async movements(query: MovementQuery) {
+  async movements(query: MovementQuery, actor?: StaffActor) {
     const { skuId, type, sourceType, dateFrom, dateTo, page, pageSize } = query
-    const where: any = { tenantId: 1 }
+    const where: any = { tenantId: actor?.tenantId || 1, ...(actor ? { sku: this.skuScope(actor) } : {}) }
     if (skuId) where.skuId = skuId
     if (type) where.type = type
     if (sourceType) where.sourceType = sourceType
@@ -189,8 +198,9 @@ export class InventoryService {
     }
   }
 
-  async adjustments(page = 1, pageSize = 10) {
-    const where = { tenantId: 1 }
+  async adjustments(page = 1, pageSize = 10, actor?: StaffActor) {
+    const where = { tenantId: actor?.tenantId || 1, ...(actor && !actor.superAdmin
+      ? { movements: { some: {}, every: { sku: this.skuScope(actor) } } } : {}) }
     const [items, total] = await Promise.all([
       this.prisma.stockAdjustment.findMany({
         where,
@@ -219,7 +229,7 @@ export class InventoryService {
     }
   }
 
-  async adjustmentDetail(id: number) {
+  async adjustmentDetail(id: number, actor?: StaffActor) {
     const item = await this.prisma.stockAdjustment.findUnique({
       where: { id },
       include: {
@@ -232,7 +242,7 @@ export class InventoryService {
                 skuCode: true,
                 specText: true,
                 saleUnit: true,
-                product: { select: { id: true, name: true, code: true } }
+                product: { select: { id: true, name: true, subtitle: true, code: true } }
               }
             }
           },
@@ -241,7 +251,11 @@ export class InventoryService {
       }
     })
     if (!item) throw new NotFoundException({ message: '出入库单不存在', errorCode: 'INV_1002' })
-    return item
+    await this.assertDocumentScope(actor, { ...item, items: item.movements })
+    return { ...item, movements: item.movements.map(movement => ({
+      ...movement,
+      sku: movement.sku ? { ...movement.sku, product: presentProduct(movement.sku.product) } : movement.sku
+    })) }
   }
 
   async createAdjustment(dto: CreateAdjustmentDto, userId?: number) {
@@ -261,7 +275,7 @@ export class InventoryService {
       for (const item of dto.items) {
         const sku = await tx.productSku.findUnique({
           where: { id: item.skuId },
-          include: { product: { select: { name: true, status: true, brandId: true } } }
+          include: { product: { select: { name: true, subtitle: true, status: true, brandId: true } } }
         })
         if (!sku || sku.status !== 'active' || sku.product?.status !== 'active') {
           throw new BadRequestException({ message: 'SKU不存在或已停用', errorCode: 'INV_1003' })
@@ -272,7 +286,7 @@ export class InventoryService {
         const changeQty = dto.type === 'manual_in' ? quantity : -quantity
         if (dto.type === 'manual_out' && before < quantity) {
           throw new BadRequestException({
-            message: `库存不足：${sku.product?.name || ''} ${sku.specText} 当前库存 ${before}`,
+            message: `库存不足：${sku.product ? productDisplayName(sku.product) : ''} ${sku.specText} 当前库存 ${before}`,
             errorCode: 'INV_1001'
           })
         }
@@ -316,8 +330,9 @@ export class InventoryService {
     return created
   }
 
-  async stocktakes(page = 1, pageSize = 10) {
-    const where = { tenantId: 1 }
+  async stocktakes(page = 1, pageSize = 10, actor?: StaffActor) {
+    const where = { tenantId: actor?.tenantId || 1, ...(actor && !actor.superAdmin
+      ? { items: { some: {}, every: { sku: this.skuScope(actor) } } } : {}) }
     const [items, total] = await Promise.all([
       this.prisma.stocktake.findMany({
         where,
@@ -345,7 +360,7 @@ export class InventoryService {
     }
   }
 
-  async stocktakeDetail(id: number) {
+  async stocktakeDetail(id: number, actor?: StaffActor) {
     const item = await this.prisma.stocktake.findUnique({
       where: { id },
       include: {
@@ -361,7 +376,7 @@ export class InventoryService {
                 saleUnit: true,
                 stockNum: true,
                 batchTracking: true,
-                product: { select: { id: true, name: true, code: true } }
+                product: { select: { id: true, name: true, subtitle: true, code: true } }
               }
             }
           },
@@ -370,7 +385,11 @@ export class InventoryService {
       }
     })
     if (!item) throw new NotFoundException({ message: '盘点单不存在', errorCode: 'INV_1005' })
-    return item
+    await this.assertDocumentScope(actor, item)
+    return { ...item, items: item.items.map(row => ({
+      ...row,
+      sku: row.sku ? { ...row.sku, product: presentProduct(row.sku.product) } : row.sku
+    })) }
   }
 
   async createStocktake(dto: CreateStocktakeDto, userId?: number) {
@@ -540,9 +559,10 @@ export class InventoryService {
   }
 
   async cancelStocktake(id: number, userId?: number) {
-    await this.assertStaffActor(userId)
-    const stocktake = await this.prisma.stocktake.findUnique({ where: { id } })
+    const actor = await this.assertStaffActor(userId)
+    const stocktake = await this.prisma.stocktake.findUnique({ where: { id }, include: { items: true } })
     if (!stocktake) throw new NotFoundException({ message: '盘点单不存在', errorCode: 'INV_1005' })
+    await this.assertDocumentScope(actor, stocktake)
     if (stocktake.status !== 'draft') throw new BadRequestException({ message: '仅草稿盘点单可取消', errorCode: 'INV_1011' })
 
     const updated = await this.prisma.stocktake.updateMany({
@@ -551,6 +571,7 @@ export class InventoryService {
     })
     if (updated.count !== 1) throw new BadRequestException('盘点单已变化，请刷新后重试')
     await this.audit.write({
+      tenantId: stocktake.tenantId || 1,
       action: AuditAction.inventory_adjust,
       module: 'inventory',
       targetType: 'stocktake',

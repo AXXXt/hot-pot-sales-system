@@ -129,6 +129,8 @@ model Tenant {
   stocktakes       Stocktake[]
   stocktakeItems   StocktakeItem[]
   leads            Lead[]
+  customerNotifications CustomerNotification[]
+  serviceRequests ServiceRequest[]
 
   @@map("tenants")
 }
@@ -171,19 +173,35 @@ model User {
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
   customer         Customer?         @relation(fields: [customerId], references: [id])
   salesCustomers   Customer[]        @relation("SalesOwner")
+  serviceRequests ServiceRequest[] @relation("ServiceRequester")
+  processedServiceRequests ServiceRequest[] @relation("ServiceProcessor")
   userRoles        UserRole[]
   brandAccess      UserBrandAccess[]
   orders           Order[]
   auditLogs        AuditLog[]
+  customerNotifications CustomerNotification[]
   stockMovements   StockMovement[]   @relation("StockMovementOperator")
   stockAdjustments StockAdjustment[] @relation("StockAdjustmentOperator")
   stocktakes       Stocktake[]       @relation("StocktakeOperator")
   stocktakeReviews Stocktake[]       @relation("StocktakeReviewer")
   assignedLeads    Lead[]            @relation("LeadAssignee")
   leadFollowUps    LeadFollowUp[]
+  staffCredential  StaffCredential?
 
   @@index([tenantId, status])
   @@map("users")
+}
+
+// Separate from user records so general user queries never serialize password hashes.
+model StaffCredential {
+  userId       Int      @id @map("user_id")
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  version      Int      @default(1)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_credentials")
 }
 
 model UserBrandAccess {
@@ -293,6 +311,7 @@ model Customer {
   orders                Order[]
   priceHistories        CustomerPriceHistory[]
   repayments            CustomerRepayment[]
+  serviceRequests       ServiceRequest[]
 
   @@index([tenantId, status])
   @@map("customers")
@@ -499,6 +518,8 @@ model Order {
   statusLogs       OrderStatusLog[]
   priceAdjustments OrderPriceAdjustment[]
   refunds          OrderRefund[]
+  serviceRequests ServiceRequest[]
+  customerNotifications CustomerNotification[]
 
   @@index([tenantId, customerId, status, createdAt])
   @@map("orders")
@@ -580,6 +601,26 @@ model AuditLog {
 
   @@index([tenantId, operatorId, module, createdAt])
   @@map("audit_logs")
+}
+
+model CustomerNotification {
+  id        Int       @id @default(autoincrement())
+  tenantId  Int       @map("tenant_id")
+  userId    Int       @map("user_id")
+  orderId   Int       @map("order_id")
+  eventKey  String    @unique @map("event_key") @db.VarChar(100)
+  event     String    @db.VarChar(40)
+  title     String    @db.VarChar(100)
+  content   String    @db.VarChar(500)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, userId, readAt])
+  @@map("customer_notifications")
 }
 
 model File {
@@ -762,6 +803,9 @@ model Lead {
   source           LeadSource  @default(official_site)
   status           LeadStatus  @default(new)
   assignedToId     Int?        @map("assigned_to_id")
+  customerId       Int?        @map("customer_id")
+  submissionKey    String?     @unique @map("submission_key") @db.Char(64)
+  submissionDigest String?     @map("submission_digest") @db.Char(64)
   nextFollowUpAt   DateTime?   @map("next_follow_up_at")
   lastContactAt    DateTime?   @map("last_contact_at")
   ipAddress        String?     @map("ip_address") @db.VarChar(64)
@@ -771,9 +815,11 @@ model Lead {
   tenant           Tenant      @relation(fields: [tenantId], references: [id])
   assignedTo       User?       @relation("LeadAssignee", fields: [assignedToId], references: [id])
   followUps        LeadFollowUp[]
+  submissions      LeadSubmission[]
 
   @@index([tenantId, status, createdAt])
   @@index([tenantId, phone])
+  @@index([tenantId, customerId])
   @@map("leads")
 }
 
@@ -968,4 +1014,62 @@ model AiSchedule {
   @@index([enabled, nextRunAt])
   @@index([tenantId, ownerId])
   @@map("ai_schedules")
+}
+
+model LegalConsent {
+  id           Int      @id @default(autoincrement())
+  tenantId     Int?     @map("tenant_id")
+  userId       Int?     @map("user_id")
+  leadId       Int?     @unique @map("lead_id")
+  version      String   @db.VarChar(64)
+  documentHash String   @map("document_hash") @db.Char(64)
+  channel      String   @db.VarChar(32)
+  acceptedAt   DateTime @default(now()) @map("accepted_at")
+
+  @@unique([userId, version, channel])
+  @@index([tenantId, userId])
+  @@map("legal_consents")
+}
+
+model ServiceRequest {
+  id           Int       @id @default(autoincrement())
+  tenantId     Int       @map("tenant_id")
+  customerId   Int       @map("customer_id")
+  requesterId  Int       @map("requester_id")
+  orderId      Int?      @map("order_id")
+  processorId  Int?      @map("processor_id")
+  requestNo    String    @unique @map("request_no") @db.VarChar(40)
+  clientKey    String    @map("client_key") @db.VarChar(64)
+  type         String    @db.VarChar(32)
+  subject      String    @db.VarChar(120)
+  description  String    @db.Text
+  status       String    @default("pending") @db.VarChar(32)
+  version      Int       @default(0)
+  resolution   String?   @db.Text
+  events       Json      @default("[]")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  closedAt     DateTime? @map("closed_at")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  requester    User      @relation("ServiceRequester", fields: [requesterId], references: [id])
+  processor    User?     @relation("ServiceProcessor", fields: [processorId], references: [id])
+  order        Order?    @relation(fields: [orderId], references: [id])
+
+  @@unique([tenantId, requesterId, clientKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, customerId, requesterId])
+  @@map("service_requests")
+}
+
+model LeadSubmission {
+  key       String   @id @db.Char(64)
+  digest    String   @db.Char(64)
+  leadId    Int      @map("lead_id")
+  tenantId  Int      @map("tenant_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, leadId])
+  @@map("lead_submissions")
 }

@@ -130,27 +130,34 @@ async function confirmFinance() {
   }
   working.value = true
   try {
+    const revision = order.value.updatedAt ? { expectedUpdatedAt: order.value.updatedAt, expectedPayableAmount: Number(order.value.payableAmount).toFixed(2) } : {}
     if (paymentMethod.value === 'credit') {
-      await submitFinance(orderId.value, { creditRequested: true })
+      await submitFinance(orderId.value, { creditRequested: true, ...revision })
     } else {
       if (!uploadedProof.value) {
         const response = await uploadPaymentProof(proofFile.value!)
         uploadedProof.value = response.data.url
       }
-      await submitFinance(orderId.value, { paymentProof: uploadedProof.value })
+      await submitFinance(orderId.value, { paymentProof: uploadedProof.value, ...revision })
     }
     financeVisible.value = false
     ElMessage.success('报价已确认，等待财务审核')
     await load()
-  } catch { /* Retain the uploaded proof so a retry does not upload twice. */ } finally { working.value = false }
+  } catch (e: any) {
+    // Keep an uploaded proof on ordinary failure; a changed quote requires a fresh, explicit confirmation.
+    if (e?.response?.data?.errorCode === 'ORD_QUOTE_CHANGED') { financeVisible.value = false; await load() }
+  } finally { working.value = false }
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <div class="page" v-loading="loading">
+  <div v-loading="loading" class="page">
     <el-alert v-if="error" :title="error" type="error" :closable="false"><el-button @click="load">重试</el-button></el-alert>
+    <el-alert v-if="order?.financeRejection" title="付款审核已退回" type="warning" :closable="false" show-icon class="block">
+      <p>{{ order.financeRejection.reason }}</p><p>请核对后使用原凭证、重新上传凭证或重新选择账期提交。</p>
+    </el-alert>
     <div class="title-row">
       <div><h1 class="page-title">{{ order?.orderNo || '订单详情' }}</h1><p class="muted">{{ formatDateTime(order?.createdAt || '') }}</p></div>
       <div class="top-actions">
@@ -188,17 +195,22 @@ onMounted(load)
             <el-timeline-item v-for="(item, index) in track" :key="index" :timestamp="item.time" placement="top">{{ item.text }}</el-timeline-item>
           </el-timeline>
         </el-card>
+        <el-card v-if="order.priceAdjustments?.length" shadow="never" class="block">
+          <template #header><strong>应付金额调整记录</strong></template>
+          <div v-for="record in order.priceAdjustments" :key="record.id" class="item-row"><div><strong>¥{{ formatAmount(record.beforeAmount) }} → ¥{{ formatAmount(record.afterAmount) }}</strong><p>{{ record.reason }}</p><small class="muted">{{ formatDateTime(record.createdAt) }}</small></div></div>
+        </el-card>
       </div>
       <el-card shadow="never" class="summary">
         <h3>费用摘要</h3>
         <div class="row"><span>商品总额</span><span>¥{{ formatAmount(order.totalAmount) }}</span></div>
         <div class="row"><span>优惠调整</span><span>¥{{ formatAmount(order.discountAmount) }}</span></div>
+        <div v-if="Number(order.adjustAmount || 0) !== 0" class="row"><span>应付金额调整</span><span>¥{{ formatAmount(order.adjustAmount || 0) }}</span></div>
         <div class="row total"><span>应付金额</span><strong class="price">¥{{ formatAmount(order.payableAmount || order.totalAmount) }}</strong></div>
         <h3>订单备注</h3><p class="muted">{{ order.remark || '无' }}</p>
         <template v-if="order.quoteNote"><h3>报价说明</h3><p class="muted">{{ order.quoteNote }}</p></template>
         <div class="bottom-actions">
           <el-button v-if="order.status === 'draft'" type="primary" :icon="Check" :loading="working" @click="submitDraft">继续提交订单</el-button>
-          <el-button v-if="order.status === 'pending_confirm'" type="primary" :icon="Check" :disabled="working" @click="openFinance">确认报价并支付</el-button>
+          <el-button v-if="order.status === 'pending_confirm'" type="primary" :icon="Check" :disabled="working" @click="openFinance">{{ order.financeRejection ? '重新提交付款信息' : '确认报价并支付' }}</el-button>
           <el-button v-if="['draft','pending_quote','pending_confirm','pending_finance'].includes(order.status)" type="danger" plain :loading="working" @click="cancel">取消订单</el-button>
           <el-button @click="router.push('/orders')">返回列表</el-button>
         </div>

@@ -8,6 +8,19 @@ export function createUser(data: Record<string, unknown>) {
   return http.post('/users', data)
 }
 
+export function getUser(id: number) {
+  return http.get(`/users/${id}`)
+}
+
+// These existing endpoints retain both role:manage and ai:configure checks.
+export function getUserBrandOptions() {
+  return http.get('/admin/ai/authorization')
+}
+
+export function updateUserBrands(id: number, brandIds: number[]) {
+  return http.patch(`/admin/ai/authorization/users/${id}/brands`, { brandIds })
+}
+
 export function updateUser(id: number, data: Record<string, unknown>) {
   return http.patch(`/users/${id}`, data)
 }

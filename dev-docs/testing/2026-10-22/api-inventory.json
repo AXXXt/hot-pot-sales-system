@@ -1,0 +1,1045 @@
+[
+  {
+    "method": "GET",
+    "route": "/admin/ai/authorization",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/ai/authorization/roles/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/ai/authorization/users/:id/brands",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/report",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/capabilities",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/conversations",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/conversations",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/conversations/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/admin/ai/conversations/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/conversations/:id/runs",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/attachments",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/attachments/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/catalog-options",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/ai/drafts/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/drafts/:id/confirm",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/tasks",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/ai/tasks/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/schedules",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/schedules",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/admin/ai/schedules/:id",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/settings",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/ai/settings",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/ai/settings/test",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/ai/usage",
+    "summary": "",
+    "source": "backend/src/ai/ai.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/",
+    "summary": "",
+    "source": "backend/src/app.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/audit-logs",
+    "summary": "审计日志列表",
+    "source": "backend/src/audit/audit.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/audit-logs/:id",
+    "summary": "审计日志详情",
+    "source": "backend/src/audit/audit.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/send-code",
+    "summary": "发送登录验证码",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/check-status",
+    "summary": "查询注册审核状态（公开接口，无鉴权）",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/register-or-login",
+    "summary": "小程序注册或登录（新用户自动注册）",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/login",
+    "summary": "验证码登录（管理后台用）",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/refresh-token",
+    "summary": "刷新令牌",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/logout",
+    "summary": "退出登录",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/bind-openid",
+    "summary": "绑定微信 openid（小程序 code2session）",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/auth/subscribe-template",
+    "summary": "获取订阅消息模板 ID",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/auth/profile",
+    "summary": "获取当前用户信息",
+    "source": "backend/src/auth/auth.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/password/login",
+    "summary": "后台人员账号密码登录",
+    "source": "backend/src/auth/password.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/password/setup-info",
+    "summary": "",
+    "source": "backend/src/auth/password.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/password/setup",
+    "summary": "",
+    "source": "backend/src/auth/password.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/password/setup-links",
+    "summary": "超级管理员为已有后台人员生成一次性密码设置链接",
+    "source": "backend/src/auth/password.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/auth/password/change",
+    "summary": "",
+    "source": "backend/src/auth/password.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/brands",
+    "summary": "品牌管理列表",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/brands/code-suggestion",
+    "summary": "生成品牌编码前缀建议",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/admin/brands",
+    "summary": "创建品牌",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/brands/:id",
+    "summary": "编辑品牌",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/admin/brands/:id",
+    "summary": "安全删除品牌",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/brands/:id/restore",
+    "summary": "恢复品牌",
+    "source": "backend/src/brand/brand.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customers",
+    "summary": "客户列表",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customers",
+    "summary": "创建客户",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customers/me/price-rules",
+    "summary": "当前客户协议价格",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customers/:id",
+    "summary": "客户详情",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customers/:id/product-visibility",
+    "summary": "查询客户可见商品配置",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PUT",
+    "route": "/customers/:id/product-visibility",
+    "summary": "更新客户可见商品配置",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/customers/:id",
+    "summary": "更新客户",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customers/:id/approve",
+    "summary": "审核通过客户",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customers/:id/reject",
+    "summary": "驳回客户",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customer-levels",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customer-levels",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/customer-levels/:id",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customer-price-rules",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customer-price-rules",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/customer-price-rules/:id",
+    "summary": "",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/customers/:id/repayments",
+    "summary": "客户还款记录",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/customers/:id/repayments",
+    "summary": "登记客户还款",
+    "source": "backend/src/customer/customer.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/dashboard/stats",
+    "summary": "Dashboard 聚合数据",
+    "source": "backend/src/dashboard/dashboard.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/exports/orders",
+    "summary": "导出订单报表（xlsx）",
+    "source": "backend/src/export/export.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/exports/customers",
+    "summary": "导出客户报表（xlsx）",
+    "source": "backend/src/export/export.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/exports/inventory",
+    "summary": "导出库存报表（xlsx）",
+    "source": "backend/src/export/export.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/health",
+    "summary": "",
+    "source": "backend/src/health.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/health/ready",
+    "summary": "",
+    "source": "backend/src/health.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/imports/products",
+    "summary": "Excel 批量导入商品（品牌/商品/SKU/协议价）",
+    "source": "backend/src/import/import.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/planning",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/batches",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/batches/assign",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/replenishment-plans",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/replenishment-plans",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/inventory/replenishment-plans/:id",
+    "summary": "",
+    "source": "backend/src/inventory/inventory-planning.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/stock",
+    "summary": "库存列表（按SKU）",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/movements",
+    "summary": "库存流水",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/adjustments",
+    "summary": "手动出入库单列表",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/adjustments/:id",
+    "summary": "手动出入库单详情",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/adjustments",
+    "summary": "创建手动出入库单",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/stocktakes",
+    "summary": "盘点单列表",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/inventory/stocktakes/:id",
+    "summary": "盘点单详情",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/stocktakes",
+    "summary": "创建盘点单",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/inventory/stocktakes/:id/items",
+    "summary": "填写/更新盘点实盘数",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/stocktakes/:id/complete",
+    "summary": "完成盘点并生成盘盈盘亏调整",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/inventory/stocktakes/:id/cancel",
+    "summary": "取消盘点单",
+    "source": "backend/src/inventory/inventory.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/leads/public",
+    "summary": "官网留资提交（公开）",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/leads/stats",
+    "summary": "线索状态统计（新线索提醒）",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/leads/assignees",
+    "summary": "可分配跟进人列表",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/leads",
+    "summary": "线索列表",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/leads/:id",
+    "summary": "线索详情（含跟进记录）",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/leads/:id",
+    "summary": "更新线索（状态/跟进人/备注/下次跟进）",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/leads/:id/follow-ups",
+    "summary": "添加跟进记录",
+    "source": "backend/src/lead/lead.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/monitor/summary",
+    "summary": "查询近 5 分钟监控摘要",
+    "source": "backend/src/monitor/monitor.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/monitor/alerts",
+    "summary": "查询最近告警历史",
+    "source": "backend/src/monitor/monitor.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/notifications",
+    "summary": "",
+    "source": "backend/src/notify/notification.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/notifications/read-all",
+    "summary": "",
+    "source": "backend/src/notify/notification.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/notifications/:id/read",
+    "summary": "",
+    "source": "backend/src/notify/notification.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/orders",
+    "summary": "订单列表",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/orders/me/overview",
+    "summary": "当前客户采购概览",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/orders/:id",
+    "summary": "订单详情",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/orders/price-history/:customerId",
+    "summary": "客户历史价格（用于报价回填）",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/orders/:id/logistics",
+    "summary": "订单物流轨迹",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders",
+    "summary": "创建订单 (draft)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/submit",
+    "summary": "提交订单 (draft -> pending_quote)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/quote",
+    "summary": "管理端报价 (pending_quote -> pending_confirm)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/submit-finance",
+    "summary": "提交付款凭证或申请账期 (pending_confirm -> pending_finance)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/approve-finance",
+    "summary": "财务审核通过并扣减库存 (pending_finance -> pending_shipment)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/ship",
+    "summary": "录入物流并发货 (pending_shipment -> shipped)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/complete",
+    "summary": "确认收货 (shipped -> completed)",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/cancel",
+    "summary": "取消订单（自动退还已扣库存）",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/adjust-price",
+    "summary": "订单改价",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/orders/:id/refund",
+    "summary": "退款登记（仅已取消订单）",
+    "source": "backend/src/order/order.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/products",
+    "summary": "商品列表",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/products",
+    "summary": "创建商品",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/products/cart-validation",
+    "summary": "批量校验购物车商品",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/products/:id",
+    "summary": "商品详情",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/products/batch-status",
+    "summary": "批量更新商品上下架状态",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/products/batch-archive",
+    "summary": "批量安全删除商品",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/products/:id",
+    "summary": "更新商品",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/products/:id/status",
+    "summary": "商品上下架",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/products/:id",
+    "summary": "安全删除商品",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/products/:id/skus",
+    "summary": "商品SKU列表",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/products/:id/skus",
+    "summary": "创建SKU",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/skus/:id",
+    "summary": "更新SKU",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/skus/:id/status",
+    "summary": "SKU启用/禁用",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/product-categories",
+    "summary": "商品分类列表",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/admin/product-categories",
+    "summary": "商品分类管理列表",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/product-categories",
+    "summary": "创建分类",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/product-categories/:id",
+    "summary": "更新分类",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "DELETE",
+    "route": "/product-categories/:id",
+    "summary": "安全删除分类",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/admin/product-categories/:id/restore",
+    "summary": "恢复分类",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/brands",
+    "summary": "品牌列表",
+    "source": "backend/src/product/product.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/system-configs",
+    "summary": "系统配置列表",
+    "source": "backend/src/system/system.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PUT",
+    "route": "/system-configs/:key",
+    "summary": "更新系统配置",
+    "source": "backend/src/system/system.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/uploads/payment-proof-url",
+    "summary": "获取转账凭证签名访问地址（私有读）",
+    "source": "backend/src/upload/upload.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/uploads/payment-proof",
+    "summary": "上传转账凭证",
+    "source": "backend/src/upload/upload.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/uploads/product-image",
+    "summary": "上传商品主图",
+    "source": "backend/src/upload/upload.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/users",
+    "summary": "用户列表",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/users",
+    "summary": "创建用户",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/users/:id",
+    "summary": "用户详情",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/users/:id",
+    "summary": "更新用户",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/roles",
+    "summary": "角色列表",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/roles",
+    "summary": "创建角色",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "PATCH",
+    "route": "/roles/:id",
+    "summary": "更新角色",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "POST",
+    "route": "/roles/:id/permissions",
+    "summary": "分配权限",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  },
+  {
+    "method": "GET",
+    "route": "/permissions",
+    "summary": "权限列表",
+    "source": "backend/src/user/user.controller.ts",
+    "status": "待逐项验证"
+  }
+]

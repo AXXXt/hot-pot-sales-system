@@ -1,8 +1,18 @@
+// 按品牌提交采购订单，可在提交时集中订阅关键提醒；拒绝订阅不阻断采购。
 const cart = require('../../store/modules/cart')
 const auth = require('../../store/modules/auth')
+const { captureSession, isCurrentSession } = require('../../utils/auth-session')
 const { createOrder, submitOrder } = require('../../services/api/order')
-const { getSubscribeTemplate } = require('../../services/api/auth')
 const { validateCart } = require('../../services/api/product')
+const { requestOrderReminders } = require('../../services/order-reminders')
+
+function isNativeCancellation(error) {
+  return typeof error?.errMsg === 'string' && /(?:^|\s)cancel(?:led|ed)?(?:\s|$)/i.test(error.errMsg)
+}
+
+function showCreatedOrderHint() {
+  try { wx.showToast({ title: '订单已创建，请从底部订单查看', icon: 'none', duration: 3000 }) } catch { /* Navigation can still recover when the native toast is unavailable. */ }
+}
 
 function mapCheckoutItem(item) {
   const price = Number(item.snapshot?.price || 0)
@@ -43,8 +53,11 @@ Page({
   },
 
   onLoad() {
+    this._active = true
     this.refreshCart(true)
   },
+
+  onUnload() { this._active = false },
 
   renderCart() {
     const brandGroups = cart.getCheckoutGroups().map(mapCheckoutGroup)
@@ -84,12 +97,13 @@ Page({
     if (showInvalidDialog) {
       wx.showModal({
         title: '购物车需要更新',
-        content: '部分商品已下架、售罄或不在当前可见范围，请返回购物车移除后再结算。',
+        content: '部分商品状态或数量已变化，请返回进货单查看提示并调整后再结算。',
         showCancel: false,
+        confirmText: '返回调整',
         success: () => wx.navigateBack()
       })
     } else {
-      wx.showToast({ title: '请先移除不可购买商品', icon: 'none' })
+      wx.showToast({ title: '请先调整进货单商品及数量', icon: 'none' })
     }
     return false
   },
@@ -102,7 +116,7 @@ Page({
     wx.switchTab({ url: '/pages/category/category' })
   },
 
-  async createBrandOrder(group, customerId) {
+  async createBrandOrder(group, customerId, session) {
     const createRes = await createOrder({
       customerId,
       items: group.items.map(item => ({
@@ -113,6 +127,9 @@ Page({
     })
     const order = createRes?.data || createRes
     if (!order?.id) throw new Error('订单创建失败')
+    if (!this._active || !isCurrentSession(auth, session)) {
+      return { order, submitted: false, brandText: group.brandText }
+    }
 
     let submitted = true
     try {
@@ -120,12 +137,16 @@ Page({
     } catch {
       submitted = false
     }
-    cart.removeItemsBySkuIds(group.items.map(item => item.skuId))
+    if (this._active && isCurrentSession(auth, session)) {
+      cart.removeItemsBySkuIds(group.items.map(item => item.skuId))
+    }
     return { order, submitted, brandText: group.brandText }
   },
 
-  async onSubmit() {
-    if (this.data.submitting || this.data.validating) return
+  onSubmit() { return this.submit() },
+
+  async submit() {
+    if (this.data.submitting || this.data.validating || this.data.isEmpty || !this._active) return
     if (!auth.state.token) {
       wx.navigateTo({ url: '/pages/login/login' })
       return
@@ -137,22 +158,22 @@ Page({
       return
     }
 
-    const cartIsValid = await this.refreshCart(false)
-    if (!cartIsValid) return
-
-    const groups = cart.getCheckoutGroups()
-    if (!groups.length) {
-      wx.showToast({ title: '购物车为空', icon: 'none' })
-      return
-    }
-
+    const session = captureSession(auth)
     this.setData({ submitting: true })
     const created = []
     const failures = []
     try {
+      // 不能先等待购物车请求或订单创建完成，否则会失去微信要求的点击上下文。
+      await requestOrderReminders(this)
+      if (!this._active || !isCurrentSession(auth, session)) return
+      const cartIsValid = await this.refreshCart(false)
+      if (!cartIsValid || !this._active || !isCurrentSession(auth, session)) return
+      const groups = cart.getCheckoutGroups()
+      if (!groups.length) return
       for (const group of groups) {
+        if (!this._active || !isCurrentSession(auth, session)) break
         try {
-          created.push(await this.createBrandOrder(group, customerId))
+          created.push(await this.createBrandOrder(group, customerId, session))
         } catch (error) {
           failures.push({
             brandText: group.brandText || '部分商品',
@@ -160,24 +181,12 @@ Page({
           })
         }
       }
+      if (!this._active || !isCurrentSession(auth, session)) return
       this.renderCart()
       this.showOrderCreated(created, failures)
     } finally {
-      this.setData({ submitting: false })
+      if (this._active) this.setData({ submitting: false })
     }
-  },
-
-  async requestSubscribe() {
-    try {
-      const res = await getSubscribeTemplate()
-      const templateId = res && res.data && res.data.templateId
-      if (!templateId) return
-      wx.requestSubscribeMessage({
-        tmplIds: [templateId],
-        success: () => {},
-        fail: () => {}
-      })
-    } catch (e) { /* 订阅失败不影响下单 */ }
   },
 
   showOrderCreated(created, failures) {
@@ -196,17 +205,24 @@ Page({
       if (draftCount) notes.push(`其中 ${draftCount} 个暂存为草稿，可在订单页继续提交。`)
       if (failures.length) notes.push(`${failures.length} 个品牌下单失败，商品仍保留在购物车。`)
       notes.push('请勿重复提交已创建的订单。')
-      wx.showModal({
-        title: '订单处理结果',
-        content: notes.join(''),
-        showCancel: false,
-        confirmText: '查看订单',
-        success: () => this.switchToOrders(created)
-      })
+      const recover = error => {
+        if (isNativeCancellation(error)) return
+        showCreatedOrderHint()
+        this.switchToOrders(created, false)
+      }
+      try {
+        wx.showModal({
+          title: '订单处理结果',
+          content: notes.join(''),
+          showCancel: false,
+          confirmText: '查看订单',
+          success: res => { if (res?.confirm) this.switchToOrders(created) },
+          fail: recover
+        })
+      } catch { recover() }
       return
     }
 
-    this.requestSubscribe()
     wx.showToast({
       title: created.length > 1 ? `已创建${created.length}个订单` : '下单成功',
       icon: 'success'
@@ -215,27 +231,28 @@ Page({
   },
 
   switchToOrders(created, showFailureDialog = true) {
-    wx.switchTab({
-      url: '/pages/orders/orders',
-      fail: () => {
-        if (!showFailureDialog) {
-          wx.showToast({ title: '订单已创建，请从订单页查看', icon: 'none', duration: 2500 })
-          return
-        }
-        const firstOrder = created[0]?.order
-        const orderLabel = created.length > 1
-          ? `${created.length} 个订单`
-          : (firstOrder?.orderNo || ('#' + firstOrder?.id))
+    const failed = error => {
+      if (isNativeCancellation(error)) return
+      if (!showFailureDialog) { showCreatedOrderHint(); return }
+      const firstOrder = created[0]?.order
+      const orderLabel = created.length > 1
+        ? `${created.length} 个订单`
+        : (firstOrder?.orderNo || ('#' + firstOrder?.id))
+      const unavailable = error => { if (!isNativeCancellation(error)) showCreatedOrderHint() }
+      try {
         wx.showModal({
           title: '订单已创建',
           content: `${orderLabel} 已创建成功，但订单页跳转失败。请勿重复提交，可点击重试或稍后从“订单”进入。`,
           confirmText: '重试跳转',
           cancelText: '留在此页',
           success: (res) => {
-            if (res.confirm) this.switchToOrders(created, false)
-          }
+            if (res?.confirm) this.switchToOrders(created, false)
+          },
+          fail: unavailable
         })
-      }
-    })
+      } catch { unavailable() }
+    }
+    try { wx.switchTab({ url: '/pages/orders/orders', fail: failed }) }
+    catch { failed() }
   }
 })

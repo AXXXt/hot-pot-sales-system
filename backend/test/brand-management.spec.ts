@@ -3,6 +3,8 @@ import { BrandService } from '../src/brand/brand.service'
 
 function createPrismaMock() {
   const prisma: any = {
+    auditLog: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+    $queryRaw: jest.fn().mockResolvedValue([]),
     brand: {
       findMany: jest.fn(),
       findFirst: jest.fn(),

@@ -8,6 +8,7 @@ import { useAppStore } from '../stores/app'
 import { getLeadStats } from '../api/lead'
 import AiAssistantHost from '../components/ai/AiAssistantHost.vue'
 import PlatformVersionNotice from '../components/platform/PlatformVersionNotice.vue'
+import ForbiddenView from '../views/system/ForbiddenView.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -22,6 +23,8 @@ const localMenus = [
   { code: 'product:read', name: '分类管理', path: '/products/categories', icon: 'Menu' },
   { code: 'inventory:read', name: '库存管理', path: '/inventory', icon: 'Box' },
   { code: 'customer:manage', name: '客户管理', path: '/customers', icon: 'UserFilled' },
+  { code: 'customer:manage', name: '客户等级', path: '/customer-levels', icon: 'CollectionTag' },
+  { code: 'customer:manage', name: '客户服务申请', path: '/service-requests', icon: 'Service' },
   { code: 'lead:read', name: '获客线索', path: '/leads', icon: 'Connection' },
   { code: 'order:read', name: '订单管理', path: '/orders', icon: 'Document' },
   { code: 'role:manage', name: '用户与角色', path: '/users', icon: 'Avatar' },
@@ -31,18 +34,26 @@ const bottomMenus = [
   { code: 'audit:read', name: '审计日志', path: '/audit-logs', icon: 'Clock' },
   { code: 'role:manage', name: '系统配置', path: '/system', icon: 'Setting' },
 ]
-const menus = computed(() => localMenus.filter((item) => auth.can(item.code)))
+const menus = computed(() => localMenus.filter((item) => auth.can(item.code)
+  && (item.path !== '/service-requests'
+    || ['super_admin', 'admin', 'sales'].includes(auth.profile?.user.userType || ''))))
 const bottom = computed(() => bottomMenus.filter((item) => auth.can(item.code)))
 
 const newLeadCount = ref(0)
 let leadPollTimer: ReturnType<typeof setInterval> | null = null
+let leadPollGeneration = 0
+let leadPollBusy = false
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 
 async function refreshLeadStats(initial = false) {
-  if (!auth.can('lead:read')) return
+  if (!auth.can('lead:read') || leadPollBusy) return
+  const token = auth.accessToken
+  const generation = leadPollGeneration
+  leadPollBusy = true
   try {
     const res: any = await getLeadStats()
+    if (generation !== leadPollGeneration || token !== auth.accessToken || !auth.can('lead:read')) return
     const count = dataOf(res).newCount || 0
     if (!initial && count > newLeadCount.value) {
       ElNotification({
@@ -54,6 +65,7 @@ async function refreshLeadStats(initial = false) {
     }
     newLeadCount.value = count
   } catch { /* 静默失败，不影响主流程 */ }
+  finally { if (generation === leadPollGeneration) leadPollBusy = false }
 }
 
 function startLeadPolling() {
@@ -63,6 +75,8 @@ function startLeadPolling() {
 }
 
 function stopLeadPolling() {
+  leadPollGeneration += 1
+  leadPollBusy = false
   if (leadPollTimer) { clearInterval(leadPollTimer); leadPollTimer = null }
 }
 
@@ -128,10 +142,12 @@ function handleMenuSelect() {
         <div class="header-spacer" />
         <PlatformVersionNotice v-if="profileReady" />
         <span class="user-name">{{ auth.profile?.user.name }}</span>
+        <el-button text @click="router.push('/password/change')">修改密码</el-button>
         <el-button text :icon="SwitchButton" @click="handleLogout">退出</el-button>
       </el-header>
       <el-main class="main">
         <div v-if="!profileReady" class="loading-state"><span>加载中…</span></div>
+        <ForbiddenView v-else-if="route.meta.permission && !auth.can(String(route.meta.permission))" />
         <router-view v-else />
       </el-main>
     </el-container>

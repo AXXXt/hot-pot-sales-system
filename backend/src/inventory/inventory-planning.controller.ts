@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { Type } from 'class-transformer'
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator'
 import { JwtAuthGuard } from '../auth/auth.guard'
@@ -18,13 +18,13 @@ class AssignBatchDto extends BatchReceiptDto { @IsInt() @Min(1) fromBatchId: num
 export class InventoryPlanningController {
   constructor(private readonly service: InventoryPlanningService, private readonly access: StaffAccessService) {}
   @Get('planning') @RequirePermissions('inventory:read')
-  async overview(@Req() req: any, @Query('keyword') keyword?: string) { return this.service.overview(await this.access.actor(req.user.sub), keyword) }
+  async overview(@Req() req: any, @Query('keyword') keyword?: string, @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1, @Query('pageSize', new DefaultValuePipe(100), ParseIntPipe) pageSize = 100) { return this.service.overview(await this.access.actor(req.user.sub), keyword, page, pageSize) }
   @Get('batches') @RequirePermissions('inventory:read')
-  async batches(@Req() req: any, @Query('skuId', new ParseIntPipe({ optional: true })) skuId?: number) { return this.service.batches(await this.access.actor(req.user.sub), skuId) }
+  async batches(@Req() req: any, @Query('skuId', new ParseIntPipe({ optional: true })) skuId?: number, @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1, @Query('pageSize', new DefaultValuePipe(100), ParseIntPipe) pageSize = 100) { return this.service.batches(await this.access.actor(req.user.sub), skuId, page, pageSize) }
   @Post('batches/assign') @RequirePermissions('inventory:adjust')
   async assign(@Req() req: any, @Body() dto: AssignBatchDto) { return this.service.assignBatch(await this.access.actor(req.user.sub), dto) }
   @Get('replenishment-plans') @RequirePermissions('inventory:read')
-  async plans(@Req() req: any) { return this.service.plans(await this.access.actor(req.user.sub)) }
+  async plans(@Req() req: any, @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1, @Query('pageSize', new DefaultValuePipe(100), ParseIntPipe) pageSize = 100) { return this.service.plans(await this.access.actor(req.user.sub), page, pageSize) }
   @Post('replenishment-plans') @RequirePermissions('inventory:adjust')
   async create(@Req() req: any, @Body() dto: PlanDto) { return this.service.createPlan(await this.access.actor(req.user.sub), dto) }
   @Patch('replenishment-plans/:id') @RequirePermissions('inventory:adjust')

@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, Query, Body, ParseIntPipe, DefaultValuePipe, UseGuards, Req, ForbiddenException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { OrderService } from './order.service'
-import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, CreateRefundDto, QuoteOrderDto } from './dto/order.dto'
+import { CreateOrderDto, AdjustPriceDto, SubmitFinanceDto, RejectFinanceDto, CreateRefundDto, QuoteOrderDto } from './dto/order.dto'
 import { OrderAccessGuard } from './order-access.guard'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
@@ -28,7 +28,7 @@ export class OrderController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10
   ) {
-    return this.service.list({ status, customerId: req.orderScope.customerId ?? (customerId ? parseInt(customerId, 10) : undefined), tenantId: req.orderScope.tenantId, page, pageSize })
+    return this.service.list({ ...req.orderScope, status, customerId: req.orderScope.customerId ?? (customerId ? Number(customerId) : undefined), page, pageSize })
   }
 
   @Get('orders/me/overview')
@@ -48,7 +48,7 @@ export class OrderController {
   @ApiOperation({ summary: '客户历史价格（用于报价回填）' })
   @RequirePermissions('order:read')
   async getPriceHistory(@Param('customerId', ParseIntPipe) customerId: number, @Query('skuIds') skuIds: string, @Req() req: any) {
-    return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean), req.orderScope.tenantId)
+    return this.service.getPriceHistory(customerId, (skuIds || '').split(',').map(Number).filter(Boolean), req.orderScope.tenantId, req.orderScope)
   }
 
   @Get('orders/:id/logistics')
@@ -97,7 +97,8 @@ export class OrderController {
       id,
       body.paymentProof,
       body.creditRequested,
-      req.user?.sub
+      req.user?.sub,
+      { updatedAt: body.expectedUpdatedAt, payableAmount: body.expectedPayableAmount }
     )
   }
 
@@ -107,6 +108,13 @@ export class OrderController {
   @RequirePermissions('order:confirm')
   async approveFinance(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.service.approveFinance(id, req.user?.sub)
+  }
+
+  @Post('orders/:id/reject-finance')
+  @ApiOperation({ summary: '财务退回，保留订单及预占并允许客户重新提交' })
+  @RequirePermissions('order:confirm')
+  async rejectFinance(@Param('id', ParseIntPipe) id: number, @Body() dto: RejectFinanceDto, @Req() req: any) {
+    return this.service.rejectFinance(id, dto.reason, req.user?.sub)
   }
 
   // pending_shipment -> shipped (admin enters logistics)

@@ -1,9 +1,12 @@
-import { IsIn, IsInt, IsOptional, IsString, IsISO8601, Matches, MaxLength } from 'class-validator'
+import { IsIn, IsInt, IsOptional, IsString, IsISO8601, Matches, MaxLength, IsUUID, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { ConsentInputDto } from '../../legal/consent.dto'
 
 /** 官网公开留资（无需登录） */
-export class CreatePublicLeadDto {
+export class CreatePublicLeadDto extends ConsentInputDto {
+  @IsOptional() @IsUUID('4', { message: '提交标识无效，请刷新页面后重试' })
+  requestId?: string
   @ApiProperty({ description: '手机号' })
   @Matches(/^1[3-9]\d{9}$/, { message: '请输入正确的手机号' })
   phone!: string
@@ -31,6 +34,8 @@ export class CreatePublicLeadDto {
 }
 
 export class UpdateLeadDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  customerId?: number
   @ApiPropertyOptional({ description: '线索状态', enum: ['new', 'contacted', 'converted', 'invalid'] })
   @IsOptional() @IsIn(['new', 'contacted', 'converted', 'invalid'])
   status?: 'new' | 'contacted' | 'converted' | 'invalid'

@@ -104,6 +104,7 @@ test('profile clears cached private data on logout and errors are not displayed 
   const page = load('pages/profile/profile.js', {
     '../../store/index': { auth }, '../../utils/profile': { profileView },
     '../../utils/order-navigation': {}, '../../services/repeat-order': {},
+    '../../services/api/notification': { getNotifications: async () => ({ data: { unreadCount: 2 } }) },
     '../../services/api/auth': { getProfile: async () => ({ data: { customer: { id: 1, customerName: '门店' } } }) },
     '../../services/api/order': { getOrderOverview: async () => { throw new Error('网络不可用') } }
   })
@@ -121,6 +122,7 @@ test('address copies recipient, phone and address; prices preserve SKU navigatio
   let clipboard = ''
   let url = ''
   const page = load('pages/profile-detail/profile-detail.js', {
+    '../../utils/auth-session': require('../utils/auth-session'),
     '../../store/index': { auth: { state: { token: 'token' }, setProfile() {}, setCustomer() {} } },
     '../../services/api/auth': { getProfile: async () => ({ data: {
       customer: { customerName: '门店', contactName: '联系人', contactPhone: '13800000000', address: '地址' }

@@ -1,4 +1,10 @@
 import { DashboardService } from '../src/dashboard/dashboard.service'
+import { StaffAccessService, StaffActor } from '../src/auth/staff-access.service'
+import { InventoryPlanningService } from '../src/inventory/inventory-planning.service'
+
+const inventoryActor: StaffActor = { id: 1, tenantId: 1, userType: 'warehouse', superAdmin: false,
+  permissions: new Set(['inventory:read']), brandIds: [1], customerIds: null, leadIds: null, fingerprint: 'dashboard' }
+const serviceFor = (prisma: any) => new DashboardService(prisma, new InventoryPlanningService(prisma, new StaffAccessService(prisma)))
 
 function createPrismaMock() {
   return {
@@ -60,9 +66,9 @@ describe('DashboardService', () => {
   })
 
   it('keeps Decimal order amounts in yuan across all dashboard sales data', async () => {
-    const service = new DashboardService(createPrismaMock() as any)
+    const service = serviceFor(createPrismaMock())
 
-    const stats = await service.getStats()
+    const stats = await service.getStats(undefined, inventoryActor)
 
     expect(stats.todayRevenue).toBe(247.5)
     expect(stats.monthRevenue).toBe(247.5)
@@ -72,7 +78,7 @@ describe('DashboardService', () => {
   })
 
   it('builds the seven-day trend using Shanghai calendar dates regardless of the host timezone', () => {
-    const service = new DashboardService({} as any)
+    const service = serviceFor({})
     const start = new Date('2026-07-21T00:00:00+08:00')
     const raw = [{
       createdAt: new Date('2026-07-27T21:00:00+08:00'),
@@ -87,10 +93,10 @@ describe('DashboardService', () => {
 
   it('counts only paid, non-sample orders in every sales metric', async () => {
     const prisma = createPrismaMock()
-    const service = new DashboardService(prisma as any)
+    const service = serviceFor(prisma)
     const paidStatuses = ['pending_shipment', 'shipped', 'completed']
 
-    await service.getStats()
+    await service.getStats(undefined, inventoryActor)
 
     for (const call of prisma.order.aggregate.mock.calls) {
       expect(call[0]).toMatchObject({
@@ -107,9 +113,9 @@ describe('DashboardService', () => {
 
   it('counts pending quotes for the admin to-do card', async () => {
     const prisma = createPrismaMock()
-    const service = new DashboardService(prisma as any)
+    const service = serviceFor(prisma)
 
-    const stats = await service.getStats()
+    const stats = await service.getStats(undefined, inventoryActor)
 
     expect(prisma.order.count.mock.calls[2][0]).toEqual({
       where: { status: 'pending_quote' }
@@ -117,15 +123,18 @@ describe('DashboardService', () => {
     expect(stats.pendingQuotes).toBe(0)
   })
 
-  it('uses the same active SKU threshold for the warning count and list', async () => {
+  it('uses the same inventory plan result for both warning count and list', async () => {
     const prisma = createPrismaMock()
-    const service = new DashboardService(prisma as any)
-
-    await service.getStats()
-
-    const expectedWhere = { stockNum: { lte: 10 }, status: 'active', product: { status: 'active' } }
-    expect(prisma.productSku.count).toHaveBeenCalledWith({ where: expectedWhere })
-    expect(prisma.productSku.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expectedWhere }))
+    const planning = { overview: jest.fn().mockResolvedValue({ truncated: false, items: [
+      { skuId: 1, productId: 2, productName: '商品', specText: '袋', availableNum: 0, threshold: 100, lowStock: true },
+      { skuId: 2, productId: 2, productName: '商品', specText: '箱', availableNum: 8, threshold: 3, lowStock: false }
+    ] }) }
+    const stats = await new DashboardService(prisma as any, planning as any).getStats(undefined, inventoryActor)
+    expect(planning.overview).toHaveBeenCalledTimes(1)
+    expect(planning.overview).toHaveBeenCalledWith(inventoryActor)
+    expect(stats.inventoryWarnings).toBe(1)
+    expect(stats.lowStockItems).toEqual([{ id: 1, productId: 2, productName: '商品', skuName: '袋', warehouse: '', availableQty: 0, warningQty: 100 }])
+    expect(prisma.productSku.count).not.toHaveBeenCalled()
   })
 
   it('includes the product name in low-stock items', async () => {
@@ -134,13 +143,14 @@ describe('DashboardService', () => {
       id: 11,
       productId: 7,
       name: '500g/袋',
+      specText: '500g/袋', reservedNum: 0, lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batches: [],
       skuCode: 'SKU-11',
       stockNum: 5,
       product: { name: '牛油火锅底料' }
     }])
-    const service = new DashboardService(prisma as any)
+    const service = serviceFor(prisma)
 
-    const stats = await service.getStats()
+    const stats = await service.getStats(undefined, inventoryActor)
 
     expect(stats.lowStockItems[0]).toMatchObject({
       productId: 7,
@@ -148,7 +158,30 @@ describe('DashboardService', () => {
       skuName: '500g/袋'
     })
     expect(prisma.productSku.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      select: expect.objectContaining({ product: { select: { name: true } } })
+      include: expect.objectContaining({ product: { select: { name: true, subtitle: true, brandId: true } } })
+    }))
+  })
+
+  it('shows the real name in warnings and bestsellers while retaining legacy label fallback', async () => {
+    const prisma = createPrismaMock()
+    prisma.productSku.findMany.mockResolvedValue([{
+      id: 11, productId: 1, name: '500g/袋', skuCode: 'SKU-11', stockNum: 5,
+      specText: '500g/袋', reservedNum: 0, lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batches: [],
+      product: { name: '品牌丸滑', subtitle: '爆汁牛筋丸' }
+    }, {
+      id: 12, productId: 2, name: '1kg/袋', skuCode: 'SKU-12', stockNum: 0,
+      specText: '1kg/袋', reservedNum: 0, lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batches: [],
+      product: { name: '旧商品标签', subtitle: ' ' }
+    }])
+    prisma.product.findMany.mockResolvedValue([
+      { id: 1, name: '品牌丸滑', subtitle: '爆汁牛筋丸' } as any
+    ])
+    const stats = await serviceFor(prisma).getStats(undefined, inventoryActor)
+
+    expect(stats.lowStockItems.map(item => item.productName)).toEqual(['爆汁牛筋丸', '旧商品标签'])
+    expect(stats.topProducts[0].name).toBe('爆汁牛筋丸')
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: { id: true, name: true, subtitle: true }
     }))
   })
 })

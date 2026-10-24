@@ -9,6 +9,7 @@
   </view>
 
   <view wx:else class="checkout-body">
+    <shipment-reminder id="shipment-reminder" checkout="{{true}}" automatic="{{true}}" />
     <view wx:if="{{orderCount > 1}}" class="checkout-split-notice">
       本次包含 {{orderCount}} 个品牌，提交后将自动生成 {{orderCount}} 个独立订单
     </view>
@@ -79,11 +80,12 @@
       <text class="checkout-bar__label">预计总额</text>
       <text class="checkout-bar__amount">¥{{totalAmount}}</text>
     </view>
-    <view
-      class="checkout-bar__btn {{submitting || validating ? 'disabled' : ''}}"
+    <button
+      class="checkout-bar__btn"
+      disabled="{{submitting || validating}}" loading="{{submitting}}"
       bindtap="onSubmit"
     >
       {{submitting ? '提交中…' : '提交订单'}}
-    </view>
+    </button>
   </view>
 </view>

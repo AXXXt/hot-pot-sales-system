@@ -23,8 +23,10 @@ export function sendCode(phone: string, purpose: 'login' | 'register' = 'login')
   return http.post('/auth/send-code', { phone, purpose })
 }
 
-export function login(phone: string, code: string) {
-  return http.post<{ accessToken: string; refreshToken: string }>('/auth/login', { phone, code })
+export interface LegalConsentInput { consentAccepted: boolean; consentVersion: string; consentChannel: 'buyer_web' }
+
+export function login(phone: string, code: string, consent?: LegalConsentInput) {
+  return http.post<{ accessToken: string; refreshToken: string }>('/auth/login', { phone, code, ...consent })
 }
 
 export function logout() {

@@ -3,8 +3,11 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { AuthService } from './auth.service'
 import { SendCodeDto } from './dto/send-code.dto'
 import { LoginDto } from './dto/login.dto'
+import { RegisterDto } from './dto/register.dto'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
 import { JwtAuthGuard } from './auth.guard'
+import { BindOpenidDto } from './dto/bind-openid.dto'
+import { CheckStatusDto } from './dto/check-status.dto'
 
 @ApiTags('auth')
 @Controller('auth')
@@ -18,14 +21,18 @@ export class AuthController {
   }
 
   @Post('check-status')
-  @ApiOperation({ summary: '查询注册审核状态（公开接口，无鉴权）' })
-  async checkStatus(@Body('phone') phone: string) {
-    return this.auth.checkStatus(phone)
+  @ApiOperation({ summary: '凭短信验证后签发的短期申请票据查询本人审核状态' })
+  async checkStatus(@Body() dto: CheckStatusDto) {
+    return this.auth.checkStatus(dto.phone, dto.statusTicket)
   }
+
+  @Post('registration-status')
+  @ApiOperation({ summary: '验证手机号后恢复本人申请状态查询凭证' })
+  async registrationStatus(@Body() dto: LoginDto) { return this.auth.registrationStatus(dto) }
 
   @Post('register-or-login')
   @ApiOperation({ summary: '小程序注册或登录（新用户自动注册）' })
-  async registerOrLogin(@Body() dto: LoginDto & { customerName?: string; contactName?: string; province?: string; city?: string; district?: string; address?: string }) {
+  async registerOrLogin(@Body() dto: RegisterDto) {
     return this.auth.registerOrLogin(dto)
   }
 
@@ -44,13 +51,13 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard) @ApiBearerAuth()
   @ApiOperation({ summary: '退出登录' })
-  async logout(@Req() req: any) { return this.auth.logout(req.user.sub) }
+  async logout(@Req() req: any) { return this.auth.logout(req.user.sub, req.user.sid) }
 
   @Post('bind-openid')
   @UseGuards(JwtAuthGuard) @ApiBearerAuth()
   @ApiOperation({ summary: '绑定微信 openid（小程序 code2session）' })
-  async bindOpenid(@Body() body: { code: string }, @Req() req: any) {
-    return this.auth.bindOpenid(body.code, req.user.sub)
+  async bindOpenid(@Body() body: BindOpenidDto, @Req() req: any) {
+    return this.auth.bindOpenid(body.code, req.user.sub, body.confirmTransfer === true)
   }
 
   @Get('subscribe-template')

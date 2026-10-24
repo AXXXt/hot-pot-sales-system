@@ -12,6 +12,7 @@ import { toBrandPrefix } from '../product/product-code'
 import { productDisplayName } from '../product/product-presentation'
 
 export function normalizeProductDraft(input: any): ProductDraft {
+  if (Array.isArray(input?.skus) && input.skus.length > 20) throw new BadRequestException('单个商品草稿最多20个规格，请拆分后重新生成')
   const text = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : ''
   const id = (value: unknown) => Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : null
   return {

@@ -15,6 +15,7 @@ async function fixture(page: Page) {
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname
     let data: unknown = {}
+    if (path.endsWith('/auth/profile')) data = { user: { name: '测试用户', phone: '13800000000' }, tenant: { name: '唯哆鲜' }, customer: { id: 1, customerName: '测试门店', contactName: '测试联系人', address: '河南省郑州市测试路 100 号', creditRemaining: '12000', status: 'active' } }
     if (path.endsWith('/products')) data = { items: [product], total: 1 }
     if (path.endsWith('/products/1')) data = product
     if (path.endsWith('/cart-validation')) data = { items: [{ skuId: 11, productId: 1, brandId: 1, brandName: '测试品牌', name: product.name, spec: sku.specText, unit: '箱', price: '298', stockNum: 30, minOrderQty: 2, available: true }], invalidSkuIds: [] }

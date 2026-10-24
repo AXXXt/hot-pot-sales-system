@@ -3,11 +3,14 @@ import { useAuthStore } from '../stores/auth'
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('../views/login/LoginView.vue'), meta: { public: true, title: '登录' } },
+  { path: '/legal/:type', name: 'legal', component: () => import('../views/legal/LegalView.vue'), meta: { public: true, title: '协议与隐私' } },
+  { path: '/password/setup', name: 'password-setup', component: () => import('../views/login/PasswordSetupView.vue'), meta: { public: true, title: '设置登录密码' } },
   {
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     redirect: '/dashboard',
     children: [
+      { path: 'password/change', name: 'password-change', component: () => import('../views/login/PasswordChangeView.vue'), meta: { title: '修改登录密码' } },
       { path: 'dashboard', name: 'dashboard', component: () => import('../views/dashboard/DashboardView.vue'), meta: { title: '工作台', permission: 'dashboard:view' } },
       { path: 'products', name: 'products', component: () => import('../views/product/ProductListView.vue'), meta: { title: '商品管理', permission: 'product:read' } },
       { path: 'products/brands', name: 'product-brands', component: () => import('../views/product/BrandView.vue'), meta: { title: '品牌管理', permission: 'brand:manage' } },
@@ -17,6 +20,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'inventory/planning', name: 'inventory-planning', component: () => import('../views/inventory/InventoryPlanningView.vue'), meta: { title: '库存计划与批次', permission: 'inventory:read' } },
       { path: 'inventory', name: 'inventory', component: () => import('../views/inventory/InventoryView.vue'), meta: { title: '库存管理', permission: 'inventory:read', description: '库存总览、流水、出入库与盘点' } },
       { path: 'customers', name: 'customers', component: () => import('../views/customer/CustomerList.vue'), meta: { title: '客户管理', permission: 'customer:manage' } },
+      { path: 'customer-levels', name: 'customer-levels', component: () => import('../views/customer/CustomerLevelView.vue'), meta: { title: '客户等级', permission: 'customer:manage' } },
+      { path: 'service-requests', name: 'service-requests', component: () => import('../views/customer/ServiceRequestView.vue'), meta: { title: '客户服务申请', permission: 'customer:manage' } },
       { path: 'customers/:id', name: 'customer-detail', component: () => import('../views/customer/CustomerDetail.vue'), meta: { title: '客户详情', permission: 'customer:manage' } },
       { path: 'leads', name: 'leads', component: () => import('../views/lead/LeadListView.vue'), meta: { title: '获客线索', permission: 'lead:read', description: '官网留资跟进与转化' } },
       { path: 'orders', name: 'orders', component: () => import('../views/orders/OrderListView.vue'), meta:{title:'订单管理',permission:'order:read'} },

@@ -11,6 +11,7 @@ function createInventorySubject() {
     stocktakeItem: { createMany: jest.fn(), update: jest.fn() }
   }
   const prisma: any = {
+    stockAdjustment: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
     productSku: { findMany: jest.fn() },
     stocktake: { findUnique: jest.fn() },
@@ -23,6 +24,23 @@ function createInventorySubject() {
 
 describe('InventoryService', () => {
   beforeEach(() => jest.clearAllMocks())
+
+  it('presents real names in adjustment and stocktake details while retaining management labels', async () => {
+    const { prisma, service } = createInventorySubject()
+    for (const subtitle of ['爆汁牛筋丸', null]) {
+      const product = { id: 1, name: '品牌丸滑', subtitle, code: 'P-001' }
+      prisma.stockAdjustment.findUnique.mockResolvedValue({ id: 1, movements: [{ sku: { product } }] })
+      prisma.stocktake.findUnique.mockResolvedValue({ id: 1, items: [{ sku: { product } }] })
+      const adjustment = await service.adjustmentDetail(1)
+      const stocktake = await service.stocktakeDetail(1)
+      for (const shown of [adjustment.movements[0].sku.product, stocktake.items[0].sku.product]) {
+        expect(shown.name).toBe(subtitle || product.name)
+        expect(shown.managementLabel).toBe(product.name)
+        expect(shown.code).toBe(product.code)
+      }
+      expect(product.name).toBe('品牌丸滑')
+    }
+  })
 
   it('creates a manual stock-in adjustment and writes a movement', async () => {
     const { prisma, tx, audit, service } = createInventorySubject()

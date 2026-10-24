@@ -8,6 +8,10 @@ export function getCustomerDetail(id: number) {
   return http.get(`/customers/${id}`)
 }
 
+export function getSalesOwners() {
+  return http.get('/customers/sales-owners')
+}
+
 export function createCustomer(data: Record<string, unknown>) {
   return http.post('/customers', data)
 }
@@ -24,12 +28,20 @@ export function updateProductVisibility(customerId: number, data: Record<string,
   return http.put(`/customers/${customerId}/product-visibility`, data)
 }
 
-export function getCustomerLevels() {
-  return http.get('/customer-levels')
+export function getCustomerLevels(params?: Record<string, unknown>) {
+  return http.get('/customer-levels', { params })
 }
 
 export function createCustomerLevel(data: Record<string, unknown>) {
   return http.post('/customer-levels', data)
+}
+
+export function updateCustomerLevel(id: number, data: Record<string, unknown>) {
+  return http.patch(`/customer-levels/${id}`, data)
+}
+
+export function getCustomerLevelReadiness() {
+  return http.get('/customer-levels/readiness')
 }
 
 export function getPriceRules(customerId: number) {

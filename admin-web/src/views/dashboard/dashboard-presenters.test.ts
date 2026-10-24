@@ -1,7 +1,18 @@
 ﻿import { describe, expect, it } from 'vitest'
-import { getTopLowStockItems } from './dashboard-presenters'
+import { getTopLowStockItems, lowStockPercent, lowStockWarningText } from './dashboard-presenters'
 
 describe('dashboard presenters', () => {
+  it('shows an explicitly configured zero warning line without substituting ten', () => {
+    const item = { id: 1, productId: 1, skuName: '袋', availableQty: 0, warningQty: 0 }
+    expect(lowStockWarningText(item)).toBe('预警线 0')
+    expect(lowStockPercent(item)).toBe(0)
+  })
+
+  it('treats positive inventory above a zero warning line as full rather than dividing by zero', () => {
+    const item = { id: 1, productId: 1, skuName: '袋', availableQty: 5, warningQty: 0 }
+    expect(lowStockPercent(item)).toBe(100)
+  })
+
   it('puts zero-stock items before other low-stock items', () => {
     const result = getTopLowStockItems([
       { id: 1, productId: 1, skuName: '库存 4', availableQty: 4, warningQty: 10 },

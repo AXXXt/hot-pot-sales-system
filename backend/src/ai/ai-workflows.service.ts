@@ -50,7 +50,13 @@ export class AiWorkflowsService {
     this.authorize(actor, action)
     const payload = normalizeWorkflow(action, value)
     if (action === 'inventory.batch') {
-      payload.lines = await Promise.all(payload.lines.map((line: InventoryDraft) => this.inventory.prepare(actor, line)))
+      // A 50-row preview must not request 50 database connections at once.
+      // Keep input order and process every row, with only five read-only preparations in flight.
+      const prepared: InventoryDraft[] = []
+      for (let offset = 0; offset < payload.lines.length; offset += 5) {
+        prepared.push(...await Promise.all(payload.lines.slice(offset, offset + 5).map((line: InventoryDraft) => this.inventory.prepare(actor, line))))
+      }
+      payload.lines = prepared
       const running = new Map<number, number>()
       for (const line of payload.lines as InventoryDraft[]) {
         if (!line.item || line.changeQty === null || line.afterQty === null) continue

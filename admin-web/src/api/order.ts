@@ -28,6 +28,10 @@ export function approveFinance(id: number) {
   return http.post(`/orders/${id}/approve-finance`)
 }
 
+export function rejectFinance(id: number, reason: string) {
+  return http.post(`/orders/${id}/reject-finance`, { reason })
+}
+
 export function shipOrder(id: number, data: { logisticsType: string; driverName?: string; driverPhone?: string; plateNumber?: string }) {
   return http.post(`/orders/${id}/ship`, data)
 }

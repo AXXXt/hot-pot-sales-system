@@ -9,9 +9,10 @@ export class ProductMutationGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest()
     const route = String(req.route?.path || '')
-    if (req.method === 'GET' || route.includes('categories') || route.includes('cart-validation')) return true
+    if (route.includes('cart-validation')) return true
     const actor = await this.access.actor(Number(req.user?.sub))
     if (actor.tenantId !== Number(req.user?.tenantId)) throw new BadRequestException('登录租户与账号不一致')
+    if (req.method === 'GET' || route.includes('categories')) return true
     const body = req.body ?? {}
     if (body.brandId !== undefined) {
       const brand = await this.prisma.brand.findFirst({ where: { id: Number(body.brandId), tenantId: actor.tenantId, status: 'active', ...(actor.superAdmin ? {} : { id: { in: actor.brandIds.filter(id => id === Number(body.brandId)) } }) }, select: { id: true } })

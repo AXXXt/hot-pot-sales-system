@@ -8,6 +8,19 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{1
 const FINAL = new Set(['succeeded', 'failed', 'rolled_back'])
 class ApiError extends Error { constructor(status, message) { super(message); this.status = status } }
 const fail = (status, message) => { throw new ApiError(status, message) }
+async function checkCredentialVersion(prisma, payload) {
+  const credentials = await prisma.$queryRaw`SELECT version FROM staff_credentials WHERE user_id = ${Number(payload.sub)}`
+  if (Number(payload.cv || 0) !== Number(credentials[0]?.version || 0)) fail(401, '登录已过期，请重新登录')
+}
+async function checkSession(redis, payload) {
+  if (payload.tokenUse !== undefined && payload.tokenUse !== 'access') fail(401, '令牌用途不匹配')
+  const userId = Number(payload.sub)
+  if (!Number.isSafeInteger(userId) || userId <= 0 || (payload.sid !== undefined && (typeof payload.sid !== 'string' || !UUID.test(payload.sid)))) fail(401, '登录会话无效，请重新登录')
+  let stored
+  try { stored = await redis.get(payload.sid === undefined ? `auth:legacy-revoked:${userId}` : `auth:session:${userId}:${payload.sid}`) }
+  catch { fail(503, '登录服务暂不可用，请稍后重试') }
+  if (payload.sid === undefined ? stored !== null : !stored || !/^[a-f0-9]{64}$/.test(stored)) fail(401, '登录会话已失效，请重新登录')
+}
 function fields(value, allowed) { if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !allowed.includes(key))) fail(400, '请求参数无效') }
 function sign(secret, domain, value) {
   const payload = Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -163,10 +176,17 @@ async function runtime() {
   const access = new StaffAccessService(prisma)
   const ownerTenantId = Number(process.env.PLATFORM_OWNER_TENANT_ID || 1)
   const jwt = new JwtService()
+  const Redis = require('ioredis')
+  // Use the same protected store as the ordinary API; never cache positive authorization.
+  if (!process.env.REDIS_URL) throw new Error('REDIS_URL required for session validation')
+  const redis = new Redis(process.env.REDIS_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1, retryStrategy: times => Math.min(times * 200, 3000) })
+  redis.on('error', () => {}) // Connection errors may contain credentials; HTTP returns a fixed safe 503.
   const authenticate = async authorization => {
     if (!authorization?.startsWith('Bearer ')) fail(401, '请先登录')
     let payload
     try { payload = jwt.verify(authorization.slice(7), { secret: process.env.JWT_ACCESS_SECRET }) } catch { fail(401, '登录已过期') }
+    await checkCredentialVersion(prisma, payload)
+    await checkSession(redis, payload)
     const actor = await access.actor(Number(payload.sub))
     if (actor.tenantId !== payload.tenantId) fail(403, '账号租户不匹配')
     return actor
@@ -190,14 +210,14 @@ async function runtime() {
         } else if (mode === 'audit') { await audit(job); console.log('{"ok":true}') }
         else throw new Error('Unsupported mode')
       }
-    } finally { await prisma.$disconnect() }
+    } finally { redis.disconnect(); await prisma.$disconnect() }
     return
   }
   const secret = Buffer.from(process.env.PLATFORM_COMMAND_KEY || '', 'base64')
   const server = createPlatformServer({ root: process.env.PLATFORM_STATE_PATH || '/platform', secret, ownerTenantId, authenticate, audit })
   server.listen(Number(process.env.PORT || 3001), '0.0.0.0', () => console.log('Platform version control API ready'))
-  const stop = () => server.close(async () => { await prisma.$disconnect(); process.exit(0) })
+  const stop = () => server.close(async () => { redis.disconnect(); await prisma.$disconnect(); process.exit(0) })
   process.on('SIGTERM', stop); process.on('SIGINT', stop)
 }
 if (require.main === module) runtime().catch(error => { console.error(`PLATFORM_SERVICE_FAILED: ${error.name}`); process.exitCode = 1 })
-module.exports = { createPlatformServer, sign, verify, publicRelease, ApiError }
+module.exports = { createPlatformServer, sign, verify, publicRelease, ApiError, checkCredentialVersion, checkSession }

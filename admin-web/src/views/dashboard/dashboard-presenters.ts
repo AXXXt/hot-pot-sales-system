@@ -20,6 +20,24 @@ function riskRatio(item: DashboardLowStockItem): number {
   return availableQty / warningQty
 }
 
+export function lowStockPercent(item: DashboardLowStockItem): number {
+  const availableQty = toFiniteNumber(item.availableQty)
+  const warningQty = warningQuantity(item)
+  if (warningQty <= 0) return availableQty > 0 ? 100 : 0
+  return Math.max(0, Math.min(100, Math.round((availableQty / warningQty) * 100)))
+}
+
+export function lowStockWarningText(item: DashboardLowStockItem): string {
+  return `预警线 ${warningQuantity(item)}`
+}
+
+function warningQuantity(item: DashboardLowStockItem): number {
+  const value = item.warningQty
+  const quantity = Number(value)
+  // Retain the legacy fallback only when a warning line is missing or invalid.
+  return value == null || value === '' || !Number.isFinite(quantity) ? 10 : Math.max(0, quantity)
+}
+
 export function getTopLowStockItems(
   items: DashboardLowStockItem[] | null | undefined,
   limit = 5

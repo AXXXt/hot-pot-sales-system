@@ -38,9 +38,10 @@ test('native order actions use catchtap and do not require DOM event methods', (
 
 test('category ignores stale responses and resets all visible filters', async () => {
   const pending = []
+  const store = { brand: { state: { pendingCategoryId: '2' } } }
   const page = loadPage('pages/category/category.js', {
     '../../services/api/product': { getProductList: () => new Promise(resolve => pending.push(resolve)) },
-    '../../store/index': {}, '../../store/modules/cart': {}
+    '../../store/index': store, '../../store/modules/cart': {}
   })
   page.loadProducts()
   page.setData({ keyword: '肉', activeCategoryId: '2', activeSort: 'price_asc' })
@@ -48,6 +49,8 @@ test('category ignores stale responses and resets all visible filters', async ()
   assert.equal(page.data.keyword, '')
   assert.equal(page.data.activeCategoryId, 'all')
   assert.equal(page.data.activeSort, 'default')
+  assert.equal(page.data.scrollIntoViewId, 'category-all')
+  assert.equal(store.brand.state.pendingCategoryId, '')
   pending[1]({ code: 0, data: { items: [{ id: 2 }] } })
   await Promise.resolve()
   pending[0]({ code: 0, data: { items: [{ id: 1 }] } })

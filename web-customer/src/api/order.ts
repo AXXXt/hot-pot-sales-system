@@ -31,13 +31,17 @@ export interface OrderDetail {
   status: string
   totalAmount: string
   discountAmount: string
+  adjustAmount?: string
   payableAmount: string
   remark?: string
   paymentMethod?: string
   paymentProof?: string
   quoteNote?: string
+  financeRejection?: { reason: string; rejectedAt: string } | null
+  priceAdjustments?: Array<{ id: number; beforeAmount: string; afterAmount: string; reason: string; createdAt: string }>
   createdAt: string
   items: OrderItem[]
+  updatedAt?: string
   customer?: {
     customerName: string
     contactName?: string
@@ -70,7 +74,7 @@ export function completeOrder(id: number) {
   return http.post(`/orders/${id}/complete`)
 }
 
-export function submitFinance(id: number, data: { paymentProof?: string; creditRequested?: boolean }) {
+export function submitFinance(id: number, data: { paymentProof?: string; creditRequested?: boolean; expectedUpdatedAt?: string; expectedPayableAmount?: string }) {
   return http.post(`/orders/${id}/submit-finance`, data)
 }
 

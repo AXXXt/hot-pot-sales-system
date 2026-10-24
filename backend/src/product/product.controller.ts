@@ -132,8 +132,8 @@ export class ProductController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '创建SKU' })
   @RequirePermissions('product:update')
-  async createSku(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateSkuDto) {
-    return this.product.createSku(id, dto)
+  async createSku(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateSkuDto, @Req() req: any) {
+    return this.product.createSku(id, dto, req.user?.sub)
   }
 
   @Patch('skus/:id')
@@ -141,8 +141,8 @@ export class ProductController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新SKU' })
   @RequirePermissions('product:update')
-  async updateSku(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuDto) {
-    return this.product.updateSku(id, dto)
+  async updateSku(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuDto, @Req() req: any) {
+    return this.product.updateSku(id, dto, req.user?.sub)
   }
 
   @Patch('skus/:id/status')
@@ -150,8 +150,8 @@ export class ProductController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'SKU启用/禁用' })
   @RequirePermissions('product:update')
-  async updateSkuStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuStatusDto) {
-    return this.product.updateSkuStatus(id, dto.status)
+  async updateSkuStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSkuStatusDto, @Req() req: any) {
+    return this.product.updateSkuStatus(id, dto.status, req.user?.sub)
   }
 
   @Get('product-categories')
@@ -176,7 +176,7 @@ export class ProductController {
   @ApiOperation({ summary: '创建分类' })
   @RequirePermissions('product:update')
   async createCategory(@Req() req: any, @Body() dto: CreateCategoryDto) {
-    return this.product.createCategory(dto, req.user?.tenantId || 1)
+    return this.product.createCategory(dto, req.user?.tenantId || 1, req.user?.sub)
   }
 
   @Patch('product-categories/:id')
@@ -185,7 +185,7 @@ export class ProductController {
   @ApiOperation({ summary: '更新分类' })
   @RequirePermissions('product:update')
   async updateCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto) {
-    return this.product.updateCategory(id, dto, req.user?.tenantId || 1)
+    return this.product.updateCategory(id, dto, req.user?.tenantId || 1, req.user?.sub)
   }
 
   @Delete('product-categories/:id')
@@ -194,7 +194,7 @@ export class ProductController {
   @ApiOperation({ summary: '安全删除分类' })
   @RequirePermissions('product:update')
   async deleteCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.product.deleteCategory(id, req.user?.tenantId || 1)
+    return this.product.deleteCategory(id, req.user?.tenantId || 1, req.user?.sub)
   }
 
   @Patch('admin/product-categories/:id/restore')
@@ -203,7 +203,7 @@ export class ProductController {
   @ApiOperation({ summary: '恢复分类' })
   @RequirePermissions('product:update')
   async restoreCategory(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.product.restoreCategory(id, req.user?.tenantId || 1)
+    return this.product.restoreCategory(id, req.user?.tenantId || 1, req.user?.sub)
   }
 
   @Get('brands')

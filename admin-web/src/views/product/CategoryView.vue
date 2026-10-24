@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageTable from '../../components/PageTable.vue'
 import { createCategory, deleteCategory, getManagedCategories, restoreCategory, updateCategory } from '../../api/product'
@@ -10,6 +10,21 @@ const rows = ref<any[]>([])
 const visible = ref(false)
 const saving = ref(false)
 const form = reactive<any>({ id: null, name: '', parentId: null, sortOrder: 0 })
+const parentOptions = computed(() => {
+  const excluded = new Set<number>(form.id ? [form.id] : [])
+  // 先求出全部后代，已有异常层级也不会让候选计算陷入循环。
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const row of rows.value) {
+      if (excluded.has(row.parentId) && !excluded.has(row.id)) {
+        excluded.add(row.id)
+        changed = true
+      }
+    }
+  }
+  return rows.value.filter(row => row.status === 'active' && !excluded.has(row.id))
+})
 
 const dataOf = (r: any) => r?.data ?? r ?? {}
 
@@ -48,8 +63,7 @@ async function save() {
   saving.value = true
   try {
     if (form.id) {
-      const body: any = { name, sortOrder: form.sortOrder }
-      if (form.parentId) body.parentId = form.parentId
+      const body: any = { name, sortOrder: form.sortOrder, parentId: form.parentId || null }
       await updateCategory(form.id, body)
     } else {
       const body: any = { name, code: name, sortOrder: form.sortOrder }
@@ -68,11 +82,14 @@ async function save() {
 
 async function remove(row: any) {
   const linkedProductCount = Number(row?.historicalProductCount ?? row?._count?.products ?? 0)
+  const hasChildren = rows.value.some(category => category.parentId === row.id)
   try {
     await ElMessageBox.confirm(
       linkedProductCount > 0
         ? `分类「${row.name}」关联 ${linkedProductCount} 件历史商品，删除后将安全停用且可恢复。是否继续？`
-        : `分类「${row.name}」没有关联商品，将被永久删除。是否继续？`,
+        : hasChildren
+          ? `分类「${row.name}」还有子分类，删除后将安全停用且可恢复。是否继续？`
+          : `分类「${row.name}」没有关联商品，将被永久删除。是否继续？`,
       '删除分类',
       { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
     )
@@ -80,7 +97,7 @@ async function remove(row: any) {
     const result = dataOf(response)
     ElMessage.success(result.deletionMode === 'physical'
       ? '分类已永久删除'
-      : '分类已有历史商品，已安全停用')
+      : '分类已安全停用，可随时恢复')
     await load()
   } catch (error: any) {
     if (error === 'cancel' || error === 'close') return
@@ -147,7 +164,7 @@ onMounted(load)
         </el-form-item>
         <el-form-item label="父级分类">
           <el-select v-model="form.parentId" clearable placeholder="不选则为一级分类" style="width: 100%">
-            <el-option v-for="x in rows.filter((r: any) => r.id !== form.id && r.status === 'active')" :key="x.id" :label="x.name" :value="x.id" />
+            <el-option v-for="x in parentOptions" :key="x.id" :label="x.name" :value="x.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="排序">

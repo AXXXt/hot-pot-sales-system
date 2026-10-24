@@ -26,6 +26,7 @@ export class StaffAccessService {
       where: { id: userId },
       include: {
         tenant: { select: { status: true } },
+        staffCredential: { select: { version: true } },
         brandAccess: { where: { brand: { status: 'active' } }, select: { brandId: true } },
         userRoles: {
           where: { role: { status: 'active' } },
@@ -55,7 +56,7 @@ export class StaffAccessService {
       customerIds: customers?.map(x => x.id) ?? null,
       leadIds: leads?.map(x => x.id) ?? null
     }
-    return { ...scope, permissions, fingerprint: createHash('sha256').update(JSON.stringify({ ...scope, permissions: [...permissions].sort() })).digest('hex') }
+    return { ...scope, permissions, fingerprint: createHash('sha256').update(JSON.stringify({ ...scope, permissions: [...permissions].sort(), ...(user.staffCredential ? { credentialVersion: user.staffCredential.version } : {}) })).digest('hex') }
   }
 
   has(actor: StaffActor, permission: string) { return actor.superAdmin || actor.permissions.has(permission) }

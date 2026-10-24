@@ -10,6 +10,9 @@ const router = useRouter()
 const id = computed(() => Number(route.params.id))
 const isNew = computed(() => !id.value)
 const loading = ref(!isNew.value)
+const ready = ref(false)
+const loadError = ref('')
+let loadRequest = 0
 const saving = ref(false)
 const skuSaving = ref(false)
 const statusSaving = ref(false)
@@ -51,13 +54,18 @@ const nextSkuCode = computed(() => {
 })
 
 async function init() {
+  const current = ++loadRequest, productId = id.value
   loading.value = true
+  ready.value = false
+  loadError.value = ''
   try {
     const [brandResponse, categoryResponse]: any[] = await Promise.all([getBrands(), getCategories()])
+    if (current !== loadRequest) return
     brands.value = dataOf(brandResponse).items || dataOf(brandResponse) || []
     categories.value = dataOf(categoryResponse).items || dataOf(categoryResponse) || []
-    if (id.value) {
-      const r: any = await getProductDetail(id.value)
+    if (productId) {
+      const r: any = await getProductDetail(productId)
+      if (current !== loadRequest) return
       const x = dataOf(r)
       productStatus.value = x.status
       form.name = x.managementLabel || x.name || ''
@@ -77,11 +85,14 @@ async function init() {
       originalBrandId.value = form.brandId
       originalCategoryId.value = form.categoryId
     }
-  } finally { loading.value = false }
+    ready.value = true
+  } catch {
+    if (current === loadRequest) loadError.value = '商品资料加载失败，请重试后再编辑'
+  } finally { if (current === loadRequest) loading.value = false }
 }
 
 async function saveProduct() {
-  if (saving.value) return
+  if (!ready.value || loading.value || saving.value) return
   if (uploadingImage.value) {
     ElMessage.warning('商品图片正在上传，请稍候')
     return
@@ -178,12 +189,13 @@ function removeImage(index: number) {
 }
 
 function editSku(x?: any) {
+  if (!ready.value || loading.value) return
   Object.assign(sku, { imageUrl: '', packagingUnits: [], lowStockThreshold: 10, leadTimeDays: 3, safetyStock: 0, batchTracking: false }, x ? { ...JSON.parse(JSON.stringify(x)), packagingUnits: Array.isArray(x.packagingUnits) ? JSON.parse(JSON.stringify(x.packagingUnits)) : [], specName: x.specText || '', saleUnit: x.saleUnit || '件', salePrice: Number(x.basePrice ?? 0) } : { id: null, skuCode: '', specName: '', saleUnit: '件', salePrice: 0, minOrderQty: 1, stockNum: 0, status: 'active' })
   skuVisible.value = true
 }
 
 async function saveSku() {
-  if (skuSaving.value) return
+  if (!ready.value || loading.value || skuSaving.value) return
   if (!sku.specName.trim() || !sku.saleUnit.trim()) {
     ElMessage.warning('请填写规格名和销售单位')
     return
@@ -201,7 +213,7 @@ async function saveSku() {
 }
 
 async function toggleProductStatus() {
-  if (statusSaving.value) return
+  if (!ready.value || loading.value || statusSaving.value) return
   const status = productStatus.value === 'active' ? 'disabled' : 'active'
   try {
     await ElMessageBox.confirm(status === 'active'
@@ -220,8 +232,11 @@ async function toggleProductStatus() {
 }
 
 async function toggleSku(x: any) {
+  if (!ready.value || loading.value) return
   try {
-    await ElMessageBox.confirm('确认修改商品规格状态？', '操作确认')
+    await ElMessageBox.confirm('确认修改商品规格状态？', '操作确认', {
+      confirmButtonText: x.status === 'active' ? '确认禁用' : '确认启用', cancelButtonText: '取消'
+    })
     await updateSkuStatus(x.id, x.status === 'active' ? 'disabled' : 'active')
     await init()
   } catch { /* cancelled */ }
@@ -235,17 +250,18 @@ watch(() => route.params.id, init)
   <section v-loading="loading">
     <div class="page-heading">
       <div><h1>{{ isNew ? '新建商品' : '编辑商品' }}</h1><p>维护基础资料及销售规格</p></div>
-      <div><el-button @click="router.back()">返回</el-button><el-button type="primary" :loading="saving" :disabled="uploadingImage" @click="saveProduct">保存商品</el-button></div>
+      <div><el-button @click="router.back()">返回</el-button><el-button type="primary" :loading="saving" :disabled="!ready || uploadingImage" @click="saveProduct">保存商品</el-button></div>
     </div>
 
     <el-alert v-if="!isNew && productStatus === 'disabled'" title="该商品当前已下架，小程序和采购网站不可见。请核对资料与规格后上架。" type="warning" :closable="false" show-icon class="publication-alert">
-      <el-button type="primary" :loading="statusSaving" @click="toggleProductStatus">上架商品</el-button>
+      <el-button type="primary" :loading="statusSaving" :disabled="!ready" @click="toggleProductStatus">上架商品</el-button>
     </el-alert>
     <el-alert v-if="!isNew && productStatus === 'active' && !skus.some(item => item.status === 'active' && item.stockNum > 0)" title="商品已上架，但暂无有货规格。请在库存管理中按实际数量入库，客户才能下单。" type="info" :closable="false" class="publication-alert" />
     <el-alert v-if="!loading && !isNew && !form.subtitle.trim()" title="尚未填写真实商品名称，客户暂时看到管理标签，请补齐下方商品名称。" type="warning" :closable="false" class="publication-alert" />
+    <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" class="publication-alert"><el-button @click="init">重新加载</el-button></el-alert>
 
     <el-card shadow="never">
-      <el-form :model="form" label-width="100">
+      <el-form :model="form" :disabled="!ready || saving" label-width="100">
         <el-row :gutter="20">
           <el-col :span="24"><el-form-item label="商品名称" for="product-title" required :error="nameError"><el-input id="product-title" v-model="form.subtitle" maxlength="255" placeholder="请输入真实商品名称，例如：爆汁牛筋丸" @input="nameError = ''" /></el-form-item></el-col>
           <el-col :span="12" :xs="24"><el-form-item label="品牌" required><el-select v-model="form.brandId" filterable placeholder="请选择品牌" style="width:100%"><el-option v-for="x in brands" :key="x.id" :label="x.name" :value="x.id" /></el-select></el-form-item></el-col>
@@ -281,9 +297,9 @@ watch(() => route.params.id, init)
                   </div>
                 </div>
                 <div v-else class="product-image-empty">暂无商品图片</div>
-                <input ref="imageInput" class="product-image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="选择商品图片" :disabled="uploadingImage || saving" @change="handleImageSelection" />
+                <input ref="imageInput" class="product-image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="选择商品图片" :disabled="!ready || uploadingImage || saving" @change="handleImageSelection" />
                 <div class="product-image-actions">
-                  <el-button type="primary" plain :loading="uploadingImage" :disabled="form.images.length >= 9 || saving" @click="imageInput?.click()">添加图片</el-button>
+                  <el-button type="primary" plain :loading="uploadingImage" :disabled="!ready || form.images.length >= 9 || saving" @click="imageInput?.click()">添加图片</el-button>
                   <span aria-live="polite">{{ uploadProgress || `${form.images.length} / 9 张` }}</span>
                 </div>
                 <p class="product-image-tip">最多9张，支持 JPG、PNG、WebP，单张不超过5MB。第一张为列表主图，详情页按顺序滑动查看；添加、排序或删除后请保存商品。</p>
@@ -296,7 +312,7 @@ watch(() => route.params.id, init)
     </el-card>
 
     <el-card v-if="!isNew" shadow="never" class="sku-card">
-      <template #header><div class="card-title"><b>商品规格管理</b><el-button type="primary" size="small" @click="editSku()">新建规格</el-button></div></template>
+      <template #header><div class="card-title"><b>商品规格管理</b><el-button type="primary" size="small" :disabled="!ready" @click="editSku()">新建规格</el-button></div></template>
       <el-empty v-if="!skus.length" description="暂无商品规格" />
       <el-table v-else :data="skus" size="small">
         <el-table-column prop="skuCode" label="规格编码" width="130" />
@@ -312,7 +328,7 @@ watch(() => route.params.id, init)
         <el-table-column label="操作" width="210">
           <template #default="{ row }">
             <el-button link type="primary" @click="editSku(row)">编辑</el-button><el-button link type="primary" @click="editSku({ ...row, id: null, skuCode: '', stockNum: 0, reservedNum: 0 })">复制规格</el-button>
-            <el-button link @click="toggleSku(row)">{{ row.status === 'active' ? '禁用' : '启用' }}</el-button>
+            <el-button link :disabled="!ready" @click="toggleSku(row)">{{ row.status === 'active' ? '禁用' : '启用' }}</el-button>
           </template>
         </el-table-column>
       </el-table>

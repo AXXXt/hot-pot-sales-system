@@ -1,0 +1,22 @@
+.service-page { padding: 32rpx; box-sizing: border-box; }
+.heading { display: flex; gap: 16rpx; align-items: center; justify-content: space-between; }
+.title { font-size: 36rpx; font-weight: 600; }
+.primary { color: #fff; background: #222a25; font-size: 26rpx; padding: 16rpx 24rpx; line-height: 1.5; margin: 0; }
+.notice { display: block; padding: 24rpx; margin: 28rpx 0; background: #f4f6f4; color: #69716b; line-height: 1.8; font-size: 24rpx; }
+.request-row { width: 100%; display: flex; gap: 20rpx; justify-content: space-between; text-align: left; align-items: center; padding: 30rpx 0; background: white; font-size: 24rpx; border-radius: 0; }
+.request-row::after { border: 0; border-bottom: 1rpx solid #e4e8e4; border-radius: 0; }
+.subject { display: block; font-size: 29rpx; font-weight: 600; overflow-wrap: anywhere; }
+.meta { display: block; color: #69716b; font-size: 23rpx; margin-top: 12rpx; overflow-wrap: anywhere; }
+.state { display: block; padding: 60rpx 0; text-align: center; color: #69716b; }
+.label { display: block; margin: 32rpx 0 14rpx; font-size: 27rpx; }
+.field { background: #f4f6f4; min-height: 84rpx; padding: 20rpx; font-size: 27rpx; box-sizing: border-box; border-radius: 8rpx; }
+.description-input { width: 100%; height: 300rpx; background: #f4f6f4; padding: 22rpx; box-sizing: border-box; font-size: 27rpx; line-height: 1.8; border-radius: 8rpx; }
+.order-search { display: flex; gap: 16rpx; margin-bottom: 16rpx; }
+.order-search input { flex: 1; min-width: 0; }
+.order-search button { font-size: 25rpx; line-height: 1.6; margin: 0; padding: 20rpx; }
+.hint { display: block; color: #69716b; margin-top: 12rpx; font-size: 22rpx; line-height: 1.7; }
+.submit { width: 100%; margin-top: 40rpx; margin-bottom: 40rpx; }
+.text-button { font-size: 25rpx; background: transparent; margin: 0; padding: 12rpx; color: #43715b; }
+.text-button::after { border: 0; }
+.description { display: block; white-space: pre-wrap; font-size: 27rpx; line-height: 1.8; margin: 28rpx 0; overflow-wrap: anywhere; }
+.event { border-top: 1rpx solid #e4e8e4; padding-top: 28rpx; margin-top: 24rpx; }

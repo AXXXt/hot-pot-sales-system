@@ -5,11 +5,14 @@ import { CreateFollowUpDto, CreatePublicLeadDto, UpdateLeadDto } from './dto/lea
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
+import { StaffAccessService } from '../auth/staff-access.service'
 
 @ApiTags('leads')
 @Controller()
 export class LeadController {
-  constructor(private readonly service: LeadService) {}
+  constructor(private readonly service: LeadService, private readonly access: StaffAccessService) {}
+
+  private actor(req: any) { return this.access.actor(Number(req.user?.sub)) }
 
   /** 官网公开留资入口（无需登录） */
   @Post('leads/public')
@@ -27,8 +30,8 @@ export class LeadController {
   @RequirePermissions('lead:read')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
-  async stats() {
-    return this.service.stats()
+  async stats(@Req() req: any) {
+    return this.service.stats(await this.actor(req))
   }
 
   @Get('leads/assignees')
@@ -36,8 +39,8 @@ export class LeadController {
   @RequirePermissions('lead:read')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
-  async assignees() {
-    return this.service.assignees()
+  async assignees(@Req() req: any) {
+    return this.service.assignees(await this.actor(req))
   }
 
   @Get('leads')
@@ -51,6 +54,7 @@ export class LeadController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
   async list(
+    @Req() req: any,
     @Query('status') status?: string,
     @Query('keyword') keyword?: string,
     @Query('assignedToId') assignedToId?: string,
@@ -63,7 +67,16 @@ export class LeadController {
       assignedToId: assignedToId ? parseInt(assignedToId, 10) : undefined,
       page,
       pageSize
-    })
+    }, await this.actor(req))
+  }
+
+  @Get('leads/conversion-customers')
+  @ApiOperation({ summary: '搜索可关联转化的已开户客户，不自动开户或开通登录权限' })
+  @RequirePermissions('lead:manage')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
+  async conversionCustomers(@Req() req: any, @Query('keyword') keyword?: string) {
+    return this.service.conversionCustomers(keyword, await this.actor(req))
   }
 
   @Get('leads/:id')
@@ -71,8 +84,8 @@ export class LeadController {
   @RequirePermissions('lead:read')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @ApiBearerAuth()
-  async detail(@Param('id', ParseIntPipe) id: number) {
-    return this.service.detail(id)
+  async detail(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.service.detail(id, await this.actor(req))
   }
 
   @Patch('leads/:id')
@@ -85,7 +98,7 @@ export class LeadController {
     @Body() dto: UpdateLeadDto,
     @Req() req: any
   ) {
-    return this.service.update(id, dto, Number(req.user?.sub))
+    return this.service.update(id, dto, Number(req.user?.sub), await this.actor(req))
   }
 
   @Post('leads/:id/follow-ups')
@@ -98,6 +111,6 @@ export class LeadController {
     @Body() dto: CreateFollowUpDto,
     @Req() req: any
   ) {
-    return this.service.addFollowUp(id, dto, Number(req.user?.sub))
+    return this.service.addFollowUp(id, dto, Number(req.user?.sub), await this.actor(req))
   }
 }

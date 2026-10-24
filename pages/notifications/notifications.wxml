@@ -1,0 +1,16 @@
+<view class="page notices-page">
+  <view class="notices-heading">
+    <view><text class="notices-title">站内消息</text><text class="notices-subtitle">订单进度在这里查看，无需微信订阅</text></view>
+    <button class="read-all" bindtap="onReadAll" disabled="{{marking || loading || !unreadCount}}">全部已读</button>
+  </view>
+  <view wx:for="{{items}}" wx:key="id" class="notice {{!item.readAt ? 'is-unread' : ''}}"
+    data-id="{{item.id}}" bindtap="onOpen">
+    <view class="notice-heading"><text class="notice-title">{{item.title}}</text><text class="notice-time">{{item.dateText}}</text></view>
+    <text class="notice-content">{{item.content}}</text>
+    <view class="notice-footer"><text>{{item.orderNo}}</text><text>查看订单 ›</text></view>
+  </view>
+  <view wx:if="{{error}}" class="notices-state"><text>{{error}}</text><button class="read-all" bindtap="onRetry">重试</button></view>
+  <view wx:elif="{{loading}}" class="notices-state">正在加载消息…</view>
+  <view wx:elif="{{!items.length}}" class="notices-state">暂无新消息，后续订单进度会显示在这里</view>
+  <view wx:elif="{{items.length >= total}}" class="notices-state">已显示全部消息</view>
+</view>

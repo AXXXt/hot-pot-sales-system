@@ -10,14 +10,18 @@ import { requestIdMiddleware } from './request-id.middleware'
 import { SuccessInterceptor } from './success.interceptor'
 import { AppFilter } from './app.filter'
 import { pinoHttp } from 'pino-http'
+import { httpRequestLog } from './http-request-log'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true })
   const config = app.get(ConfigService)
+  // Production HTTP reaches the private backend through one Nginx hop, which overwrites X-Forwarded-For.
+  if (config.get<string>('NODE_ENV') === 'production') app.getHttpAdapter().getInstance().set('trust proxy', 1)
   app.use(helmet())
   app.use(requestIdMiddleware)
   app.use(pinoHttp({
-    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+    serializers: { req: httpRequestLog },
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password', 'req.body.currentPassword', 'req.body.token', 'res.headers["set-cookie"]'],
     genReqId: (req: any) => req.headers?.['x-request-id'] || (req as any).id,
     autoLogging: {
       ignore: (req: any) => req.url === '/health' || req.url === '/health/ready'
@@ -32,7 +36,8 @@ async function bootstrap() {
       }
       callback(new Error('Origin is not allowed by CORS'), false)
     },
-    credentials: true
+    credentials: true,
+    exposedHeaders: ['Content-Disposition']
   }
   app.enableCors(corsOptions)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }))

@@ -1,3 +1,4 @@
+import { AuthSessionService } from '../src/auth/auth-session.service'
 import { Test } from '@nestjs/testing'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
@@ -16,6 +17,8 @@ describe('health HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [HealthController],
       providers: [
+      // Business fixture: session revocation itself is covered by auth-session.integration-spec.ts.
+      { provide: AuthSessionService, useValue: { assertActive: async () => {} } },
         { provide: PrismaService, useValue: { ping: jest.fn().mockResolvedValue(true) } },
         { provide: REDIS, useValue: { ping: jest.fn().mockResolvedValue('PONG') } },
         { provide: MINIO, useValue: { health: jest.fn().mockResolvedValue(true) } }

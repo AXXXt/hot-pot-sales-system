@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import * as authApi from '../api/auth'
 import { useAuthStore } from '../stores/auth'
+import legal from '../../../constants/legal.json'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,13 +15,15 @@ const agree = ref(false)
 const seconds = ref(0)
 const form = reactive({ phone: '', code: '' })
 const rules: FormRules = {
-  phone: [{ required: true, pattern: /^1\d{10}$/, message: '请输入有效手机号', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+  phone: [{ required: true, pattern: /^1[3-9]\d{9}$/, message: '请输入有效手机号', trigger: 'blur' }],
+  code: [{ required: true, pattern: /^\d{6}$/, message: '请输入6位数字验证码', trigger: 'blur' }]
 }
 let timer = 0
 
 async function handleSendCode() {
-  await formRef.value?.validateField('phone').catch(() => Promise.reject())
+  if (sending.value || seconds.value > 0) return
+  const valid = await formRef.value?.validateField('phone').catch(() => false)
+  if (!valid) return
   sending.value = true
   try {
     await authApi.sendCode(form.phone)
@@ -30,17 +33,18 @@ async function handleSendCode() {
       seconds.value -= 1
       if (seconds.value <= 0) window.clearInterval(timer)
     }, 1000)
-  } finally {
+  } catch { /* 网络层已显示服务错误，保持输入并允许重试。 */ } finally {
     sending.value = false
   }
 }
 
 async function handleLogin() {
+  if (auth.loading) return
   if (!agree.value) { ElMessage.warning('请先阅读并同意用户协议和隐私政策'); return }
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   try {
-    await auth.signIn(form.phone, form.code)
+    await auth.signIn(form.phone, form.code, { consentAccepted: agree.value, consentVersion: legal.version, consentChannel: 'buyer_web' })
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
     await router.replace(redirect)
   } catch (error: any) {

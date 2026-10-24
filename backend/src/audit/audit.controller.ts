@@ -1,9 +1,10 @@
-import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe, UseGuards, Req, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger'
 import { AuditService } from './audit.service'
 import { JwtAuthGuard } from '../auth/auth.guard'
 import { PermissionsGuard } from '../auth/permissions.guard'
 import { RequirePermissions } from '../auth/require-permissions.decorator'
+import { StaffAccessService } from '../auth/staff-access.service'
 
 @ApiTags('audit-logs')
 @Controller()
@@ -11,7 +12,7 @@ import { RequirePermissions } from '../auth/require-permissions.decorator'
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class AuditController {
-  constructor(private readonly service: AuditService) {}
+  constructor(private readonly service: AuditService, private readonly access: StaffAccessService) {}
 
   @Get('audit-logs')
   @ApiOperation({ summary: '审计日志列表' })
@@ -21,21 +22,23 @@ export class AuditController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async list(
+    @Req() req: any,
     @Query('operatorId') operatorId?: string,
     @Query('module') module?: string,
     @Query('action') action?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10
   ) {
+    if (operatorId && (!/^\d+$/.test(operatorId) || !Number.isSafeInteger(Number(operatorId)) || Number(operatorId) < 1)) throw new BadRequestException('操作人编号无效')
     return this.service.list({
       operatorId: operatorId ? parseInt(operatorId, 10) : undefined,
       module, action, page, pageSize
-    })
+    }, await this.access.actor(Number(req.user.sub)))
   }
 
   @Get('audit-logs/:id')
   @ApiOperation({ summary: '审计日志详情' })
-  async detail(@Param('id', ParseIntPipe) id: number) {
-    return this.service.detail(id)
+  async detail(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.service.detail(id, await this.access.actor(Number(req.user.sub)))
   }
 }

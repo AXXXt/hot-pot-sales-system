@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "下单确认",
-  "usingComponents": {}
+  "usingComponents": {
+    "shipment-reminder": "/components/business/shipment-reminder/shipment-reminder"
+  }
 }

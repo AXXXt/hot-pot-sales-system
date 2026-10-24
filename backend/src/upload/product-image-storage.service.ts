@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { PRODUCT_IMAGE_CLIENT, ProductImageClient } from './product-image-client.provider'
 import { ProductImageDescriptor } from './product-image.validation'
 import { PrismaService } from '../prisma.service'
-import { getOrderScope } from '../order/order-access.guard'
+import { getOrderScope, orderScopeWhere } from '../order/order-access.guard'
 
 interface BucketPolicy {
   Version: string
@@ -105,7 +105,7 @@ export class ProductImageStorageService {
     const scope = await getOrderScope(this.prisma, userId)
     const url = `${this.publicUrl}/${this.bucket}/${objectKey}`
     const order = await this.prisma.order.findFirst({
-      where: { ...scope, paymentProof: { in: [objectKey, url] } }, select: { id: true }
+      where: { ...orderScopeWhere(scope), paymentProof: { in: [objectKey, url] } }, select: { id: true }
     })
     const ownFile = !order && await this.prisma.file.findFirst({
       where: { tenantId: scope.tenantId, createdBy: userId, fileType: 'payment-proof', fileUrl: url },
