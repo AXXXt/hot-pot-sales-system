@@ -107,7 +107,7 @@
     "status": "部分通过",
     "mode": "真实采购站UI+HTTP+Redis；中央会话集成；原生VM",
     "evidence": "C:/Users/26381/.codex/visualizations/2026/10/24/full-project-qa/closeout-e2e/closeout-business-evidence.json；C:\\Users\\26381\\.codex\\visualizations\\2026\\10\\24\\full-project-qa\\closeout-e2e\\steps.jsonl；C:\\Users\\26381\\.codex\\visualizations\\2026\\10\\24\\full-project-qa\\closeout-e2e\\final-database-snapshot.json；C:\\Users\\26381\\Desktop\\项目代码\\miniprogram\\.wx-local-runtime\\identity-ui-evidence.json；backend/test/auth-session.integration-spec.ts；主控最终34套211真实隔离集成PASS；最后schedule+order两套16项PASS",
-    "note": "Redis sid会话已实现；采购站真实UI退出使原access和refresh立即401，另一独立会话仍200；密码更改旧令牌失效真实UI已验。删除旧access仍可用15分钟/服务端撤销未解决的旧失败描述。；边界/余项：当前1.3.13原生实际退出/重登尚待主控；本地离线时远端撤销可失败，但本地清理及重试策略已有单元。"
+    "note": "Redis sid会话已实现；采购站真实UI退出使原access和refresh立即401，另一独立会话仍200；密码更改旧令牌失效真实UI已验。旧access可继续使用的缺陷已修复。；边界/余项：当前1.3.13原生实际退出/重登尚待主控；本地离线时远端撤销可失败，但本地清理及重试策略已有单元。"
   },
   {
     "id": "REG-011",
@@ -1405,7 +1405,7 @@
     "status": "部分通过",
     "mode": "真实后台/采购站UI+HTTP+MySQL/MinIO；原生Node VM边界",
     "evidence": "C:/Users/26381/.codex/visualizations/2026/10/24/full-project-qa/closeout-e2e/closeout-business-evidence.json；C:\\Users\\26381\\.codex\\visualizations\\2026\\10\\24\\full-project-qa\\closeout-e2e\\steps.jsonl；C:\\Users\\26381\\.codex\\visualizations\\2026\\10\\24\\full-project-qa\\closeout-e2e\\final-database-snapshot.json；C:\\Users\\26381\\.codex\\visualizations\\2026\\10\\24\\full-project-qa\\closeout-e2e\\expanded-local-coverage.json；backend/test/order-closeout.integration-spec.ts",
-    "note": "财务退回原因→采购站查看→重新选择另一蓝色合成凭证→真实上传对象URL改变→重交待审→财务批准已完整实测；库存/预占/重复审查由中央SQL证明。删除没有退回原因或重交入口的旧失败。；边界/余项：新版原生查看退回/系统隐私/重新选图与重交尚待主控实际操作。"
+    "note": "财务退回原因→采购站查看→重新选择另一蓝色合成凭证→真实上传对象URL改变→重交待审→财务批准已完整实测；库存/预占/重复审查由中央SQL证明。原退回原因及重交入口缺口已关闭。；边界/余项：新版原生查看退回/系统隐私/重新选图与重交尚待主控实际操作。"
   },
   {
     "id": "PAY-006",

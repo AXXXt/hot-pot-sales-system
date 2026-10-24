@@ -5,16 +5,44 @@
 ## 当前状态
 
 - 复用原 `miniprogram` Compose 项目及 MySQL、Redis、MinIO 数据卷，没有清库、重新导入演示数据或复制线上数据。
-- MySQL 8.4.3、Redis 7.4.1、MinIO RELEASE.2025-01-20T14-49-07Z 与线上镜像版本一致。
+- MySQL 8.4.3、Redis 7.4.1及本机已有MinIO RELEASE.2025-01-20T14-49-07Z继续复用，本批没有替换MinIO镜像。新电脑缺镜像的源码构建方案见下节；同源码版本不代表重建镜像与生产字节一致。
 - **日常本机`b2b_miniapp`仍为20项迁移；本批独立`_test`库和生产为24项。** 本批没有为日常库执行增量迁移。源码现含24个迁移目录，日常联调新功能前须先备份并按启动器/本地迁移脚本受控应用，不能重置数据或把隔离测试结果当作日常环境已升级。
 - 当前生产为 **`v1.3.20 / ai-20261024-4`**，独立控制服务及界面为`control-20261024-2`。操作`901dcfa8-18af-45e8-be09-fa49fe1de7e4`成功，切换前备份`20261024T062400Z.tar.gz`；146运行JS、329锁依赖、63后台/36采购/19官网/4控制HTTPS一致，六服务运行。
 - 首发v1.3.19操作`50e73aac-36f5-440b-af4b-aa52c44f32df`因官网`.vite`缓存误包验证失败，自动恢复原应用且保留24项增量结构。修正白名单后按指定失败操作与精确schema/原镜像边界向前发布v1.3.20，没有数据库还原、回填或删表。见[第九批报告](testing/2026-10-24/batch-09-report.md)及[生产部署记录](production_deployment.md)。
-- 微信最新为 **1.3.13开发包，404980字节、191个运行源文件**，最终目录`C:/Users/26381/.codex/visualizations/2026/10/21/01a15daa-e16e-7fe1-9ec6-5a911c2d6c40/mini-release-1.3.13-final`，仍连接线上；正式微信未发布。数量边界手机旧证据见第七批，PC历史见第八批，本批原生续验和收尾状态由主agent补记，不能沿用旧1.3.12目录作为最新版。
+- 微信最新为 **1.3.13开发包，404980字节、191个运行源文件**，最终目录`C:/Users/26381/.codex/visualizations/2026/10/21/01a15daa-e16e-7fe1-9ec6-5a911c2d6c40/mini-release-1.3.13-final`，仍连接线上；正式微信未发布。PC更正服务申请结案、帮助与分类清除复验已完成，见第九批报告；数量边界手机旧证据见第七批，不能沿用旧1.3.12目录作为最新版。
 - 客户等级仅分类，折扣率不自动改价；有效协议价优先，否则商品基础价。服务申请为人工进度闭环，不自动退款、注销、开票或修改库存。
-- PC线上更正服务申请结案、帮助电话及分类清除复验通过；原14类摘要一致、完整收尾备份`20261024T070448Z.tar.gz`成功。203项82通过、118部分、3受阻，Git同步和CI见第九批报告文末。本轮原Git HEAD为`7c02fb1`；不把当前文档当作全项目验收或正式发布结论。订单提醒和绑定说明见`admin/wechat_notifications.md`。最初10月3日为15项迁移，历史故障记录保留在下文。
+- PC线上更正服务申请结案、帮助电话及分类清除复验通过；原14类摘要一致、完整收尾备份`20261024T070448Z.tar.gz`成功。203项82通过、118部分、3受阻。本轮从HEAD`7c02fb1`开始，业务源码`f8fe23d`和首轮CI修复`8136982`已推送，后续依赖适配与最终Git/CI结果见第九批报告文末；不把当前文档当作全项目验收或正式发布结论。订单提醒和绑定说明见`admin/wechat_notifications.md`。最初10月3日为15项迁移，历史故障记录保留在下文。
 - 保留原有开发数据库。10月3日初次对齐时记录有3个用户、3个客户、24个商品、8个订单和5个品牌，该数量是历史快照。账号角色不自动调整，品牌与普通客户等级不重建。
 - 10月3日曾与旧线上后端 `20261002-3` 核对101个编译 JS/迁移 SQL文件；该记录不代表当前版本哈希。当前发布验证以 `production_deployment.md` 为准。本地启动器继续明确设置后端监听 `127.0.0.1`。
 - 网站与小程序源码包含本批功能；隔离端口联调通过不代表日常3000/5173/5174环境已完成20→24迁移。官网在localhost跳转本地采购站的约定继续保留，不改变正式域名链接；小程序默认线上，不因本地库状态切换接口源。
+
+## 新电脑缺失MinIO镜像时
+
+2026-10-24实查原Docker Hub MinIO tag拉取失败，不能再将一次全量`compose pull`当作新电脑必定可行的步骤。[MinIO官方README](https://github.com/minio/minio#source-only-distribution)说明社区版改为源码分发。已有旧镜像及运行数据继续复用，不为此停止容器、重建卷或替换生产镜像。
+
+先仅拉取MySQL、Redis，并检查本机MinIO镜像；检查成功时直接跳过构建：
+
+```powershell
+docker compose -f docker-compose.dev.yml pull mysql redis
+docker image inspect minio/minio:RELEASE.2025-01-20T14-49-07Z --format "{{.Id}}"
+```
+
+**只有该MinIO tag确实缺失的新电脑**才显式执行下列构建。脚本默认仅打印计划，`--build`才构建；目标tag存在即拒绝，长构建结束后再次检查，不覆盖其间出现的目标：
+
+```powershell
+node scripts/build-local-minio.cjs --plan --tag minio/minio:RELEASE.2025-01-20T14-49-07Z
+node scripts/build-local-minio.cjs --build --tag minio/minio:RELEASE.2025-01-20T14-49-07Z
+# 确认所需镜像齐全后，仍按本地原Compose和原卷启动，不再pull MinIO。
+docker compose -f docker-compose.dev.yml up -d --pull never --wait mysql redis minio
+```
+
+构建固定[官方release](https://github.com/minio/minio/releases/tag/RELEASE.2025-01-20T14-49-07Z)及revision`827004cd6d3da8f49a5320c94ae74ae128156ed6`，使用官方`golang:1.24.13-bookworm`/Debian基础镜像，Go校验数据库`sum.golang.org`并核对构建信息中的revision和模块摘要；包含现有健康检查需要的curl。仅向临时空目录写Dockerfile，不把项目、`.env`或用户文件放入构建上下文；源码构建的imageID、Go构建信息及二进制SHA可供核对，**不冒认其与原官方/生产镜像字节相同**。
+
+脚本只允许本机Linux Docker context，拒绝远程Docker和外部builder覆盖；不运行服务、不映射端口、不挂载或迁移数据。默认独立tag为`wdx-minio-source:RELEASE.2025-01-20T14-49-07Z`，CI可用`wdx-minio-source-ci:RELEASE.2025-01-20T14-49-07Z`。日常启动器固定原tag，所以日常新电脑优先采用上面的“原tag缺失时显式构建”，不会自动将独立tag接入启动器。不要在另一终端并发重打目标tag；本helper锁与前后检查不构成Docker对外部tag操作的原子锁。
+
+构建可能持续数分钟，日志保留在忽略目录`.wx-local-runtime/minio-source-build/`，失败后不清除诊断日志或已有镜像。构建不会自动修复网络、修改镜像源或替换第三方MinIO镜像。本机没有实际执行重构建，完整构建和真实上传集成结果以第九批报告的最终CI记录为准。
+
+源码提交`c97e712`已在[最终CI](https://github.com/AXXXt/hot-pot-sales-system/actions/runs/40074706707)真实构建独立CI tag、启动空白MinIO并通过34套213集成；没有仅凭dry plan宣称完整构建成功。本机旧镜像及卷仍保留，新电脑命令遵守上述缺失检查。
 
 ## PC微信自动真机调试（已验证可启动）
 
@@ -26,7 +54,7 @@
 4. 以独立“唯哆鲜火锅食材订货平台”窗口作为操作对象，读取其界面确认启动成功。仅有模拟器显示页面不算PC端连接成功。
 5. PC端与手机的本地登录/进货单状态分开。首次进入时由本人在PC端完成测试账号登录；不复制手机令牌或把工具端Storage注入PC登录。
 
-当前1.3.13开发包404980字节、191个运行源文件，接口保持`https://weiduoxian.cn`。PC账号保留本人QA登录；第八批的分类搜索、订单筛选、复购和帮助为历史实测，本批线上服务申请和其他PC续验尚由主agent收尾记录。相册、相机、系统隐私/订阅拒绝与记忆选择、移动端键盘及Android/iOS兼容性仍需手机专项，PC结果单独记录。
+当前1.3.13开发包404980字节、191个运行源文件，接口保持`https://weiduoxian.cn`。PC账号保留本人QA登录；本批已实际验证更正申请待处理→受理→结案、帮助电话可见但未拨号、末端分类清除后“全部”高亮并回最左。完整收尾备份`20261024T070448Z.tar.gz`成功。相册、相机、系统隐私/订阅拒绝与记忆选择、移动端键盘及Android/iOS兼容性仍需手机专项，PC结果单独记录。
 
 ## 启动与停止
 

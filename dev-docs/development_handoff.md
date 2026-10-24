@@ -14,7 +14,7 @@
 
 **环境不要混淆：本机日常`b2b_miniapp`仍20项迁移，本批独立`_test`库及生产为24项；没有替日常库执行本批迁移。** 源码含24个迁移目录，日常联调新功能前须按下文先备份、受控应用迁移。不要重置、重建或导入生产数据。
 
-PC线上更正服务申请已结案，帮助电话及分类清除复验通过；原14类业务摘要一致，QA库存0/22、预占/已用额度/未读0，完整收尾备份`20261024T070448Z.tar.gz`成功。主矩阵203项为82通过、118部分、3受阻，详见第九批报告。本轮从`7c02fb1`收集源码，Git同步结果见报告文末；本批不是全项目验收或微信正式可发布结论。
+PC线上更正服务申请已结案，帮助电话及分类清除复验通过；原14类业务摘要一致，QA库存0/22、预占/已用额度/未读0，完整收尾备份`20261024T070448Z.tar.gz`成功。主矩阵203项为82通过、118部分、3受阻，详见第九批报告。本轮从`7c02fb1`收集源码，`f8fe23d`业务源码和`8136982`首轮CI修复已推送；后续MinIO构建适配及最终Git/CI结果以报告文末为准，本批不是全项目验收或微信正式可发布结论。
 
 ### 历史批次（保留当时状态）
 
@@ -75,13 +75,17 @@ if (!(Test-Path -LiteralPath backend/.env)) {
 }
 node scripts/local-environment.cjs check
 
-# 新电脑先拉取镜像；start-dev.cmd 自身使用 --pull never。
-docker compose -f docker-compose.dev.yml pull
-docker compose -f docker-compose.dev.yml up -d --wait
+# 先拉取MySQL/Redis；已有MinIO镜像继续复用，start-dev.cmd使用--pull never。
+docker compose -f docker-compose.dev.yml pull mysql redis
+docker image inspect minio/minio:RELEASE.2025-01-20T14-49-07Z --format "{{.Id}}"
+# 若缺MinIO镜像，先按local_development.md显式源码构建，再继续。
+docker compose -f docker-compose.dev.yml up -d --pull never --wait
 node scripts/local-environment.cjs migrate
 ```
 
 上述迁移脚本只接受本机 `127.0.0.1:3307/b2b_miniapp`，先检查连通性、备份，再生成 Prisma Client、应用迁移。源码当前包含24个迁移目录；本机日常库记录仍为20项，尚未执行本批增量，不能把隔离库/生产24项等同于日常库已升级。命令任何一步失败时先处理失败，不继续后续步骤。
+
+原MinIO tag外部下载已失败，新电脑不能再依赖全量`compose pull`。已有本机旧镜像继续复用；确实缺失时可先运行`node scripts/build-local-minio.cjs --plan --tag minio/minio:RELEASE.2025-01-20T14-49-07Z`，核对后用`--build`显式构建。脚本不覆盖检测到的既有tag、不启停服务或迁移数据，固定官方源码并使用Go校验；新建镜像不声称与生产镜像字节一致。完整命令和本机Docker/builder限制见[MinIO本地fallback](local_development.md#新电脑缺失minio镜像时)。
 
 只有确认是**首次创建的空开发数据库**时，才可进入 `backend/` 执行 `npm run db:seed:dev` 写入演示账号和商品。已有开发库不要重跑种子或重置数据。演示管理员 `13800000000`、客户 `13900000000`，需先获取验证码再输入 `123456`，仅适用于本地开发短信。
 
@@ -151,7 +155,7 @@ GitHub Actions 使用 Node 24，根目录测试单独安装两个网站的 Vite 
 
 先阅读 AGENTS.md、README.md、dev-docs/development_handoff.md、dev-docs/local_development.md；涉及线上再读 dev-docs/production_deployment.md。先检查当前分支与未提交修改，保留已有工作，再核对 main 最新代码。
 
-目前线上平台为 v1.3.20 / ai-20261024-4，独立控制服务及界面control-20261024-2：原生微信小程序 + Vue管理后台 + Vue采购网站 + 静态官网 + NestJS/Prisma后端。本轮起始HEAD7c02fb1，最新联调修改尚无本轮GitHub推送；先核对最终推送记录并确认获得源码，不要假设main包含线上修复。先读dev-docs/testing/2026-10-24/batch-09-report.md及主矩阵，区分收尾中和已验证范围。微信1.3.13开发包404980字节/191文件已上传，正式版未发布；正式消息跳转及手机专有边界仍待。PC、mock、VM与隔离浏览器不等同手机验收。
+目前线上平台为 v1.3.20 / ai-20261024-4，独立控制服务及界面control-20261024-2：原生微信小程序 + Vue管理后台 + Vue采购网站 + 静态官网 + NestJS/Prisma后端。本轮从HEAD7c02fb1开始，f8fe23d业务源码及8136982首轮CI修复已推送；最终Git/CI结果及后续依赖适配以第九批报告文末为准。微信1.3.13开发包404980字节/191文件已上传，PC更正申请结案/帮助/分类清除及070448收尾备份已完成，正式版未发布；正式消息跳转及手机专有边界仍待。PC、mock、VM与隔离浏览器不等同手机验收。
 
 生产及本批隔离_test库24项迁移，日常本机b2b_miniapp仍20项，源码有24个迁移目录；没有替日常库执行本批增量，先备份并按本地受控迁移脚本处理。保留密码凭据/当前设备退出与轮换、协议留痕、注册状态票据、角色/品牌范围、规格图片/复制、包装换算、库存草稿、补货计划、订单预占、客户清单和批次。客户等级仅分类，成交价使用有效协议价，否则商品基础价。人工服务申请不等同自动销户、退款或税票。读dev-docs/admin/operations_workflow.md、customer_service.md和password_login.md；通知用法见wechat_notifications.md。不得回填历史预占或回滚到忽略凭据、预占、批次和新增记录的旧程序。
 
