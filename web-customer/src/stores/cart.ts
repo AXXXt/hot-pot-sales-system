@@ -105,12 +105,20 @@ export const useCartStore = defineStore('client-cart', () => {
   }
 
   function applyValidation(result: CartValidationResult) {
-    const priceMap = new Map(result.items.map(item => [item.skuId, item]))
+    const validationBySku = new Map(result.items.map(item => [item.skuId, item]))
     const invalidIds = new Set(result.invalidSkuIds)
-    items.value = items.value.flatMap<CartItem>(item => {
-      const validated = priceMap.get(item.skuId)
-      if (!validated) return [{ ...item, available: false, unavailableReason: invalidIds.has(item.skuId) ? '商品已下架或不可购买' : '商品校验失败，请刷新重试' }]
-      return [{
+    items.value = items.value.map(item => {
+      const validated = validationBySku.get(item.skuId)
+      if (!validated) {
+        return {
+          ...item,
+          available: false,
+          unavailableReason: invalidIds.has(item.skuId)
+            ? '商品已下架或不可购买'
+            : '商品校验失败，请刷新重试'
+        }
+      }
+      return {
         ...item,
         productId: validated.productId,
         name: validated.name,
@@ -123,7 +131,7 @@ export const useCartStore = defineStore('client-cart', () => {
         minOrderQty: validated.minOrderQty,
         available: validated.available,
         unavailableReason: validated.unavailableReason
-      }]
+      }
     })
   }
 

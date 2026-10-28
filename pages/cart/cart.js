@@ -3,31 +3,18 @@ const cart = require('../../store/modules/cart')
 const auth = require('../../store/modules/auth')
 const { validateCart } = require('../../services/api/product')
 const { captureSession, isCurrentSession } = require('../../utils/auth-session')
+const { presentCartItem } = require('../../utils/cart-presentation')
 
 function cartKey() {
   return (cart.state.cartItems || []).map(item => String(item.skuId)).sort().join(',')
 }
 
 function presentItem(item) {
-  const quantity = Number(item.quantity), price = Number(item.snapshot?.price || 0)
-  const amount = price * quantity, stock = Number(item.snapshot?.stockNum)
   return {
-    productId: item.productId, skuId: item.skuId,
-    name: item.snapshot?.name || '商品', spec: item.snapshot?.spec || '',
-    price, unit: item.snapshot?.priceUnit || '', quantity,
-    quantityText: Number.isSafeInteger(quantity) && quantity > 0 ? String(quantity) : '待调整',
-    amount: Number.isFinite(amount) ? amount.toFixed(2) : '--',
-    priceText: Number.isFinite(price) ? price.toFixed(2) : '--',
+    ...presentCartItem(item),
+    price: Number(item.snapshot?.price || 0),
     brandText: item.snapshot?.brandText || '品牌待确认',
-    brandId: item.brandId || item.snapshot?.brandId || null,
-    available: item.available !== false,
-    validationKnown: typeof item.skuAvailable === 'boolean',
-    canAdjust: item.skuAvailable === true ||
-      (item.skuAvailable === undefined && item.available !== false),
-    quantityInvalid: Boolean(item.quantityError),
-    minOrderQty: Number(item.snapshot?.minOrderQty || 1), stockNum: stock,
-    boundsKnown: Number.isSafeInteger(stock) && stock >= 0,
-    unavailableReason: item.unavailableReason || ''
+    brandId: item.brandId || item.snapshot?.brandId || null
   }
 }
 
@@ -100,9 +87,12 @@ Page({
 
   renderCart() {
     const items = (cart.state.cartItems || []).map(presentItem)
-    const total = items.reduce((sum, item) => item.available && Number.isFinite(Number(item.amount))
-      ? sum + Number(item.amount) : sum, 0)
-    const brandIds = new Set(items.filter(item => item.available).map(item => item.brandId).filter(Boolean))
+    const availableItems = items.filter(item => item.available)
+    const total = availableItems.reduce((sum, item) => (
+      Number.isFinite(Number(item.amount)) ? sum + Number(item.amount) : sum
+    ), 0)
+    const brandIds = new Set(availableItems.map(item => item.brandId).filter(Boolean))
+    const hasInvalid = availableItems.length !== items.length
     const needsValidation = !this.data.validated || items.some(item => !item.validationKnown)
 
     this.setData({
@@ -110,12 +100,12 @@ Page({
       totalAmount: total.toFixed(2),
       isEmpty: items.length === 0,
       loggedIn: Boolean(auth.state.token),
-      hasInvalid: items.some(item => !item.available),
+      hasInvalid,
       hasQuantityInvalid: items.some(item => item.quantityInvalid),
       needsValidation,
       hasMultipleBrands: brandIds.size > 1,
-      validCount: items.filter(item => item.available).length,
-      checkoutDisabled: items.length === 0 || items.some(item => !item.available) ||
+      validCount: availableItems.length,
+      checkoutDisabled: items.length === 0 || hasInvalid ||
         this.data.loading || Boolean(this.data.validationError) || needsValidation ||
         !isCurrentSession(auth, this._validatedSession) || this._validatedKey !== cartKey()
     })

@@ -85,12 +85,13 @@ export class ProductService {
       return this.frequentList(where, brandId, page, userId, Boolean(accessWhere.status))
     }
 
-    const priceSort = sortBy === 'price_asc' || sortBy === 'price_desc'
+    const requiresPriceSort = sortBy === 'price_asc' || sortBy === 'price_desc'
+    const paginateInMemory = requiresPriceSort || inStock
     const itemPromise = this.prisma.product.findMany({
       where,
       include: PRODUCT_LIST_INCLUDE,
       orderBy: { createdAt: 'desc' },
-      ...(priceSort || inStock ? {} : {
+      ...(paginateInMemory ? {} : {
         skip: (page - 1) * pageSize,
         take: pageSize
       })
@@ -101,18 +102,24 @@ export class ProductService {
       this.prisma.product.count({ where })
     ])
 
-    let pricedItems = (await this.applyAgreementPrices(items, userId, Boolean(accessWhere.status))).map(product => ({
+    const customerView = Boolean(accessWhere.status)
+    let pricedProducts = (await this.applyAgreementPrices(items, userId, customerView)).map(product => ({
       ...product,
       skus: [...product.skus].sort((left, right) => (
         Number(left.customerPrice ?? left.basePrice) - Number(right.customerPrice ?? right.basePrice)
       ))
     }))
-    if (inStock) pricedItems = pricedItems.filter(product => product.skus.some(sku => sku.availableNum >= ((sku as any).minOrderQty || 1)))
-    const pageItems = priceSort
-      ? this.sortByPrice(pricedItems, sortBy).slice((page - 1) * pageSize, page * pageSize)
-      : inStock ? pricedItems.slice((page - 1) * pageSize, page * pageSize) : pricedItems
+    if (inStock) {
+      pricedProducts = pricedProducts.filter(product => (
+        product.skus.some(sku => sku.availableNum >= (sku.minOrderQty || 1))
+      ))
+    }
+    if (requiresPriceSort) pricedProducts = this.sortByPrice(pricedProducts, sortBy)
+    const pageItems = paginateInMemory
+      ? pricedProducts.slice((page - 1) * pageSize, page * pageSize)
+      : pricedProducts
 
-    return { items: pageItems, page, pageSize, total: inStock ? pricedItems.length : total }
+    return { items: pageItems, page, pageSize, total: inStock ? pricedProducts.length : total }
   }
 
   async create(dto: CreateProductDto, tenantId: number = 1) {
@@ -216,7 +223,8 @@ export class ProductService {
       }
     })
     if (!product) throw new NotFoundException({ message: '商品不存在', errorCode: 'PRO_1001' })
-    return this.applyAgreementPrice(product, userId, Boolean(accessWhere.status))
+    const [pricedProduct] = await this.applyAgreementPrices([product], userId, Boolean(accessWhere.status))
+    return pricedProduct
   }
 
   async update(id: number, dto: UpdateProductDto, userId?: number) {
@@ -758,7 +766,11 @@ export class ProductService {
     return skus.map(sku => ({ ...sku, ...(customerView ? { stockNum: available.get(sku.id) || 0 } : {}), availableNum: available.get(sku.id) || 0, customerPrice: prices.get(sku.id) ?? null }))
   }
 
-  private async applyAgreementPrices<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(products: T[], userId?: number, customerView = false) {
+  private async applyAgreementPrices<T extends {
+    name?: string | null
+    subtitle?: string | null
+    skus: Array<{ id: number; minOrderQty?: number }>
+  }>(products: T[], userId?: number, customerView = false) {
     const skus = products.flatMap(product => product.skus)
     const prices = await this.agreementPriceMap(userId, skus.map(sku => sku.id))
     const available = await stockAvailability(this.prisma, skus)
@@ -766,10 +778,5 @@ export class ProductService {
       ...presentProduct(product),
       skus: product.skus.map(sku => ({ ...sku, ...(customerView ? { stockNum: available.get(sku.id) || 0 } : {}), availableNum: available.get(sku.id) || 0, customerPrice: prices.get(sku.id) ?? null }))
     }))
-  }
-
-  private async applyAgreementPrice<T extends { name?: string | null; subtitle?: string | null; skus: Array<{ id: number }> }>(product: T, userId?: number, customerView = false) {
-    const [result] = await this.applyAgreementPrices([product], userId, customerView)
-    return result
   }
 }

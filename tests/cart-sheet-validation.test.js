@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
 const session = require('../utils/auth-session')
+const cartPresentation = require('../utils/cart-presentation')
 
 const selected = quantity => ({ productId: 1, skuId: 11, quantity, available: true,
   snapshot: { name: '已选商品', price: '5.00', priceUnit: '袋' } })
@@ -27,6 +28,7 @@ function fixture(quantity = 2, validate = async () => valid()) {
     },
     require: id => id.endsWith('modules/cart') ? cart : id.endsWith('modules/auth') ? auth
       : id.endsWith('auth-session') ? session
+        : id.endsWith('cart-presentation') ? cartPresentation
         : { validateCart: ids => { calls.push(Array.from(ids)); return implementation(ids) } }
   })
   const sheet = { ...definition.methods, data: { ...definition.data, visible: true },

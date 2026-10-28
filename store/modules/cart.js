@@ -32,42 +32,50 @@ function persist() {
   setStorage('cartItems', state.cartItems)
 }
 
-function quantityStatus(item) {
+function withQuantityStatus(item) {
   if (typeof item.skuAvailable !== 'boolean') return item
   if (!item.skuAvailable) return {
     ...item, available: false, quantityError: '', unavailableReason: item.skuUnavailableReason
   }
-  const quantity = Number(item.quantity), snapshot = item.snapshot || {}
-  const min = Number(snapshot.minOrderQty), stock = Number(snapshot.stockNum)
+  const quantity = Number(item.quantity)
+  const snapshot = item.snapshot || {}
+  const minOrderQty = Number(snapshot.minOrderQty)
+  const stockNum = Number(snapshot.stockNum)
   let quantityError = ''
   if (!Number.isSafeInteger(quantity) || quantity < 1) quantityError = '请调整为有效的整数数量'
-  else if (quantity < min) quantityError = `${min}${snapshot.priceUnit || '件'}起订，请增加数量`
-  else if (quantity > stock) quantityError = `当前可用库存${stock}${snapshot.priceUnit || '件'}，请减少数量`
+  else if (quantity < minOrderQty) {
+    quantityError = `${minOrderQty}${snapshot.priceUnit || '件'}起订，请增加数量`
+  } else if (quantity > stockNum) {
+    quantityError = `当前可用库存${stockNum}${snapshot.priceUnit || '件'}，请减少数量`
+  }
   return {
     ...item,
     quantityError,
-    available: item.skuAvailable && !quantityError,
-    unavailableReason: item.skuAvailable ? quantityError : item.skuUnavailableReason
+    available: !quantityError,
+    unavailableReason: quantityError
   }
 }
 
 function setCartItems(cartItems) {
-  state.cartItems = Array.isArray(cartItems) ? cartItems.map(quantityStatus) : []
+  state.cartItems = Array.isArray(cartItems) ? cartItems.map(withQuantityStatus) : []
   persist()
 }
 
 function addItem(item) {
   const itemBrandId = getItemBrandId(item)
-  const targetIndex = state.cartItems.findIndex((current) => Number(current.productId) === Number(item.productId) && Number(current.skuId) === Number(item.skuId))
-  if (targetIndex >= 0) {
-    state.cartItems[targetIndex].quantity = Number(state.cartItems[targetIndex].quantity || 0) + Number(item.quantity || 0)
-    state.cartItems[targetIndex].brandId = itemBrandId || getItemBrandId(state.cartItems[targetIndex])
-    state.cartItems[targetIndex].snapshot = item.snapshot || state.cartItems[targetIndex].snapshot
-    state.cartItems[targetIndex].available = true
-    state.cartItems[targetIndex].unavailableReason = ''
-    delete state.cartItems[targetIndex].skuAvailable
-    delete state.cartItems[targetIndex].skuUnavailableReason
-    delete state.cartItems[targetIndex].quantityError
+  const existingItem = state.cartItems.find(current => (
+    Number(current.productId) === Number(item.productId) &&
+    Number(current.skuId) === Number(item.skuId)
+  ))
+  if (existingItem) {
+    existingItem.quantity = Number(existingItem.quantity || 0) + Number(item.quantity || 0)
+    existingItem.brandId = itemBrandId || getItemBrandId(existingItem)
+    existingItem.snapshot = item.snapshot || existingItem.snapshot
+    existingItem.available = true
+    existingItem.unavailableReason = ''
+    delete existingItem.skuAvailable
+    delete existingItem.skuUnavailableReason
+    delete existingItem.quantityError
   } else {
     state.cartItems = [
       ...state.cartItems,
@@ -91,7 +99,7 @@ function updateQuantity({ productId, skuId, quantity }) {
   if (!Number.isSafeInteger(quantity) || quantity < 0) return
   const next = state.cartItems.map((item) => {
     if (Number(item.productId) === Number(productId) && Number(item.skuId) === Number(skuId)) {
-      return quantityStatus({ ...item, quantity })
+      return withQuantityStatus({ ...item, quantity })
     }
     return item
   })
@@ -103,58 +111,64 @@ function getCount() {
   return availableQuantity(state.cartItems)
 }
 
-function applyValidation(result) {
-  if (!Array.isArray(result && result.items)) throw new Error('商品校验结果无效，请重试')
-  const validItems = result.items
-  for (const item of validItems) {
-    const stock = Number(item.stockNum), min = Number(item.minOrderQty)
-    if (item.stockNum == null || item.stockNum === '' || !Number.isSafeInteger(stock) || stock < 0 ||
-      item.minOrderQty == null || item.minOrderQty === '' || !Number.isSafeInteger(min) || min < 1) {
+function assertValidStockBounds(items) {
+  for (const item of items) {
+    const stockNum = Number(item.stockNum)
+    const minOrderQty = Number(item.minOrderQty)
+    if (item.stockNum == null || item.stockNum === '' ||
+      !Number.isSafeInteger(stockNum) || stockNum < 0 ||
+      item.minOrderQty == null || item.minOrderQty === '' ||
+      !Number.isSafeInteger(minOrderQty) || minOrderQty < 1) {
       throw new Error('商品库存信息校验失败，请重试')
     }
   }
-  const invalidIds = new Set((Array.isArray(result.invalidSkuIds) ? result.invalidSkuIds : []).map(Number))
-  const validationBySku = new Map(validItems.map(item => [Number(item.skuId), item]))
+}
 
-  state.cartItems = state.cartItems.map((item) => {
-    const validated = validationBySku.get(Number(item.skuId))
-    if (!validated) {
-      return {
-        ...item,
-        available: false,
-        skuAvailable: false,
-        quantityError: '',
-        skuUnavailableReason: invalidIds.has(Number(item.skuId))
-          ? '商品已下架或不在当前可见范围'
-          : '商品暂不可购买',
-        unavailableReason: invalidIds.has(Number(item.skuId))
-          ? '商品已下架或不在当前可见范围'
-          : '商品暂不可购买'
-      }
-    }
-
-    return quantityStatus({
+function applyItemValidation(item, validated, invalidIds) {
+  if (!validated) {
+    const unavailableReason = invalidIds.has(Number(item.skuId))
+      ? '商品已下架或不在当前可见范围'
+      : '商品暂不可购买'
+    return {
       ...item,
-      productId: validated.productId,
-      brandId: normalizeBrandId(validated.brandId) || getItemBrandId(item),
-      available: validated.available !== false,
-      skuAvailable: validated.available !== false &&
-        Number(validated.stockNum) >= Number(validated.minOrderQty),
-      skuUnavailableReason: validated.unavailableReason || '当前库存不足起订量',
-      unavailableReason: validated.unavailableReason || '',
-      snapshot: {
-        ...(item.snapshot || {}),
-        brandId: normalizeBrandId(validated.brandId) || getItemBrandId(item),
-        brandText: validated.brandName || item.snapshot?.brandText || '',
-        name: validated.name,
-        spec: validated.spec,
-        price: validated.price,
-        priceUnit: validated.unit,
-        stockNum: validated.stockNum,
-        minOrderQty: validated.minOrderQty
-      }
-    })
+      available: false,
+      skuAvailable: false,
+      quantityError: '',
+      skuUnavailableReason: unavailableReason,
+      unavailableReason
+    }
+  }
+
+  const brandId = normalizeBrandId(validated.brandId) || getItemBrandId(item)
+  return withQuantityStatus({
+    ...item,
+    productId: validated.productId,
+    brandId,
+    skuAvailable: validated.available !== false &&
+      Number(validated.stockNum) >= Number(validated.minOrderQty),
+    skuUnavailableReason: validated.unavailableReason || '当前库存不足起订量',
+    snapshot: {
+      ...(item.snapshot || {}),
+      brandId,
+      brandText: validated.brandName || item.snapshot?.brandText || '',
+      name: validated.name,
+      spec: validated.spec,
+      price: validated.price,
+      priceUnit: validated.unit,
+      stockNum: validated.stockNum,
+      minOrderQty: validated.minOrderQty
+    }
   })
+}
+
+function applyValidation(result) {
+  if (!Array.isArray(result && result.items)) throw new Error('商品校验结果无效，请重试')
+  assertValidStockBounds(result.items)
+  const invalidIds = new Set((Array.isArray(result.invalidSkuIds) ? result.invalidSkuIds : []).map(Number))
+  const validationBySku = new Map(result.items.map(item => [Number(item.skuId), item]))
+  state.cartItems = state.cartItems.map(item => (
+    applyItemValidation(item, validationBySku.get(Number(item.skuId)), invalidIds)
+  ))
   persist()
 }
 
